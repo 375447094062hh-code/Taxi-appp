@@ -742,31 +742,30 @@
 
     // --- ФУНКЦИЯ СОЗДАНИЯ ЗАКАЗА И ОТПРАВКИ НА СЕРВЕР ---
     function createOrderAndSearch() {
-      const order = {
-        id: Math.floor(1000 + Math.random() * 9000),
-        addressA: document.getElementById('inputA').value,
-        addressB: document.getElementById('inputB').value,
-        tariff: currentTariff.name,
-        scheduled: scheduledDateTimeText,
-        isWeekend: isWeekend,
-        childSeat: hasChildSeat,
-        status: 'searching'
-      };
+  const order = {
+    id: Math.floor(1000 + Math.random() * 9000),
+    addressA: document.getElementById('inputA').value,
+    addressB: document.getElementById('inputB').value,
+    tariff: currentTariff.name,
+    scheduled: scheduledDateTimeText,
+    isWeekend: isWeekend,
+    childSeat: hasChildSeat,
+    status: 'searching'
+  };
 
-      localStorage.setItem('rechitsa_taxi_order', JSON.stringify(order));
-
-      // Отправляем данные на наш защищенный сервер (а он уже отправит в Telegram)
-      fetch('/api/send-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order)
-      })
-      .then(response => response.json())
-      .then(data => console.log('Заявка успешно отправлена через сервер:', data))
-      .catch(error => console.error('Ошибка отправки:', error));
-
-      goTo(8); // Переходим на экран поиска
-      startClientWaitingCheck();
+  // ОТПРАВЛЯЕМ ЗАКАЗ НА СЕРВЕР RENDER
+  fetch('/api/send-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(order)
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Заказ улетел на сервер:', data);
+    goTo(8); // Переходим на экран поиска
+    startClientWaitingCheck();
+  })
+  .catch(error => console.error('Ошибка отправки:', error));
     }
 
     function startClientWaitingCheck() {
