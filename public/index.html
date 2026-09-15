@@ -491,6 +491,8 @@
 
     let scheduledDateTimeText = 'Ближайшее время';
     let clientCheckInterval = null;
+    let activeOrder = null;
+    let driverCheckInterval = null;
 
     window.onload = function() {
       initDateInputs();
@@ -742,63 +744,142 @@
 
     // --- ФУНКЦИЯ СОЗДАНИЯ ЗАКАЗА И ОТПРАВКИ НА СЕРВЕР ---
     function createOrderAndSearch() {
-  const order = {
-    id: Math.floor(1000 + Math.random() * 9000),
-    addressA: document.getElementById('inputA').value,
-    addressB: document.getElementById('inputB').value,
-    tariff: currentTariff.name,
-    scheduled: scheduledDateTimeText,
-    isWeekend: isWeekend,
-    childSeat: hasChildSeat,
-    status: 'searching'
-  };
+      const order = {
+        id: Date.now().toString(),
+        addressA: document.getElementById('inputA').value,
+        addressB: document.getElementById('inputB').value,
+        tariff: currentTariff.name,
+        scheduled: scheduledDateTimeText,
+        isWeekend: isWeekend,
+        childSeat: hasChildSeat,
+        status: 'searching'
+      };
 
-  // ОТПРАВЛЯЕМ ЗАКАЗ НА СЕРВЕР RENDER
-  fetch('/api/send-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(order)
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Заказ улетел на сервер:', data);
-    goTo(8); // Переходим на экран поиска
-    startClientWaitingCheck();
-  })
-  .catch(error => console.error('Ошибка отправки:', error));
+      fetch('/api/send-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order)
+      })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || 'Сервер не принял заказ');
+        }
+        console.log('Заказ отправлен на сервер:', data);
+        activeOrder = data.order || order;
+        goTo(8);
+        startClientWaitingCheck();
+      })
+      .catch(error => {
+        console.error('Ошибка отправки:', error);
+        alert('Не удалось отправить заказ. Проверьте соединение с сервером.');
+      });
+    }
+
+    function updatePassengerDriverInfo(order) {
+      const nameElement = document.querySelector('#screen9 h3');
+      const carElement = document.querySelector('#screen9 p:nth-of-type(2)');
+
+      if (nameElement) {
+        nameElement.innerText = order.driverName || 'Водитель найден';
+      }
+
+      if (carElement) {
+        const car = order.driverCar || 'Автомобиль уточняется';
+        const number = order.driverNumber || '';
+        carElement.innerText = car + (number ? ' • ' + number : '');
+      }
     }
 
     function startClientWaitingCheck() {
       clearInterval(clientCheckInterval);
-      clientCheckInterval = setInterval(() => {
-        const raw = localStorage.getItem('rechitsa_taxi_order');
-        if (raw) {
-          const order = JSON.parse(raw);
+
+      clientCheckInterval = setInterval(async () => {
+        try {
+          const response = await fetch('/api/order-status', {
+            method: 'GET',
+            cache: 'no-store'
+          });
+
+          if (!response.ok) return;
+
+          const order = await response.json();
+
+          if (!order || order.status === 'none') return;
+
+          console.log('Статус заказа для пассажира:', order);
+
+          if (activeOrder && order.id && String(order.id) !== String(activeOrder.id)) {
+            return;
+          }
+
+          activeOrder = order;
+
           if (order.status === 'accepted') {
             clearInterval(clientCheckInterval);
-            goTo(9); 
+            updatePassengerDriverInfo(order);
+
+            const badge = document.getElementById('clientStatusBadge');
+            const statusText = document.getElementById('clientStatusText');
+            const waitingBox = document.getElementById('clientWaitingBox');
+
+            if (badge) {
+              badge.className = 'status-badge status-waiting';
+              badge.innerText = 'Водитель принял';
+            }
+
+            if (statusText) {
+              statusText.innerText = 'Водитель едет к вам';
+            }
+
+            if (waitingBox) {
+              waitingBox.style.display = 'none';
+            }
+
+            goTo(9);
           }
+        } catch (error) {
+          console.error('Ошибка проверки статуса заказа:', error);
         }
       }, 1500);
     }
 
     function startDriverListener() {
-  setInterval(() => {
-    // СПРАШИВАЕМ СЕРВЕР: «ЕСТЬ ЛИ ЗАКАЗ?»
-    fetch('/api/get-order')
-      .then(response => response.json())
-      .then(order => {
-        if (order && order.status === 'searching') {
-          // Если заказ есть, выводим его на экран водителя!
-          document.getElementById('driverOrderIdLabel').innerText = `Активный заказ #${order.id}`;
-          document.getElementById('driverOrderAddresses').innerText = `${order.addressA} → ${order.addressB}`;
-          document.getElementById('driverScheduledTime').innerText = `Подача: ${order.scheduled}`;
-          document.getElementById('driverWeekendBadge').style.display = order.isWeekend ? 'block' : 'none';
-          document.getElementById('driverChildSeatBadge').style.display = order.childSeat ? 'block' : 'none';
+      clearInterval(driverCheckInterval);
+
+      driverCheckInterval = setInterval(async () => {
+        try {
+          const response = await fetch('/api/get-order', {
+            method: 'GET',
+            cache: 'no-store'
+          });
+
+          if (!response.ok) return;
+
+          const order = await response.json();
+
+          if (order && order.status === 'searching') {
+            activeOrder = order;
+
+            document.getElementById('driverOrderIdLabel').innerText =
+              `Активный заказ #${order.id}`;
+
+            document.getElementById('driverOrderAddresses').innerText =
+              `${order.addressA || ''} → ${order.addressB || ''}`;
+
+            document.getElementById('driverScheduledTime').innerText =
+              `Подача: ${order.scheduled || '-'}`;
+
+            document.getElementById('driverWeekendBadge').style.display =
+              order.isWeekend ? 'block' : 'none';
+
+            document.getElementById('driverChildSeatBadge').style.display =
+              order.childSeat ? 'block' : 'none';
+          }
+        } catch (error) {
+          console.log('Ошибка связи с сервером:', error);
         }
-      })
-      .catch(err => console.log('Ошибка связи с сервером:', err));
-  }, 1500);
+      }, 1500);
     }
 
     function openYandexMaps(pointType) {
@@ -815,22 +896,62 @@
       }
     }
 
-    function startPickupWaiting() {
-      const raw = localStorage.getItem('rechitsa_taxi_order');
-      if (raw) {
-        let order = JSON.parse(raw);
-        order.status = 'accepted';
-        localStorage.setItem('rechitsa_taxi_order', JSON.stringify(order));
+    async function startPickupWaiting() {
+      if (!activeOrder) {
+        alert('Активный заказ не найден. Подождите, пока заказ появится у водителя.');
+        return;
       }
 
-      document.getElementById('btnArrived').style.display = 'none';
-      document.getElementById('btnStartTrip').style.display = 'flex';
-      document.getElementById('clientWaitingBox').style.display = 'block';
-      document.getElementById('clientStatusBadge').className = 'status-badge status-waiting';
-      document.getElementById('clientStatusBadge').innerText = 'Водитель на месте';
-      document.getElementById('clientStatusText').innerText = 'Ожидание пассажира';
+      try {
+        const response = await fetch('/api/accept-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            orderId: activeOrder.id,
+            driverName: 'Александр Иванов',
+            driverCar: 'Toyota Corolla',
+            driverNumber: '3-TAP-1234'
+          })
+        });
 
-      runWaitingTimer();
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || 'Не удалось принять заказ');
+        }
+
+        activeOrder = data.order || {
+          ...activeOrder,
+          status: 'accepted',
+          driverName: 'Александр Иванов',
+          driverCar: 'Toyota Corolla',
+          driverNumber: '3-TAP-1234'
+        };
+
+        console.log('Водитель принял заказ:', activeOrder);
+
+        document.getElementById('btnArrived').style.display = 'none';
+        document.getElementById('btnStartTrip').style.display = 'flex';
+
+        document.getElementById('clientWaitingBox').style.display = 'block';
+
+        document.getElementById('clientStatusBadge').className =
+          'status-badge status-waiting';
+
+        document.getElementById('clientStatusBadge').innerText =
+          'Водитель на месте';
+
+        document.getElementById('clientStatusText').innerText =
+          'Ожидание пассажира';
+
+        runWaitingTimer();
+
+      } catch (error) {
+        console.error('Ошибка принятия заказа:', error);
+        alert('Не удалось принять заказ.\n' + error.message);
+      }
     }
 
     function runWaitingTimer() {
@@ -941,4 +1062,4 @@
     function goBack() { if (currentScreen > 1) goTo(currentScreen - 1); }
   </script>
 </body>
-</html>
+          </html>
