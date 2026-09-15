@@ -1,46 +1,30 @@
 const express = require('express');
-const path = require('path');
-const fetch = require('node-fetch');
-
 const app = express();
+
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public')); // Указывает, где лежит ваш HTML-сайт
 
-// Эти переменные Render возьмет из своих настроек (безопасно)
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHAT_ID = process.env.CHAT_ID;
+let currentOrder = null;
 
-app.post('/api/send-order', async (req, res) => {
-  const order = req.body;
-
-  const messageText = `🚖 Новая заявка #${order.id}!\n` +
-                      `📍 Откуда: ${order.addressA}\n` +
-                      `🏁 Куда: ${order.addressB}\n` +
-                      `🏷 Тариф: ${order.tariff}\n` +
-                      `⏰ Время: ${order.scheduled}` +
-                      (order.childSeat ? `\n👶 С детским креслом` : '') +
-                      (order.isWeekend ? `\n⭐ Тариф выходного дня` : '');
-
-  try {
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: messageText,
-        parse_mode: 'Markdown'
-      })
-    });
-    
-    const data = await telegramResponse.json();
-    res.json({ success: true, data });
-  } catch (error) {
-    console.error('Ошибка отправки в Telegram:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+// Пассажир отправляет заказ
+app.post('/api/send-order', (req, res) => {
+    currentOrder = req.body;
+    console.log('Получен новый заказ:', currentOrder);
+    res.json({ success: true });
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
+// Водитель запрашивает заказ
+app.get('/api/get-order', (req, res) => {
+    res.json(currentOrder || { status: 'none' });
 });
+
+// Водитель принимает заказ
+app.post('/api/accept-order', (req, res) => {
+    if (currentOrder) {
+        currentOrder.status = 'accepted';
+    }
+    res.json({ success: true });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
