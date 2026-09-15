@@ -783,19 +783,22 @@
     }
 
     function startDriverListener() {
-      setInterval(() => {
-        const raw = localStorage.getItem('rechitsa_taxi_order');
-        if (raw) {
-          const order = JSON.parse(raw);
-          if (order.status === 'searching') {
-            document.getElementById('driverOrderIdLabel').innerText = `Активный заказ #${order.id}`;
-            document.getElementById('driverOrderAddresses').innerText = `${order.addressA} → ${order.addressB}`;
-            document.getElementById('driverScheduledTime').innerText = `Подача: ${order.scheduled}`;
-            document.getElementById('driverWeekendBadge').style.display = order.isWeekend ? 'block' : 'none';
-            document.getElementById('driverChildSeatBadge').style.display = order.childSeat ? 'block' : 'none';
-          }
+  setInterval(() => {
+    // СПРАШИВАЕМ СЕРВЕР: «ЕСТЬ ЛИ ЗАКАЗ?»
+    fetch('/api/get-order')
+      .then(response => response.json())
+      .then(order => {
+        if (order && order.status === 'searching') {
+          // Если заказ есть, выводим его на экран водителя!
+          document.getElementById('driverOrderIdLabel').innerText = `Активный заказ #${order.id}`;
+          document.getElementById('driverOrderAddresses').innerText = `${order.addressA} → ${order.addressB}`;
+          document.getElementById('driverScheduledTime').innerText = `Подача: ${order.scheduled}`;
+          document.getElementById('driverWeekendBadge').style.display = order.isWeekend ? 'block' : 'none';
+          document.getElementById('driverChildSeatBadge').style.display = order.childSeat ? 'block' : 'none';
         }
-      }, 1500);
+      })
+      .catch(err => console.log('Ошибка связи с сервером:', err));
+  }, 1500);
     }
 
     function openYandexMaps(pointType) {
