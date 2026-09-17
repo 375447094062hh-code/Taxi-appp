@@ -3,277 +3,2581 @@ const { Pool } = require('pg');
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static('public'));
 
-let currentOrder = null;
+const PORT = process.env.PORT || 10000;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const DATABASE_URL = process.env.DATABASE_URL;
 
-// =====================================================
-// TELEGRAM
-// =====================================================
+const pool = DATABASE_URL
+    ? new Pool({
+        connectionString: DATABASE_URL,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    })
+    : null;
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+/*
+==================================================
+НАСТРОЙКИ
+==================================================
+*/
 
-// =====================================================
-// ВОДИТЕЛИ
-// =====================================================
+const MAX_NORMAL_ACTIVE_ORDERS = 2;
+const FUTURE_ORDER_BLOCK_MINUTES = 15;
+const FUTURE_ORDER_BLOCK_MS =
+    FUTURE_ORDER_BLOCK_MINUTES * 60 * 1000;
 
-const DRIVER_CHAT_IDS = (process.env.DRIVER_CHAT_IDS || '')
-    .split(',')
-    .map(id => id.trim())
-    .filter(Boolean);
+const ACTIVE_STATUSES = [
+    'accepted',
+    'arrived',
+    'trip'
+];
 
-function isDriver(chatId) {
-    return DRIVER_CHAT_IDS.includes(String(chatId));
-}
+/*
+==================================================
+ TELEGRAM
+==================================================
+*/
 
-// =====================================================
-// POSTGRESQL
-// =====================================================
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
-
-pool.on('error', error => {
-    console.error('PostgreSQL error:', error);
-});
-
-// =====================================================
-// СЕССИИ
-// =====================================================
-
-const passengerSessions = new Map();
-const driverSessions = new Map();
-const editSessions = new Map();
-
-// =====================================================
-// TELEGRAM API
-// =====================================================
-
-async function telegram(method, data) {
-    if (!TELEGRAM_BOT_TOKEN) {
-        console.error('TELEGRAM_BOT_TOKEN не найден');
-        return null;
-    }
-
-    try {
-        const response = await fetch(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            }
+async function telegram(method, body = {}) {
+    if (!BOT_TOKEN) {
+        throw new Error(
+            'TELEGRAM_BOT_TOKEN не задан в Render'
         );
-
-        const result = await response.json();
-
-        if (!result.ok) {
-            console.error('Ошибка Telegram:', result);
-        }
-
-        return result;
-
-    } catch (error) {
-        console.error('Ошибка Telegram:', error);
-        return null;
     }
-}
 
-// =====================================================
-// КОМАНДЫ TELEGRAM
-// =====================================================
-
-async function setTelegramCommands() {
-
-    const commands = [
+    const response = await fetch(
+        `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
         {
-            command: 'start',
-            description: '🚕 Запуск и главное меню'
-        },
-        {
-            command: 'profile',
-            description: '👤 Моя анкета'
-        },
-        {
-            command: 'myprofile',
-            description: '📋 Мой профиль'
-        },
-        {
-            command: 'myorders',
-            description: '📋 Мои заказы'
-        },
-        {
-            command: 'help',
-            description: '❓ Помощь'
-        },
-        {
-            command: 'cancel',
-            description: '❌ Отменить действие'
-        }
-    ];
-
-    const result = await telegram(
-        'setMyCommands',
-        {
-            commands
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
         }
     );
 
-    console.log('Пассажирские команды установлены:', result);
-}
+    const data = await response.json();
 
-// =====================================================
-// КОМАНДЫ ВОДИТЕЛЯ
-// =====================================================
-
-async function setDriverCommands() {
-
-    const commands = [
-        {
-            command: 'start',
-            description: '🚕 Запуск'
-        },
-        {
-            command: 'driver',
-            description: '👨‍✈️ Режим водителя'
-        },
-        {
-            command: 'profile',
-            description: '👤 Анкета водителя'
-        },
-        {
-            command: 'myprofile',
-            description: '📋 Мой профиль'
-        },
-        {
-            command: 'editprofile',
-            description: '✏️ Изменить профиль'
-        },
-        {
-            command: 'cancel',
-            description: '❌ Отменить действие'
-        }
-    ];
-
-    for (const driverId of DRIVER_CHAT_IDS) {
-
-        const result = await telegram(
-            'setMyCommands',
-            {
-                scope: {
-                    type: 'chat',
-                    chat_id: driverId
-                },
-                commands
-            }
-        );
-
-        console.log(
-            `Команды водителя ${driverId}:`,
-            result
+    if (!data.ok) {
+        throw new Error(
+            data.description ||
+            `Telegram API error: ${method}`
         );
     }
+
+    return data.result;
 }
 
-// =====================================================
-// DATABASE
-// =====================================================
+async function sendTelegramMessage(
+    chatId,
+    text,
+    extra = {}
+) {
+    return telegram('sendMessage', {
+        chat_id: chatId,
+        text,
+        ...extra
+    });
+}
+
+/*
+==================================================
+ ВОДИТЕЛИ, КОТОРЫЕ НАЖАЛИ /start
+==================================================
+*/
+
+const driverChats = new Map();
+
+/*
+==================================================
+ СООБЩЕНИЯ ЗАКАЗОВ
+==================================================
+
+Нужно, чтобы после принятия заказа
+мы могли убрать кнопки у остальных водителей.
+*/
+
+const orderDriverMessages = new Map();
+
+/*
+==================================================
+ DATABASE
+==================================================
+*/
 
 async function initDatabase() {
-
-    try {
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS drivers (
-                telegram_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                car TEXT,
-                plate TEXT,
-                phone TEXT,
-                photo_file_id TEXT,
-                rating NUMERIC(3,2) DEFAULT 5.00,
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            )
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS passengers (
-                telegram_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                phone TEXT,
-                comment TEXT,
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            )
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS passenger_orders (
-                id SERIAL PRIMARY KEY,
-                telegram_id TEXT NOT NULL,
-                order_id TEXT,
-                status TEXT,
-                address_from TEXT,
-                address_to TEXT,
-                tariff TEXT,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            )
-        `);
-
-        console.log('✅ Таблица drivers готова');
-        console.log('✅ Таблица passengers готова');
-        console.log('✅ Таблица passenger_orders готова');
-
-    } catch (error) {
-
+    if (!pool) {
         console.error(
-            '❌ Ошибка создания таблиц:',
-            error
+            'DATABASE_URL не задан. PostgreSQL отключён.'
         );
+        return;
     }
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS drivers (
+            telegram_id TEXT PRIMARY KEY,
+            name TEXT,
+            car TEXT,
+            plate TEXT,
+            phone TEXT,
+            photo_file_id TEXT,
+            rating NUMERIC(3,2) DEFAULT 5.00,
+            has_child_seat BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        ALTER TABLE drivers
+        ADD COLUMN IF NOT EXISTS has_child_seat
+        BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS passenger_orders (
+            id TEXT PRIMARY KEY,
+
+            telegram_user_id TEXT,
+
+            address_a TEXT,
+            address_b TEXT,
+
+            tariff TEXT,
+            scheduled TEXT,
+
+            scheduled_at TIMESTAMPTZ,
+
+            is_immediate BOOLEAN DEFAULT TRUE,
+            is_weekend BOOLEAN DEFAULT FALSE,
+            child_seat BOOLEAN DEFAULT FALSE,
+
+            status TEXT DEFAULT 'searching',
+
+            driver_telegram_id TEXT,
+            driver_name TEXT,
+            driver_car TEXT,
+            driver_number TEXT,
+            driver_phone TEXT,
+            driver_rating NUMERIC(3,2),
+            driver_photo_file_id TEXT,
+
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            accepted_at TIMESTAMPTZ,
+            arrived_at TIMESTAMPTZ,
+            trip_started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ
+        )
+    `);
+
+    /*
+    Если таблица была создана старой версией,
+    добавляем недостающие поля.
+    */
+
+    const columns = [
+        ['telegram_user_id', 'TEXT'],
+        ['address_a', 'TEXT'],
+        ['address_b', 'TEXT'],
+        ['tariff', 'TEXT'],
+        ['scheduled', 'TEXT'],
+        ['scheduled_at', 'TIMESTAMPTZ'],
+        ['is_immediate', 'BOOLEAN DEFAULT TRUE'],
+        ['is_weekend', 'BOOLEAN DEFAULT FALSE'],
+        ['child_seat', 'BOOLEAN DEFAULT FALSE'],
+        ['status', "TEXT DEFAULT 'searching'"],
+        ['driver_telegram_id', 'TEXT'],
+        ['driver_name', 'TEXT'],
+        ['driver_car', 'TEXT'],
+        ['driver_number', 'TEXT'],
+        ['driver_phone', 'TEXT'],
+        ['driver_rating', 'NUMERIC(3,2)'],
+        ['driver_photo_file_id', 'TEXT'],
+        ['created_at', 'TIMESTAMPTZ DEFAULT NOW()'],
+        ['accepted_at', 'TIMESTAMPTZ'],
+        ['arrived_at', 'TIMESTAMPTZ'],
+        ['trip_started_at', 'TIMESTAMPTZ'],
+        ['completed_at', 'TIMESTAMPTZ']
+    ];
+
+    for (const [name, type] of columns) {
+        await pool.query(`
+            ALTER TABLE passenger_orders
+            ADD COLUMN IF NOT EXISTS ${name} ${type}
+        `);
+    }
+
+    console.log('PostgreSQL: база готова');
 }
 
-// =====================================================
-// DRIVER PROFILE
-// =====================================================
+/*
+==================================================
+ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+==================================================
+*/
 
-async function getDriverProfile(chatId) {
-
-    const result = await pool.query(
-        `
-        SELECT *
-        FROM drivers
-        WHERE telegram_id = $1
-        `,
-        [String(chatId)]
+function normalizeBoolean(value) {
+    return (
+        value === true ||
+        value === 'true' ||
+        value === 1 ||
+        value === '1'
     );
+}
+
+function isNowOrder(order) {
+    if (order.isImmediate === true) {
+        return true;
+    }
+
+    if (order.is_immediate === true) {
+        return true;
+    }
+
+    const scheduled = String(
+        order.scheduled || ''
+    ).trim().toLowerCase();
+
+    if (!scheduled) {
+        return true;
+    }
+
+    return (
+        scheduled.includes('сейчас') ||
+        scheduled.includes('ближайшее') ||
+        scheduled.includes('now')
+    );
+}
+
+/*
+==================================================
+ ПАРСИНГ ДАТЫ
+
+Беларусь / Речица = UTC+3.
+Если Mini App присылает:
+17.09.2026 в 22:30
+мы считаем это временем Речицы.
+==================================================
+*/
+
+function parseMinskDate(
+    year,
+    month,
+    day,
+    hour,
+    minute
+) {
+    const utc = Date.UTC(
+        year,
+        month - 1,
+        day,
+        hour,
+        minute
+    );
+
+    /*
+    Беларусь UTC+3
+    */
+
+    return new Date(
+        utc - 3 * 60 * 60 * 1000
+    );
+}
+
+function parseScheduledAt(order) {
+    /*
+    1. Если Mini App уже прислал scheduledAt
+    */
+
+    if (order.scheduledAt) {
+        const value = order.scheduledAt;
+
+        if (
+            typeof value === 'number' ||
+            /^\d+$/.test(String(value))
+        ) {
+            const numberValue =
+                Number(value);
+
+            const ms =
+                numberValue < 100000000000
+                    ? numberValue * 1000
+                    : numberValue;
+
+            const date = new Date(ms);
+
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+
+        const stringValue =
+            String(value).trim();
+
+        /*
+        ISO с timezone:
+        2026-09-17T19:00:00.000Z
+        */
+
+        if (
+            stringValue.endsWith('Z') ||
+            /[+-]\d{2}:\d{2}$/.test(stringValue)
+        ) {
+            const date =
+                new Date(stringValue);
+
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+
+        /*
+        ISO без timezone.
+        Считаем его временем Речицы.
+        */
+
+        let match =
+            stringValue.match(
+                /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})/
+            );
+
+        if (match) {
+            return parseMinskDate(
+                Number(match[1]),
+                Number(match[2]),
+                Number(match[3]),
+                Number(match[4]),
+                Number(match[5])
+            );
+        }
+    }
+
+    /*
+    2. Если это заказ "Сейчас"
+    */
+
+    if (isNowOrder(order)) {
+        return null;
+    }
+
+    const scheduled =
+        String(
+            order.scheduled || ''
+        ).trim();
+
+    if (!scheduled) {
+        return null;
+    }
+
+    /*
+    Формат:
+    17.09.2026 в 22:30
+    17.09.2026, 22:30
+    17.09.2026 22:30
+    */
+
+    let match =
+        scheduled.match(
+            /(\d{1,2})\.(\d{1,2})\.(\d{4}).*?(\d{1,2}):(\d{2})/
+        );
+
+    if (match) {
+        return parseMinskDate(
+            Number(match[3]),
+            Number(match[2]),
+            Number(match[1]),
+            Number(match[4]),
+            Number(match[5])
+        );
+    }
+
+    /*
+    Формат:
+    2026-09-17 22:30
+    */
+
+    match =
+        scheduled.match(
+            /(\d{4})-(\d{2})-(\d{2}).*?(\d{1,2}):(\d{2})/
+        );
+
+    if (match) {
+        return parseMinskDate(
+            Number(match[1]),
+            Number(match[2]),
+            Number(match[3]),
+            Number(match[4]),
+            Number(match[5])
+        );
+    }
+
+    /*
+    Сегодня 22:30
+    Завтра 22:30
+    */
+
+    match =
+        scheduled.match(
+            /(сегодня|завтра).*?(\d{1,2}):(\d{2})/i
+        );
+
+    if (match) {
+        const now =
+            new Date();
+
+        const minskNow =
+            new Date(
+                now.getTime() +
+                3 * 60 * 60 * 1000
+            );
+
+        let year =
+            minskNow.getUTCFullYear();
+
+        let month =
+            minskNow.getUTCMonth() + 1;
+
+        let day =
+            minskNow.getUTCDate();
+
+        if (
+            match[1].toLowerCase() ===
+            'завтра'
+        ) {
+            const tomorrow =
+                new Date(
+                    Date.UTC(
+                        year,
+                        month - 1,
+                        day + 1
+                    )
+                );
+
+            year =
+                tomorrow.getUTCFullYear();
+
+            month =
+                tomorrow.getUTCMonth() + 1;
+
+            day =
+                tomorrow.getUTCDate();
+        }
+
+        return parseMinskDate(
+            year,
+            month,
+            day,
+            Number(match[2]),
+            Number(match[3])
+        );
+    }
+
+    return null;
+}
+
+/*
+==================================================
+ ФОРМАТИРОВАНИЕ ДАТЫ
+==================================================
+*/
+
+function formatMinskDate(date) {
+    if (!date) {
+        return 'Ближайшее время';
+    }
+
+    return new Intl.DateTimeFormat(
+        'ru-RU',
+        {
+            timeZone: 'Europe/Minsk',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }
+    ).format(date);
+}
+
+/*
+==================================================
+ ЗАКАЗ → ОБЪЕКТ ДЛЯ MINI APP
+==================================================
+*/
+
+function dbOrderToObject(row) {
+    if (!row) {
+        return null;
+    }
+
+    return {
+        id: row.id,
+
+        telegramUserId:
+            row.telegram_user_id,
+
+        addressA:
+            row.address_a,
+
+        addressB:
+            row.address_b,
+
+        tariff:
+            row.tariff,
+
+        scheduled:
+            row.scheduled,
+
+        scheduledAt:
+            row.scheduled_at
+                ? new Date(row.scheduled_at).toISOString()
+                : null,
+
+        isImmediate:
+            row.is_immediate,
+
+        isWeekend:
+            row.is_weekend,
+
+        childSeat:
+            row.child_seat,
+
+        status:
+            row.status,
+
+        driverTelegramId:
+            row.driver_telegram_id,
+
+        driverName:
+            row.driver_name,
+
+        driverCar:
+            row.driver_car,
+
+        driverNumber:
+            row.driver_number,
+
+        driverPhone:
+            row.driver_phone,
+
+        driverRating:
+            row.driver_rating,
+
+        driverPhotoFileId:
+            row.driver_photo_file_id,
+
+        createdAt:
+            row.created_at
+                ? new Date(row.created_at).getTime()
+                : null,
+
+        acceptedAt:
+            row.accepted_at
+                ? new Date(row.accepted_at).getTime()
+                : null,
+
+        arrivedAt:
+            row.arrived_at
+                ? new Date(row.arrived_at).getTime()
+                : null,
+
+        tripStartedAt:
+            row.trip_started_at
+                ? new Date(row.trip_started_at).getTime()
+                : null,
+
+        completedAt:
+            row.completed_at
+                ? new Date(row.completed_at).getTime()
+                : null
+    };
+}
+
+/*
+==================================================
+ ПОЛУЧИТЬ ЗАКАЗ
+==================================================
+*/
+
+async function getOrder(orderId) {
+    const result =
+        await pool.query(
+            `
+            SELECT *
+            FROM passenger_orders
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [String(orderId)]
+        );
 
     return result.rows[0] || null;
 }
 
-async function saveDriverProfile(chatId, data) {
+/*
+==================================================
+ ПОСЛЕДНИЙ ЗАКАЗ ПАССАЖИРА
+==================================================
+*/
 
-    const result = await pool.query(
+async function getLatestPassengerOrder(
+    telegramUserId
+) {
+    const result =
+        await pool.query(
+            `
+            SELECT *
+            FROM passenger_orders
+            WHERE telegram_user_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+            `,
+            [String(telegramUserId)]
+        );
+
+    return result.rows[0] || null;
+}
+
+/*
+==================================================
+ ПРОФИЛЬ ВОДИТЕЛЯ
+==================================================
+*/
+
+async function getDriverProfile(
+    telegramId
+) {
+    if (!pool) {
+        return null;
+    }
+
+    const result =
+        await pool.query(
+            `
+            SELECT *
+            FROM drivers
+            WHERE telegram_id = $1
+            LIMIT 1
+            `,
+            [String(telegramId)]
+        );
+
+    return result.rows[0] || null;
+}
+
+/*
+==================================================
+ ПРОВЕРКА ВОДИТЕЛЯ
+
+Если DRIVER_CHAT_IDS задан —
+используем его как список разрешённых водителей.
+
+Если не задан —
+разрешаем зарегистрированных в БД.
+==================================================
+*/
+
+function isDriverTelegramId(
+    telegramId
+) {
+    const configured =
+        String(
+            process.env.DRIVER_CHAT_IDS || ''
+        )
+            .split(',')
+            .map(x => x.trim())
+            .filter(Boolean);
+
+    if (configured.length > 0) {
+        return configured.includes(
+            String(telegramId)
+        );
+    }
+
+    return driverChats.has(
+        Number(telegramId)
+    );
+}
+
+/*
+==================================================
+ ТЕКУЩИЕ АКТИВНЫЕ ЗАКАЗЫ ВОДИТЕЛЯ
+==================================================
+*/
+
+async function getActiveDriverOrders(
+    driverTelegramId,
+    client = pool
+) {
+    const result =
+        await client.query(
+            `
+            SELECT *
+            FROM passenger_orders
+            WHERE driver_telegram_id = $1
+              AND status = ANY($2::text[])
+            ORDER BY
+                CASE
+                    WHEN is_immediate = TRUE THEN 0
+                    ELSE 1
+                END,
+                scheduled_at ASC NULLS LAST,
+                created_at ASC
+            `,
+            [
+                String(driverTelegramId),
+                ACTIVE_STATUSES
+            ]
+        );
+
+    return result.rows;
+}
+
+/*
+==================================================
+ ГЛАВНАЯ ЛОГИКА ЗАНЯТОСТИ ВОДИТЕЛЯ
+==================================================
+
+ВОЗВРАЩАЕТ:
+
+{
+    blocked: true/false,
+    reason: ...
+}
+
+Правила:
+
+1. Если есть обычный активный заказ:
+   максимум 2.
+
+2. Если есть будущий заказ и до него
+   осталось <= 15 минут:
+   полный запрет новых заказов.
+
+3. Если будущий заказ уже наступил,
+   водитель также заблокирован,
+   пока заказ не выполнен.
+
+==================================================
+*/
+
+async function checkDriverAvailability(
+    driverTelegramId,
+    newOrder,
+    client = pool
+) {
+    const activeOrders =
+        await getActiveDriverOrders(
+            driverTelegramId,
+            client
+        );
+
+    const now =
+        Date.now();
+
+    const newOrderIsImmediate =
+        newOrder.isImmediate;
+
+    /*
+    ==========================================
+    1. Ищем будущий заказ, который уже
+       вошёл в 15-минутную зону.
+    ==========================================
+    */
+
+    for (const existing of activeOrders) {
+        if (
+            existing.is_immediate ||
+            !existing.scheduled_at
+        ) {
+            continue;
+        }
+
+        const scheduledTime =
+            new Date(
+                existing.scheduled_at
+            ).getTime();
+
+        const timeLeft =
+            scheduledTime - now;
+
+        /*
+        Заказ уже наступил
+        */
+
+        if (timeLeft <= 0) {
+            return {
+                blocked: true,
+                reason:
+                    'У водителя уже наступил заранее назначенный заказ.'
+            };
+        }
+
+        /*
+        Осталось 15 минут или меньше
+        */
+
+        if (
+            timeLeft <=
+            FUTURE_ORDER_BLOCK_MS
+        ) {
+            return {
+                blocked: true,
+                reason:
+                    'До заранее назначенного заказа осталось 15 минут или меньше.'
+            };
+        }
+    }
+
+    /*
+    ==========================================
+    2. Если новый заказ обычный
+       "Сейчас" — максимум 2 активных.
+    ==========================================
+    */
+
+    if (newOrderIsImmediate) {
+        const immediateOrders =
+            activeOrders.filter(
+                order =>
+                    order.is_immediate ||
+                    !order.scheduled_at
+            );
+
+        if (
+            immediateOrders.length >=
+            MAX_NORMAL_ACTIVE_ORDERS
+        ) {
+            return {
+                blocked: true,
+                reason:
+                    'У водителя уже максимальное количество текущих заказов.'
+            };
+        }
+    }
+
+    /*
+    ==========================================
+    3. Если новый заказ будущий,
+       его можно принять заранее.
+
+       Но если водитель уже имеет
+       два обычных заказа — не добавляем
+       третий текущий заказ.
+
+       Будущие заказы разрешены, пока
+       не наступила 15-минутная зона.
+    ==========================================
+    */
+
+    if (!newOrderIsImmediate) {
+        /*
+        Здесь специально НЕ запрещаем
+        будущий заказ из-за наличия
+        обычной поездки.
+
+        Например:
+
+        Сейчас 12:00
+        текущая поездка есть
+        будущий заказ на 18:00
+
+        Такой заказ водитель может
+        заранее принять.
+        */
+
+        return {
+            blocked: false
+        };
+    }
+
+    return {
+        blocked: false
+    };
+}
+
+/*
+==================================================
+ ПОДГОТОВКА ЗАКАЗА
+==================================================
+*/
+
+function normalizeIncomingOrder(
+    order
+) {
+    const telegramUserId =
+        order.telegramUserId ||
+        order.telegram_user_id ||
+        order.passengerChatId ||
+        null;
+
+    const immediate =
+        isNowOrder(order);
+
+    const scheduledAt =
+        parseScheduledAt(order);
+
+    return {
+        id:
+            String(
+                order.id ||
+                Date.now().toString()
+            ),
+
+        telegramUserId:
+            telegramUserId
+                ? String(telegramUserId)
+                : null,
+
+        addressA:
+            order.addressA ||
+            order.address_a ||
+            '',
+
+        addressB:
+            order.addressB ||
+            order.address_b ||
+            '',
+
+        tariff:
+            order.tariff ||
+            '',
+
+        scheduled:
+            order.scheduled ||
+            (immediate
+                ? 'Ближайшее время'
+                : ''),
+
+        scheduledAt,
+
+        isImmediate:
+            immediate,
+
+        isWeekend:
+            normalizeBoolean(
+                order.isWeekend
+            ),
+
+        childSeat:
+            normalizeBoolean(
+                order.childSeat ||
+                order.child_seat
+            )
+    };
+}
+
+/*
+==================================================
+ СОХРАНИТЬ ЗАКАЗ
+==================================================
+*/
+
+async function createOrder(order) {
+    await pool.query(
         `
-        INSERT INTO drivers
+        INSERT INTO passenger_orders (
+            id,
+            telegram_user_id,
+
+            address_a,
+            address_b,
+
+            tariff,
+            scheduled,
+            scheduled_at,
+
+            is_immediate,
+            is_weekend,
+            child_seat,
+
+            status,
+
+            created_at
+        )
+        VALUES (
+            $1,
+            $2,
+
+            $3,
+            $4,
+
+            $5,
+            $6,
+            $7,
+
+            $8,
+            $9,
+            $10,
+
+            'searching',
+
+            NOW()
+        )
+        ON CONFLICT (id)
+        DO UPDATE SET
+            telegram_user_id = EXCLUDED.telegram_user_id,
+            address_a = EXCLUDED.address_a,
+            address_b = EXCLUDED.address_b,
+            tariff = EXCLUDED.tariff,
+            scheduled = EXCLUDED.scheduled,
+            scheduled_at = EXCLUDED.scheduled_at,
+            is_immediate = EXCLUDED.is_immediate,
+            is_weekend = EXCLUDED.is_weekend,
+            child_seat = EXCLUDED.child_seat,
+            status = 'searching'
+        `,
+        [
+            order.id,
+            order.telegramUserId,
+
+            order.addressA,
+            order.addressB,
+
+            order.tariff,
+            order.scheduled,
+            order.scheduledAt,
+
+            order.isImmediate,
+            order.isWeekend,
+            order.childSeat
+        ]
+    );
+
+    return getOrder(order.id);
+}
+
+/*
+==================================================
+ ТЕКСТ ЗАКАЗА ДЛЯ ВОДИТЕЛЯ
+==================================================
+*/
+
+function orderText(order) {
+    const child =
+        order.childSeat
+            ? '\n👶 Детское кресло: нужно'
+            : '';
+
+    const weekend =
+        order.isWeekend
+            ? '\n📅 Выходной тариф: да'
+            : '';
+
+    let timeText =
+        order.scheduled ||
+        'Ближайшее время';
+
+    if (
+        !order.isImmediate &&
+        order.scheduledAt
+    ) {
+        timeText =
+            formatMinskDate(
+                new Date(
+                    order.scheduledAt
+                )
+            );
+    }
+
+    return (
+        '🚕 НОВЫЙ ЗАКАЗ\n\n' +
+
+        `🆔 Заказ: #${order.id}\n` +
+
+        `📍 Откуда: ${
+            order.addressA || '-'
+        }\n` +
+
+        `🏁 Куда: ${
+            order.addressB || '-'
+        }\n` +
+
+        `💰 Тариф: ${
+            order.tariff || '-'
+        }\n` +
+
+        `🕐 Время: ${timeText}` +
+
+        child +
+        weekend
+    );
+}
+
+/*
+==================================================
+ ОТПРАВИТЬ ЗАКАЗ ВОДИТЕЛЯМ
+==================================================
+*/
+
+async function notifyDrivers(
+    order
+) {
+    if (!pool) {
+        console.error(
+            'Нет PostgreSQL — невозможно проверить водителей.'
+        );
+
+        return {
+            sent: 0
+        };
+    }
+
+    const result =
+        await pool.query(
+            `
+            SELECT *
+            FROM drivers
+            ORDER BY created_at ASC
+            `
+        );
+
+    const drivers =
+        result.rows;
+
+    if (
+        drivers.length === 0
+    ) {
+        console.log(
+            'В базе нет зарегистрированных водителей.'
+        );
+
+        return {
+            sent: 0
+        };
+    }
+
+    const keyboard = {
+        inline_keyboard: [
+            [
+                {
+                    text:
+                        '✅ ПРИНЯТЬ ЗАКАЗ',
+                    callback_data:
+                        `accept:${order.id}`
+                }
+            ],
+            [
+                {
+                    text:
+                        '❌ ОТКЛОНИТЬ',
+                    callback_data:
+                        `reject:${order.id}`
+                }
+            ]
+        ]
+    };
+
+    const messageRefs = [];
+
+    let sent = 0;
+
+    for (
+        const driver of drivers
+    ) {
+        const driverTelegramId =
+            String(
+                driver.telegram_id
+            );
+
+        /*
+        Проверяем список разрешённых
+        */
+
+        if (
+            !isDriverTelegramId(
+                driverTelegramId
+            )
+        ) {
+            continue;
+        }
+
+        /*
+        Детское кресло
+        */
+
+        if (
+            order.childSeat &&
+            !driver.has_child_seat
+        ) {
+            console.log(
+                `Водитель ${driverTelegramId} пропущен: нет детского кресла`
+            );
+
+            continue;
+        }
+
+        /*
+        ПРОВЕРКА ЗАНЯТОСТИ
+        */
+
+        const availability =
+            await checkDriverAvailability(
+                driverTelegramId,
+                order
+            );
+
+        if (
+            availability.blocked
+        ) {
+            console.log(
+                `Водитель ${driverTelegramId} пропущен: ${availability.reason}`
+            );
+
+            continue;
+        }
+
+        try {
+            const message =
+                await sendTelegramMessage(
+                    driverTelegramId,
+                    orderText(order),
+                    {
+                        reply_markup:
+                            keyboard
+                    }
+                );
+
+            messageRefs.push({
+                chatId:
+                    driverTelegramId,
+
+                messageId:
+                    message.message_id
+            });
+
+            sent++;
+
+            console.log(
+                `Заказ #${order.id} отправлен водителю ${driverTelegramId}`
+            );
+        } catch (error) {
+            console.error(
+                `Ошибка отправки водителю ${driverTelegramId}:`,
+                error.message
+            );
+        }
+    }
+
+    orderDriverMessages.set(
+        String(order.id),
+        messageRefs
+    );
+
+    return {
+        sent
+    };
+}
+
+/*
+==================================================
+ УБРАТЬ КНОПКИ У ВСЕХ ВОДИТЕЛЕЙ
+==================================================
+*/
+
+async function removeOrderButtons(
+    orderId
+) {
+    const refs =
+        orderDriverMessages.get(
+            String(orderId)
+        );
+
+    if (!refs) {
+        return;
+    }
+
+    for (
+        const ref of refs
+    ) {
+        try {
+            await telegram(
+                'editMessageReplyMarkup',
+                {
+                    chat_id:
+                        ref.chatId,
+
+                    message_id:
+                        ref.messageId,
+
+                    reply_markup: {
+                        inline_keyboard: []
+                    }
+                }
+            );
+        } catch (_) {}
+    }
+
+    orderDriverMessages.delete(
+        String(orderId)
+    );
+}
+
+/*
+==================================================
+ ПАССАЖИРУ — ВОДИТЕЛЬ ПРИНЯЛ
+==================================================
+*/
+
+async function notifyPassengerAccepted(
+    order
+) {
+    if (
+        !order.telegramUserId
+    ) {
+        console.log(
+            'У заказа нет telegramUserId.'
+        );
+
+        return;
+    }
+
+    const text =
+        '✅ ВОДИТЕЛЬ ПРИНЯЛ ВАШ ЗАКАЗ\n\n' +
+
+        `👤 ${
+            order.driverName ||
+            'Водитель'
+        }\n` +
+
+        `🚕 ${
+            order.driverCar ||
+            'Автомобиль уточняется'
+        }\n` +
+
+        `🔢 ${
+            order.driverNumber ||
+            'Номер уточняется'
+        }\n\n` +
+
         (
+            order.isImmediate
+                ? '🚗 Водитель едет к вам.'
+                : '📅 Заказ заранее забронирован за водителем.'
+        );
+
+    try {
+        await sendTelegramMessage(
+            order.telegramUserId,
+            text
+        );
+    } catch (error) {
+        console.error(
+            'Ошибка сообщения пассажиру:',
+            error.message
+        );
+    }
+
+    /*
+    Фото автомобиля/водителя
+    */
+
+    if (
+        order.driverPhotoFileId
+    ) {
+        try {
+            await telegram(
+                'sendPhoto',
+                {
+                    chat_id:
+                        order.telegramUserId,
+
+                    photo:
+                        order.driverPhotoFileId,
+
+                    caption:
+                        '🚕 Водитель вашего заказа'
+                }
+            );
+        } catch (_) {}
+    }
+}
+
+/*
+==================================================
+ АТОМАРНОЕ ПРИНЯТИЕ ЗАКАЗА
+==================================================
+
+Здесь самая важная защита.
+
+Два водителя могут одновременно
+нажать "Принять".
+
+PostgreSQL гарантирует,
+что заказ получит только один.
+==================================================
+*/
+
+async function acceptOrder(
+    orderId,
+    driverTelegramId
+) {
+    if (!pool) {
+        return {
+            success: false,
+            statusCode: 500,
+            error:
+                'База данных не подключена.'
+        };
+    }
+
+    const client =
+        await pool.connect();
+
+    try {
+        await client.query(
+            'BEGIN'
+        );
+
+        /*
+        Блокируем действия конкретного
+        водителя, чтобы два заказа
+        не были приняты одновременно.
+        */
+
+        await client.query(
+            `
+            SELECT pg_advisory_xact_lock(
+                hashtext($1)
+            )
+            `,
+            [
+                String(
+                    driverTelegramId
+                )
+            ]
+        );
+
+        /*
+        Получаем заказ с блокировкой.
+        */
+
+        const orderResult =
+            await client.query(
+                `
+                SELECT *
+                FROM passenger_orders
+                WHERE id = $1
+                FOR UPDATE
+                `,
+                [
+                    String(orderId)
+                ]
+            );
+
+        if (
+            orderResult.rows.length === 0
+        ) {
+            await client.query(
+                'ROLLBACK'
+            );
+
+            return {
+                success: false,
+                statusCode: 404,
+                error:
+                    'Заказ не найден.'
+            };
+        }
+
+        const row =
+            orderResult.rows[0];
+
+        /*
+        Если уже принят —
+        другой водитель не может забрать.
+        */
+
+        if (
+            row.status !== 'searching'
+        ) {
+            await client.query(
+                'ROLLBACK'
+            );
+
+            return {
+                success: false,
+                statusCode: 409,
+                error:
+                    'Заказ уже принят другим водителем.'
+            };
+        }
+
+        /*
+        Профиль водителя
+        */
+
+        const driverResult =
+            await client.query(
+                `
+                SELECT *
+                FROM drivers
+                WHERE telegram_id = $1
+                LIMIT 1
+                `,
+                [
+                    String(
+                        driverTelegramId
+                    )
+                ]
+            );
+
+        if (
+            driverResult.rows.length === 0
+        ) {
+            await client.query(
+                'ROLLBACK'
+            );
+
+            return {
+                success: false,
+                statusCode: 403,
+                error:
+                    'Профиль водителя не найден.'
+            };
+        }
+
+        const driver =
+            driverResult.rows[0];
+
+        /*
+        Детское кресло
+        */
+
+        if (
+            row.child_seat &&
+            !driver.has_child_seat
+        ) {
+            await client.query(
+                'ROLLBACK'
+            );
+
+            return {
+                success: false,
+                statusCode: 409,
+                error:
+                    'Для этого заказа требуется детское кресло.'
+            };
+        }
+
+        /*
+        Формируем заказ для проверки.
+        */
+
+        const order =
+            dbOrderToObject(row);
+
+        /*
+        САМАЯ ВАЖНАЯ ПРОВЕРКА
+        ПРЯМО В МОМЕНТ НАЖАТИЯ "ПРИНЯТЬ".
+        */
+
+        const availability =
+            await checkDriverAvailability(
+                driverTelegramId,
+                order,
+                client
+            );
+
+        if (
+            availability.blocked
+        ) {
+            await client.query(
+                'ROLLBACK'
+            );
+
+            return {
+                success: false,
+                statusCode: 409,
+                error:
+                    'Сейчас этот заказ принять нельзя: ' +
+                    availability.reason
+            };
+        }
+
+        /*
+        Записываем водителя.
+        */
+
+        const updateResult =
+            await client.query(
+                `
+                UPDATE passenger_orders
+
+                SET
+                    status = 'accepted',
+
+                    driver_telegram_id = $2,
+                    driver_name = $3,
+                    driver_car = $4,
+                    driver_number = $5,
+                    driver_phone = $6,
+                    driver_rating = $7,
+                    driver_photo_file_id = $8,
+
+                    accepted_at = NOW()
+
+                WHERE id = $1
+                  AND status = 'searching'
+
+                RETURNING *
+                `,
+                [
+                    String(orderId),
+
+                    String(
+                        driver.telegram_id
+                    ),
+
+                    driver.name ||
+                    'Водитель',
+
+                    driver.car ||
+                    'Автомобиль',
+
+                    driver.plate ||
+                    '',
+
+                    driver.phone ||
+                    '',
+
+                    driver.rating ||
+                    5,
+
+                    driver.photo_file_id ||
+                    null
+                ]
+            );
+
+        /*
+        За это время другой водитель
+        уже мог принять заказ.
+        */
+
+        if (
+            updateResult.rows.length === 0
+        ) {
+            await client.query(
+                'ROLLBACK'
+            );
+
+            return {
+                success: false,
+                statusCode: 409,
+                error:
+                    'Заказ уже принят другим водителем.'
+            };
+        }
+
+        await client.query(
+            'COMMIT'
+        );
+
+        const acceptedOrder =
+            dbOrderToObject(
+                updateResult.rows[0]
+            );
+
+        console.log(
+            '================================='
+        );
+
+        console.log(
+            'ЗАКАЗ ПРИНЯТ'
+        );
+
+        console.log(
+            `Заказ: #${acceptedOrder.id}`
+        );
+
+        console.log(
+            `Водитель: ${driver.name}`
+        );
+
+        console.log(
+            `Telegram ID: ${driverTelegramId}`
+        );
+
+        console.log(
+            `Сейчас: ${acceptedOrder.isImmediate}`
+        );
+
+        console.log(
+            `Время: ${acceptedOrder.scheduled || '-'}`
+        );
+
+        console.log(
+            '================================='
+        );
+
+        /*
+        Уведомляем пассажира.
+        */
+
+        await notifyPassengerAccepted(
+            acceptedOrder
+        );
+
+        /*
+        Убираем кнопки у других водителей.
+        */
+
+        await removeOrderButtons(
+            acceptedOrder.id
+        );
+
+        return {
+            success: true,
+            order:
+                acceptedOrder
+        };
+
+    } catch (error) {
+        try {
+            await client.query(
+                'ROLLBACK'
+            );
+        } catch (_) {}
+
+        console.error(
+            'Ошибка принятия заказа:',
+            error
+        );
+
+        return {
+            success: false,
+            statusCode: 500,
+            error:
+                'Ошибка принятия заказа.'
+        };
+
+    } finally {
+        client.release();
+    }
+}
+
+/*
+==================================================
+ ОТКЛОНЕНИЕ
+==================================================
+*/
+
+async function rejectOrder(
+    orderId,
+    driverTelegramId
+) {
+    /*
+    Сам заказ не отменяем.
+
+    Другие водители всё ещё должны
+    иметь возможность его принять.
+    */
+
+    return {
+        success: true
+    };
+}
+
+/*
+==================================================
+ API: СОЗДАНИЕ ЗАКАЗА
+==================================================
+*/
+
+app.post(
+    '/api/send-order',
+    async (req, res) => {
+        try {
+            if (!pool) {
+                return res.status(500).json({
+                    success: false,
+                    error:
+                        'PostgreSQL не подключён.'
+                });
+            }
+
+            const order =
+                normalizeIncomingOrder(
+                    req.body || {}
+                );
+
+            /*
+            Для будущего заказа обязательно
+            должна быть дата.
+            */
+
+            if (
+                !order.isImmediate &&
+                !order.scheduledAt
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Не удалось определить дату и время заказа.'
+                });
+            }
+
+            /*
+            Будущий заказ не должен быть
+            в прошлом.
+            */
+
+            if (
+                !order.isImmediate &&
+                order.scheduledAt
+            ) {
+                if (
+                    order.scheduledAt.getTime() <=
+                    Date.now()
+                ) {
+                    return res.status(400).json({
+                        success: false,
+                        error:
+                            'Дата и время заказа уже прошли.'
+                    });
+                }
+            }
+
+            const saved =
+                await createOrder(
+                    order
+                );
+
+            const orderObject =
+                dbOrderToObject(
+                    saved
+                );
+
+            console.log(
+                '================================='
+            );
+
+            console.log(
+                'НОВЫЙ ЗАКАЗ'
+            );
+
+            console.log(
+                orderObject
+            );
+
+            console.log(
+                '================================='
+            );
+
+            const notifyResult =
+                await notifyDrivers(
+                    orderObject
+                );
+
+            /*
+            Если никто не получил заказ.
+            */
+
+            if (
+                notifyResult.sent === 0
+            ) {
+                await pool.query(
+                    `
+                    UPDATE passenger_orders
+                    SET status = 'no_drivers'
+                    WHERE id = $1
+                    `,
+                    [order.id]
+                );
+
+                if (
+                    order.telegramUserId
+                ) {
+                    try {
+                        await sendTelegramMessage(
+                            order.telegramUserId,
+                            order.childSeat
+                                ? '⚠️ Сейчас нет свободного водителя с детским креслом для вашего заказа.'
+                                : '⚠️ Сейчас нет свободного водителя для вашего заказа.'
+                        );
+                    } catch (_) {}
+                }
+
+                return res.json({
+                    success: true,
+                    order: {
+                        ...orderObject,
+                        status:
+                            'no_drivers'
+                    },
+                    driversFound: 0
+                });
+            }
+
+            res.json({
+                success: true,
+                order: orderObject,
+                driversFound:
+                    notifyResult.sent
+            });
+
+        } catch (error) {
+            console.error(
+                'Ошибка создания заказа:',
+                error
+            );
+
+            res.status(500).json({
+                success: false,
+                error:
+                    'Ошибка создания заказа.'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ API: ПОЛУЧИТЬ ЗАКАЗ
+==================================================
+
+Поддерживает:
+
+/api/get-order?id=123
+
+И старый вариант без id.
+==================================================
+*/
+
+app.get(
+    '/api/get-order',
+    async (req, res) => {
+        try {
+            if (!pool) {
+                return res.json({
+                    status: 'none'
+                });
+            }
+
+            let row = null;
+
+            if (req.query.id) {
+                row =
+                    await getOrder(
+                        req.query.id
+                    );
+            } else {
+                const result =
+                    await pool.query(
+                        `
+                        SELECT *
+                        FROM passenger_orders
+                        WHERE status = 'searching'
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                        `
+                    );
+
+                row =
+                    result.rows[0] ||
+                    null;
+            }
+
+            if (!row) {
+                return res.json({
+                    status: 'none'
+                });
+            }
+
+            res.json(
+                dbOrderToObject(row)
+            );
+
+        } catch (error) {
+            console.error(
+                'get-order:',
+                error
+            );
+
+            res.status(500).json({
+                status: 'none'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ API: СТАТУС ЗАКАЗА
+==================================================
+*/
+
+app.get(
+    '/api/order-status',
+    async (req, res) => {
+        try {
+            if (!pool) {
+                return res.json({
+                    status: 'none'
+                });
+            }
+
+            let row = null;
+
+            /*
+            Если Mini App передал id —
+            возвращаем именно его.
+            */
+
+            if (req.query.id) {
+                row =
+                    await getOrder(
+                        req.query.id
+                    );
+            }
+
+            /*
+            Если id нет, используем
+            telegramUserId.
+            */
+
+            if (
+                !row &&
+                req.query.telegramUserId
+            ) {
+                row =
+                    await getLatestPassengerOrder(
+                        req.query.telegramUserId
+                    );
+            }
+
+            /*
+            Обратная совместимость:
+            последний заказ вообще.
+            */
+
+            if (!row) {
+                const result =
+                    await pool.query(
+                        `
+                        SELECT *
+                        FROM passenger_orders
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                        `
+                    );
+
+                row =
+                    result.rows[0] ||
+                    null;
+            }
+
+            if (!row) {
+                return res.json({
+                    status: 'none'
+                });
+            }
+
+            res.json(
+                dbOrderToObject(row)
+            );
+
+        } catch (error) {
+            console.error(
+                'order-status:',
+                error
+            );
+
+            res.status(500).json({
+                status: 'none'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ API: ПРИНЯТЬ ЗАКАЗ ИЗ MINI APP
+==================================================
+*/
+
+app.post(
+    '/api/accept-order',
+    async (req, res) => {
+        try {
+            const driverTelegramId =
+                req.body?.telegramId ||
+                req.body?.driverTelegramId ||
+                req.body?.chatId;
+
+            if (
+                !driverTelegramId
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Не указан Telegram ID водителя.'
+                });
+            }
+
+            if (
+                !isDriverTelegramId(
+                    driverTelegramId
+                )
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    error:
+                        'У вас нет прав водителя.'
+                });
+            }
+
+            const result =
+                await acceptOrder(
+                    req.body?.orderId,
+                    driverTelegramId
+                );
+
+            if (
+                !result.success
+            ) {
+                return res.status(
+                    result.statusCode || 400
+                ).json(result);
+            }
+
+            res.json(result);
+
+        } catch (error) {
+            console.error(
+                'accept-order:',
+                error
+            );
+
+            res.status(500).json({
+                success: false,
+                error:
+                    'Ошибка принятия заказа.'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ ПОЛУЧИТЬ АКТИВНЫЕ ЗАКАЗЫ ВОДИТЕЛЯ
+==================================================
+*/
+
+app.get(
+    '/api/driver-orders',
+    async (req, res) => {
+        try {
+            const driverTelegramId =
+                req.query.telegramId ||
+                req.query.driverTelegramId;
+
+            if (
+                !driverTelegramId
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Не указан Telegram ID водителя.'
+                });
+            }
+
+            if (
+                !isDriverTelegramId(
+                    driverTelegramId
+                )
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    error:
+                        'Нет доступа.'
+                });
+            }
+
+            const rows =
+                await getActiveDriverOrders(
+                    driverTelegramId
+                );
+
+            res.json({
+                success: true,
+
+                orders:
+                    rows.map(
+                        dbOrderToObject
+                    )
+            });
+
+        } catch (error) {
+            console.error(
+                'driver-orders:',
+                error
+            );
+
+            res.status(500).json({
+                success: false,
+                error:
+                    'Ошибка получения заказов.'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ НАЙТИ ЗАКАЗ ВОДИТЕЛЯ
+==================================================
+*/
+
+async function resolveDriverOrder(
+    driverTelegramId,
+    orderId
+) {
+    if (orderId) {
+        const result =
+            await pool.query(
+                `
+                SELECT *
+                FROM passenger_orders
+                WHERE id = $1
+                  AND driver_telegram_id = $2
+                LIMIT 1
+                `,
+                [
+                    String(orderId),
+                    String(
+                        driverTelegramId
+                    )
+                ]
+            );
+
+        return result.rows[0] || null;
+    }
+
+    const result =
+        await pool.query(
+            `
+            SELECT *
+            FROM passenger_orders
+            WHERE driver_telegram_id = $1
+              AND status = ANY($2::text[])
+            ORDER BY
+                CASE
+                    WHEN is_immediate = TRUE
+                    THEN 0
+                    ELSE 1
+                END,
+                scheduled_at ASC NULLS LAST,
+                created_at ASC
+            LIMIT 1
+            `,
+            [
+                String(
+                    driverTelegramId
+                ),
+                ACTIVE_STATUSES
+            ]
+        );
+
+    return result.rows[0] || null;
+}
+
+/*
+==================================================
+ ВОДИТЕЛЬ ПРИЕХАЛ
+==================================================
+*/
+
+app.post(
+    '/api/driver-arrived',
+    async (req, res) => {
+        try {
+            const driverTelegramId =
+                req.body?.telegramId ||
+                req.body?.driverTelegramId;
+
+            const orderId =
+                req.body?.orderId;
+
+            if (
+                !driverTelegramId
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Не указан водитель.'
+                });
+            }
+
+            const row =
+                await resolveDriverOrder(
+                    driverTelegramId,
+                    orderId
+                );
+
+            if (!row) {
+                return res.status(404).json({
+                    success: false,
+                    error:
+                        'Активный заказ не найден.'
+                });
+            }
+
+            const result =
+                await pool.query(
+                    `
+                    UPDATE passenger_orders
+                    SET
+                        status = 'arrived',
+                        arrived_at = NOW()
+                    WHERE id = $1
+                    RETURNING *
+                    `,
+                    [row.id]
+                );
+
+            const order =
+                dbOrderToObject(
+                    result.rows[0]
+                );
+
+            res.json({
+                success: true,
+                order
+            });
+
+        } catch (error) {
+            console.error(
+                'driver-arrived:',
+                error
+            );
+
+            res.status(500).json({
+                success: false,
+                error:
+                    'Ошибка.'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ НАЧАЛО ПОЕЗДКИ
+==================================================
+*/
+
+app.post(
+    '/api/start-trip',
+    async (req, res) => {
+        try {
+            const driverTelegramId =
+                req.body?.telegramId ||
+                req.body?.driverTelegramId;
+
+            const orderId =
+                req.body?.orderId;
+
+            if (
+                !driverTelegramId
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Не указан водитель.'
+                });
+            }
+
+            const row =
+                await resolveDriverOrder(
+                    driverTelegramId,
+                    orderId
+                );
+
+            if (!row) {
+                return res.status(404).json({
+                    success: false,
+                    error:
+                        'Активный заказ не найден.'
+                });
+            }
+
+            const result =
+                await pool.query(
+                    `
+                    UPDATE passenger_orders
+                    SET
+                        status = 'trip',
+                        trip_started_at = NOW()
+                    WHERE id = $1
+                    RETURNING *
+                    `,
+                    [row.id]
+                );
+
+            const order =
+                dbOrderToObject(
+                    result.rows[0]
+                );
+
+            res.json({
+                success: true,
+                order
+            });
+
+        } catch (error) {
+            console.error(
+                'start-trip:',
+                error
+            );
+
+            res.status(500).json({
+                success: false,
+                error:
+                    'Ошибка.'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ ЗАВЕРШЕНИЕ ЗАКАЗА
+==================================================
+*/
+
+app.post(
+    '/api/complete-order',
+    async (req, res) => {
+        try {
+            const driverTelegramId =
+                req.body?.telegramId ||
+                req.body?.driverTelegramId;
+
+            const orderId =
+                req.body?.orderId;
+
+            if (
+                !driverTelegramId
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Не указан водитель.'
+                });
+            }
+
+            const row =
+                await resolveDriverOrder(
+                    driverTelegramId,
+                    orderId
+                );
+
+            if (!row) {
+                return res.status(404).json({
+                    success: false,
+                    error:
+                        'Активный заказ не найден.'
+                });
+            }
+
+            const result =
+                await pool.query(
+                    `
+                    UPDATE passenger_orders
+                    SET
+                        status = 'completed',
+                        completed_at = NOW()
+                    WHERE id = $1
+                    RETURNING *
+                    `,
+                    [row.id]
+                );
+
+            const order =
+                dbOrderToObject(
+                    result.rows[0]
+                );
+
+            /*
+            После завершения водитель
+            автоматически освобождается.
+            */
+
+            console.log(
+                `Заказ #${order.id} завершён. Водитель ${driverTelegramId} снова свободен.`
+            );
+
+            /*
+            Уведомляем пассажира.
+            */
+
+            if (
+                order.telegramUserId
+            ) {
+                try {
+                    await sendTelegramMessage(
+                        order.telegramUserId,
+                        '✅ Поездка завершена. Спасибо, что воспользовались «Такси Речица»!'
+                    );
+                } catch (_) {}
+            }
+
+            res.json({
+                success: true,
+                order
+            });
+
+        } catch (error) {
+            console.error(
+                'complete-order:',
+                error
+            );
+
+            res.status(500).json({
+                success: false,
+                error:
+                    'Ошибка завершения заказа.'
+            });
+        }
+    }
+);
+
+/*
+==================================================
+ ПРОФИЛЬ ВОДИТЕЛЯ
+==================================================
+*/
+
+async function saveDriverProfile(
+    profile
+) {
+    await pool.query(
+        `
+        INSERT INTO drivers (
             telegram_id,
             name,
             car,
             plate,
             phone,
-            photo_file_id
+            photo_file_id,
+            has_child_seat,
+            updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            NOW()
+        )
 
         ON CONFLICT (telegram_id)
         DO UPDATE SET
@@ -281,2310 +2585,1101 @@ async function saveDriverProfile(chatId, data) {
             car = EXCLUDED.car,
             plate = EXCLUDED.plate,
             phone = EXCLUDED.phone,
-            photo_file_id = EXCLUDED.photo_file_id,
+            photo_file_id =
+                EXCLUDED.photo_file_id,
+            has_child_seat =
+                EXCLUDED.has_child_seat,
             updated_at = NOW()
-
-        RETURNING *
         `,
         [
-            String(chatId),
-            data.name,
-            data.car,
-            data.plate,
-            data.phone,
-            data.photo_file_id || null
+            String(
+                profile.telegramId
+            ),
+
+            profile.name ||
+            '',
+
+            profile.car ||
+            '',
+
+            profile.plate ||
+            '',
+
+            profile.phone ||
+            '',
+
+            profile.photoFileId ||
+            null,
+
+            Boolean(
+                profile.hasChildSeat
+            )
         ]
     );
-
-    return result.rows[0];
 }
 
-async function updateDriverField(
-    chatId,
-    field,
-    value
+function driverProfileText(
+    profile
 ) {
-
-    const allowed = {
-        name: 'name',
-        car: 'car',
-        plate: 'plate',
-        phone: 'phone',
-        photo: 'photo_file_id'
-    };
-
-    const column = allowed[field];
-
-    if (!column) {
-        return null;
+    if (!profile) {
+        return (
+            '👤 Профиль водителя не заполнен.'
+        );
     }
 
-    const result = await pool.query(
-        `
-        UPDATE drivers
-        SET ${column} = $1,
-            updated_at = NOW()
-        WHERE telegram_id = $2
-        RETURNING *
-        `,
-        [
-            value,
-            String(chatId)
-        ]
-    );
-
-    return result.rows[0] || null;
-}
-
-// =====================================================
-// PASSENGER PROFILE
-// =====================================================
-
-async function getPassengerProfile(chatId) {
-
-    const result = await pool.query(
-        `
-        SELECT *
-        FROM passengers
-        WHERE telegram_id = $1
-        `,
-        [String(chatId)]
-    );
-
-    return result.rows[0] || null;
-}
-
-async function savePassengerProfile(
-    chatId,
-    data
-) {
-
-    const result = await pool.query(
-        `
-        INSERT INTO passengers
-        (
-            telegram_id,
-            name,
-            phone,
-            comment
-        )
-        VALUES ($1, $2, $3, $4)
-
-        ON CONFLICT (telegram_id)
-        DO UPDATE SET
-            name = EXCLUDED.name,
-            phone = EXCLUDED.phone,
-            comment = EXCLUDED.comment,
-            updated_at = NOW()
-
-        RETURNING *
-        `,
-        [
-            String(chatId),
-            data.name,
-            data.phone,
-            data.comment || ''
-        ]
-    );
-
-    return result.rows[0];
-}
-
-async function updatePassengerField(
-    chatId,
-    field,
-    value
-) {
-
-    const allowed = {
-        name: 'name',
-        phone: 'phone',
-        comment: 'comment'
-    };
-
-    const column = allowed[field];
-
-    if (!column) {
-        return null;
-    }
-
-    const result = await pool.query(
-        `
-        UPDATE passengers
-        SET ${column} = $1,
-            updated_at = NOW()
-        WHERE telegram_id = $2
-        RETURNING *
-        `,
-        [
-            value,
-            String(chatId)
-        ]
-    );
-
-    return result.rows[0] || null;
-}
-
-// =====================================================
-// DRIVER PROFILE TEXT
-// =====================================================
-
-function driverProfileText(profile) {
-
     return (
-        '👨‍✈️ ПРОФИЛЬ ВОДИТЕЛЯ\n\n' +
+        '🚕 ПРОФИЛЬ ВОДИТЕЛЯ\n\n' +
 
-        `👤 Имя: ${profile.name || '-'}\n` +
-        `🚕 Автомобиль: ${profile.car || '-'}\n` +
-        `🔢 Госномер: ${profile.plate || '-'}\n` +
-        `📞 Телефон: ${profile.phone || '-'}\n` +
-        `⭐ Рейтинг: ${profile.rating || '5.00'}\n\n` +
+        `👤 Имя: ${
+            profile.name || '-'
+        }\n` +
 
-        'Выберите, что хотите изменить.'
+        `🚗 Авто: ${
+            profile.car || '-'
+        }\n` +
+
+        `🔢 Номер: ${
+            profile.plate || '-'
+        }\n` +
+
+        `📞 Телефон: ${
+            profile.phone || '-'
+        }\n` +
+
+        `👶 Детское кресло: ${
+            profile.has_child_seat
+                ? '✅ Есть'
+                : '❌ Нет'
+        }\n` +
+
+        `⭐ Рейтинг: ${
+            profile.rating || '5.00'
+        }`
     );
 }
 
-// =====================================================
-// PASSENGER PROFILE TEXT
-// =====================================================
+/*
+==================================================
+ СЕССИИ ЗАПОЛНЕНИЯ ПРОФИЛЯ
+==================================================
+*/
 
-function passengerProfileText(profile) {
+const driverSessions =
+    new Map();
 
-    return (
-        '👤 МОЯ АНКЕТА\n\n' +
-
-        `👤 Имя: ${profile.name || '-'}\n` +
-        `📞 Телефон: ${profile.phone || '-'}\n` +
-        `💬 Комментарий: ${profile.comment || '-'}\n\n` +
-
-        'Ваши данные используются для заказа такси.'
-    );
-}
-
-// =====================================================
-// DRIVER KEYBOARD
-// =====================================================
-
-function driverProfileKeyboard() {
-
+function childSeatKeyboard(
+    edit = false
+) {
     return {
         inline_keyboard: [
-
             [
                 {
-                    text: '🚕 Автомобиль',
-                    callback_data: 'driver_edit:car'
+                    text:
+                        '✅ Есть',
+
+                    callback_data:
+                        edit
+                            ? 'driver_seat_edit:yes'
+                            : 'driver_seat:yes'
                 },
                 {
-                    text: '🔢 Госномер',
-                    callback_data: 'driver_edit:plate'
-                }
-            ],
+                    text:
+                        '❌ Нет',
 
-            [
-                {
-                    text: '📞 Телефон',
-                    callback_data: 'driver_edit:phone'
-                },
-                {
-                    text: '👤 Имя',
-                    callback_data: 'driver_edit:name'
-                }
-            ],
-
-            [
-                {
-                    text: '📷 Фото',
-                    callback_data: 'driver_edit:photo'
+                    callback_data:
+                        edit
+                            ? 'driver_seat_edit:no'
+                            : 'driver_seat:no'
                 }
             ]
-
         ]
     };
 }
 
-// =====================================================
-// PASSENGER KEYBOARD
-// =====================================================
+/*
+==================================================
+ /PROFILE
+==================================================
+*/
 
-function passengerProfileKeyboard() {
-
-    return {
-        inline_keyboard: [
-
-            [
-                {
-                    text: '👤 Изменить имя',
-                    callback_data: 'passenger_edit:name'
-                }
-            ],
-
-            [
-                {
-                    text: '📞 Изменить телефон',
-                    callback_data: 'passenger_edit:phone'
-                }
-            ],
-
-            [
-                {
-                    text: '💬 Изменить комментарий',
-                    callback_data: 'passenger_edit:comment'
-                }
-            ]
-
-        ]
-    };
-}
-
-// =====================================================
-// SHOW DRIVER PROFILE
-// =====================================================
-
-async function sendDriverProfile(chatId) {
-
+async function showDriverProfile(
+    chatId
+) {
     const profile =
-        await getDriverProfile(chatId);
+        await getDriverProfile(
+            chatId
+        );
 
     if (!profile) {
-
-        await telegram(
-            'sendMessage',
-            {
-                chat_id: chatId,
-
-                text:
-                    '❌ Профиль водителя ещё не создан.\n\n' +
-                    'Используйте /profile'
-            }
+        await sendTelegramMessage(
+            chatId,
+            '👤 Профиль ещё не заполнен.\n\n' +
+            'Используйте /editprofile'
         );
 
         return;
     }
 
-    if (profile.photo_file_id) {
+    await sendTelegramMessage(
+        chatId,
+        driverProfileText(profile),
+        {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text:
+                                '✏️ Изменить профиль',
 
-        await telegram(
-            'sendPhoto',
-            {
-                chat_id: chatId,
-
-                photo:
-                    profile.photo_file_id,
-
-                caption:
-                    driverProfileText(profile),
-
-                reply_markup:
-                    driverProfileKeyboard()
+                            callback_data:
+                                'editprofile'
+                        }
+                    ]
+                ]
             }
-        );
-
-    } else {
-
-        await telegram(
-            'sendMessage',
-            {
-                chat_id: chatId,
-
-                text:
-                    driverProfileText(profile),
-
-                reply_markup:
-                    driverProfileKeyboard()
-            }
-        );
-    }
+        }
+    );
 }
 
-// =====================================================
-// SHOW PASSENGER PROFILE
-// =====================================================
+/*
+==================================================
+ НАЧАТЬ ЗАПОЛНЕНИЕ ПРОФИЛЯ
+==================================================
+*/
 
-async function sendPassengerProfile(chatId) {
+async function startDriverProfile(
+    chatId
+) {
+    driverSessions.set(
+        chatId,
+        {
+            step: 'name',
+            data: {}
+        }
+    );
 
-    const profile =
-        await getPassengerProfile(chatId);
+    await sendTelegramMessage(
+        chatId,
+        '👤 Давайте заполним профиль водителя.\n\n' +
+        'Введите ваше имя:'
+    );
+}
 
-    if (!profile) {
+/*
+==================================================
+ ОБРАБОТКА СООБЩЕНИЙ ВОДИТЕЛЯ
+==================================================
+*/
 
-        await telegram(
-            'sendMessage',
+async function processDriverMessage(
+    message
+) {
+    const chatId =
+        message.chat.id;
+
+    const session =
+        driverSessions.get(
+            chatId
+        );
+
+    if (!session) {
+        return false;
+    }
+
+    const text =
+        message.text || '';
+
+    /*
+    Имя
+    */
+
+    if (
+        session.step === 'name'
+    ) {
+        session.data.name =
+            text.trim();
+
+        session.step =
+            'car';
+
+        await sendTelegramMessage(
+            chatId,
+            '🚗 Напишите марку и модель автомобиля:\n\n' +
+            'Например: Toyota Corolla'
+        );
+
+        return true;
+    }
+
+    /*
+    Автомобиль
+    */
+
+    if (
+        session.step === 'car'
+    ) {
+        session.data.car =
+            text.trim();
+
+        session.step =
+            'plate';
+
+        await sendTelegramMessage(
+            chatId,
+            '🔢 Напишите государственный номер автомобиля:\n\n' +
+            'Например: 1234 AB-4'
+        );
+
+        return true;
+    }
+
+    /*
+    Номер
+    */
+
+    if (
+        session.step === 'plate'
+    ) {
+        session.data.plate =
+            text.trim();
+
+        session.step =
+            'phone';
+
+        await sendTelegramMessage(
+            chatId,
+            '📞 Напишите ваш номер телефона:'
+        );
+
+        return true;
+    }
+
+    /*
+    Телефон
+    */
+
+    if (
+        session.step === 'phone'
+    ) {
+        session.data.phone =
+            text.trim();
+
+        session.step =
+            'childSeat';
+
+        await sendTelegramMessage(
+            chatId,
+            '👶 Есть ли у вас детское кресло?',
             {
-                chat_id: chatId,
-
-                text:
-                    '❌ Анкета ещё не заполнена.\n\n' +
-                    'Используйте /profile'
+                reply_markup:
+                    childSeatKeyboard(
+                        false
+                    )
             }
         );
 
-        return;
+        return true;
     }
+
+    return false;
+}
+
+/*
+==================================================
+ TELEGRAM CALLBACK
+==================================================
+*/
+
+async function processCallback(
+    callback
+) {
+    const chatId =
+        callback.message?.chat?.id;
+
+    const data =
+        callback.data || '';
 
     await telegram(
-        'sendMessage',
+        'answerCallbackQuery',
         {
-            chat_id: chatId,
-
-            text:
-                passengerProfileText(profile),
-
-            reply_markup:
-                passengerProfileKeyboard()
+            callback_query_id:
+                callback.id
         }
     );
-}
 
-// =====================================================
-// WEBHOOK
-// =====================================================
-
-async function setupTelegramWebhook() {
-
-    if (!TELEGRAM_BOT_TOKEN) {
-        return;
-    }
-
-    if (!RENDER_URL) {
-        return;
-    }
-
-    const result =
-        await telegram(
-            'setWebhook',
-            {
-                url:
-                    `${RENDER_URL}/telegram/webhook`
-            }
-        );
-
-    console.log(
-        'Telegram webhook:',
-        result
-    );
-}
-
-// =====================================================
-// TELEGRAM WEBHOOK
-// =====================================================
-
-app.post(
-    '/telegram/webhook',
-    async (req, res) => {
-
-        try {
-
-            const update =
-                req.body;
-
-            // =================================================
-            // MESSAGE
-            // =================================================
-
-            if (update.message) {
-
-                const message =
-                    update.message;
-
-                const chatId =
-                    message.chat.id;
-
-                const text =
-                    message.text || '';
-
-                const driver =
-                    isDriver(chatId);
-
-                console.log(
-                    'Telegram:',
-                    chatId,
-                    driver
-                        ? 'ВОДИТЕЛЬ'
-                        : 'ПАССАЖИР',
-                    text
-                );
-
-                // =================================================
-                // CANCEL
-                // =================================================
-
-                if (text === '/cancel') {
-
-                    passengerSessions.delete(
-                        String(chatId)
-                    );
-
-                    driverSessions.delete(
-                        String(chatId)
-                    );
-
-                    editSessions.delete(
-                        String(chatId)
-                    );
-
-                    await telegram(
-                        'sendMessage',
-                        {
-                            chat_id: chatId,
-
-                            text:
-                                '❌ Действие отменено.'
-                        }
-                    );
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // DRIVER PROFILE SESSION
-                // =================================================
-
-                if (
-                    driver &&
-                    driverSessions.has(
-                        String(chatId)
-                    )
-                ) {
-
-                    const session =
-                        driverSessions.get(
-                            String(chatId)
-                        );
-
-                    if (
-                        session.step === 'name'
-                    ) {
-
-                        session.name =
-                            text.trim();
-
-                        session.step =
-                            'car';
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '🚕 Введите марку и модель автомобиля.\n\n' +
-                                    'Например:\n' +
-                                    'Toyota Corolla'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        session.step === 'car'
-                    ) {
-
-                        session.car =
-                            text.trim();
-
-                        session.step =
-                            'plate';
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '🔢 Введите госномер.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        session.step === 'plate'
-                    ) {
-
-                        session.plate =
-                            text.trim();
-
-                        session.step =
-                            'phone';
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '📞 Введите номер телефона.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        session.step === 'phone'
-                    ) {
-
-                        session.phone =
-                            text.trim();
-
-                        session.step =
-                            'photo';
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '📷 Отправьте фотографию автомобиля.\n\n' +
-                                    'Или напишите /skip'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        session.step === 'photo'
-                    ) {
-
-                        if (
-                            text === '/skip'
-                        ) {
-
-                            const profile =
-                                await saveDriverProfile(
-                                    chatId,
-                                    session
-                                );
-
-                            driverSessions.delete(
-                                String(chatId)
-                            );
-
-                            await telegram(
-                                'sendMessage',
-                                {
-                                    chat_id: chatId,
-
-                                    text:
-                                        '✅ Профиль водителя сохранён!\n\n' +
-                                        driverProfileText(profile),
-
-                                    reply_markup:
-                                        driverProfileKeyboard()
-                                }
-                            );
-
-                            return res.sendStatus(200);
-                        }
-
-                        if (
-                            message.photo &&
-                            message.photo.length
-                        ) {
-
-                            const photo =
-                                message.photo[
-                                    message.photo.length - 1
-                                ];
-
-                            session.photo_file_id =
-                                photo.file_id;
-
-                            const profile =
-                                await saveDriverProfile(
-                                    chatId,
-                                    session
-                                );
-
-                            driverSessions.delete(
-                                String(chatId)
-                            );
-
-                            await telegram(
-                                'sendMessage',
-                                {
-                                    chat_id: chatId,
-
-                                    text:
-                                        '✅ Профиль водителя сохранён!\n\n' +
-                                        driverProfileText(profile),
-
-                                    reply_markup:
-                                        driverProfileKeyboard()
-                                }
-                            );
-
-                            return res.sendStatus(200);
-                        }
-
-                        return res.sendStatus(200);
-                    }
-                }
-
-                // =================================================
-                // PASSENGER PROFILE SESSION
-                // =================================================
-
-                if (
-                    !driver &&
-                    passengerSessions.has(
-                        String(chatId)
-                    )
-                ) {
-
-                    const session =
-                        passengerSessions.get(
-                            String(chatId)
-                        );
-
-                    if (
-                        session.step === 'name'
-                    ) {
-
-                        session.name =
-                            text.trim();
-
-                        session.step =
-                            'phone';
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '📞 Введите ваш номер телефона.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        session.step === 'phone'
-                    ) {
-
-                        session.phone =
-                            text.trim();
-
-                        session.step =
-                            'comment';
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '💬 Есть ли комментарий для водителя?\n\n' +
-                                    'Если нет — напишите /skip'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        session.step === 'comment'
-                    ) {
-
-                        session.comment =
-                            text === '/skip'
-                                ? ''
-                                : text.trim();
-
-                        const profile =
-                            await savePassengerProfile(
-                                chatId,
-                                session
-                            );
-
-                        passengerSessions.delete(
-                            String(chatId)
-                        );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '✅ Анкета пассажира сохранена!\n\n' +
-                                    passengerProfileText(profile),
-
-                                reply_markup:
-                                    passengerProfileKeyboard()
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-                }
-
-                // =================================================
-                // EDIT SESSION
-                // =================================================
-
-                if (
-                    editSessions.has(
-                        String(chatId)
-                    )
-                ) {
-
-                    const session =
-                        editSessions.get(
-                            String(chatId)
-                        );
-
-                    // ---------------------------------------------
-                    // DRIVER
-                    // ---------------------------------------------
-
-                    if (
-                        session.role === 'driver'
-                    ) {
-
-                        if (
-                            session.field === 'photo'
-                        ) {
-
-                            if (
-                                message.photo &&
-                                message.photo.length
-                            ) {
-
-                                const photo =
-                                    message.photo[
-                                        message.photo.length - 1
-                                    ];
-
-                                await updateDriverField(
-                                    chatId,
-                                    'photo',
-                                    photo.file_id
-                                );
-
-                                editSessions.delete(
-                                    String(chatId)
-                                );
-
-                                await telegram(
-                                    'sendMessage',
-                                    {
-                                        chat_id: chatId,
-
-                                        text:
-                                            '✅ Фото автомобиля изменено.'
-                                    }
-                                );
-
-                                await sendDriverProfile(
-                                    chatId
-                                );
-
-                                return res.sendStatus(200);
-                            }
-
-                            return res.sendStatus(200);
-                        }
-
-                        await updateDriverField(
-                            chatId,
-                            session.field,
-                            text.trim()
-                        );
-
-                        editSessions.delete(
-                            String(chatId)
-                        );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '✅ Данные водителя изменены.'
-                            }
-                        );
-
-                        await sendDriverProfile(
-                            chatId
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    // ---------------------------------------------
-                    // PASSENGER
-                    // ---------------------------------------------
-
-                    if (
-                        session.role === 'passenger'
-                    ) {
-
-                        await updatePassengerField(
-                            chatId,
-                            session.field,
-                            text.trim()
-                        );
-
-                        editSessions.delete(
-                            String(chatId)
-                        );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '✅ Данные анкеты изменены.'
-                            }
-                        );
-
-                        await sendPassengerProfile(
-                            chatId
-                        );
-
-                        return res.sendStatus(200);
-                    }
-                }
-
-                // =================================================
-                // START
-                // =================================================
-
-                if (
-                    text === '/start'
-                ) {
-
-                    if (driver) {
-
-                        const profile =
-                            await getDriverProfile(
-                                chatId
-                            );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '🚕 ТАКСИ РЕЧИЦА\n\n' +
-
-                                    '👨‍✈️ Вы зарегистрированы как водитель.\n\n' +
-
-                                    (
-                                        profile
-                                            ? `👤 ${profile.name}\n🚕 ${profile.car}\n🔢 ${profile.plate}\n\n`
-                                            : '⚠️ Профиль ещё не заполнен.\n\n'
-                                    ) +
-
-                                    'Выберите действие:\n\n' +
-
-                                    '/driver — режим водителя\n' +
-                                    '/profile — анкета водителя\n' +
-                                    '/myprofile — мой профиль\n' +
-                                    '/editprofile — изменить профиль'
-                            }
-                        );
-
-                    } else {
-
-                        const profile =
-                            await getPassengerProfile(
-                                chatId
-                            );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '🚕 ДОБРО ПОЖАЛОВАТЬ В ТАКСИ РЕЧИЦА!\n\n' +
-
-                                    '👤 Вы пассажир.\n\n' +
-
-                                    (
-                                        profile
-                                            ? `Здравствуйте, ${profile.name}!`
-                                            : 'Заполните анкету, чтобы ваши данные были сохранены.'
-                                    ) +
-
-                                    '\n\n' +
-
-                                    '/profile — моя анкета\n' +
-                                    '/myprofile — мой профиль\n' +
-                                    '/myorders — мои заказы\n' +
-                                    '/help — помощь'
-                            }
-                        );
-                    }
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // DRIVER
-                // =================================================
-
-                if (
-                    text === '/driver'
-                ) {
-
-                    if (!driver) {
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '❌ Доступ запрещён.\n\n' +
-                                    'Этот раздел доступен только зарегистрированным водителям.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    await telegram(
-                        'sendMessage',
-                        {
-                            chat_id: chatId,
-
-                            text:
-                                '👨‍✈️ РЕЖИМ ВОДИТЕЛЯ\n\n' +
-
-                                '🟢 Вы в режиме водителя.\n\n' +
-
-                                '📋 Команды:\n' +
-                                '/profile — анкета\n' +
-                                '/myprofile — мой профиль\n' +
-                                '/editprofile — изменить профиль\n\n' +
-
-                                '🚕 Новые заказы будут приходить сюда.'
-                        }
-                    );
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // PROFILE
-                // =================================================
-
-                if (
-                    text === '/profile'
-                ) {
-
-                    if (driver) {
-
-                        driverSessions.set(
-                            String(chatId),
-                            {
-                                step: 'name',
-                                name: '',
-                                car: '',
-                                plate: '',
-                                phone: '',
-                                photo_file_id: null
-                            }
-                        );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '👨‍✈️ АНКЕТА ВОДИТЕЛЯ\n\n' +
-                                    '👤 Введите ваше имя.\n\n' +
-                                    'Для отмены:\n/cancel'
-                            }
-                        );
-
-                    } else {
-
-                        passengerSessions.set(
-                            String(chatId),
-                            {
-                                step: 'name',
-                                name: '',
-                                phone: '',
-                                comment: ''
-                            }
-                        );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '👤 АНКЕТА ПАССАЖИРА\n\n' +
-                                    'Введите ваше имя.\n\n' +
-                                    'Для отмены:\n/cancel'
-                            }
-                        );
-                    }
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // MY PROFILE
-                // =================================================
-
-                if (
-                    text === '/myprofile'
-                ) {
-
-                    if (driver) {
-
-                        await sendDriverProfile(
-                            chatId
-                        );
-
-                    } else {
-
-                        await sendPassengerProfile(
-                            chatId
-                        );
-                    }
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // EDIT PROFILE
-                // =================================================
-
-                if (
-                    text === '/editprofile'
-                ) {
-
-                    if (driver) {
-
-                        await sendDriverProfile(
-                            chatId
-                        );
-
-                    } else {
-
-                        await sendPassengerProfile(
-                            chatId
-                        );
-                    }
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // MY ORDERS
-                // =================================================
-
-                if (
-                    text === '/myorders'
-                ) {
-
-                    if (driver) {
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '👨‍✈️ История заказов водителя будет добавлена следующим этапом.'
-                            }
-                        );
-
-                    } else {
-
-                        const result =
-                            await pool.query(
-                                `
-                                SELECT *
-                                FROM passenger_orders
-                                WHERE telegram_id = $1
-                                ORDER BY created_at DESC
-                                LIMIT 10
-                                `,
-                                [String(chatId)]
-                            );
-
-                        if (
-                            result.rows.length === 0
-                        ) {
-
-                            await telegram(
-                                'sendMessage',
-                                {
-                                    chat_id: chatId,
-
-                                    text:
-                                        '📋 У вас пока нет заказов.'
-                                }
-                            );
-
-                        } else {
-
-                            let textOrders =
-                                '📋 МОИ ПОСЛЕДНИЕ ЗАКАЗЫ\n\n';
-
-                            for (
-                                const order
-                                of result.rows
-                            ) {
-
-                                textOrders +=
-                                    `🚕 Заказ #${order.order_id || '-'}\n` +
-                                    `📍 ${order.address_from || '-'} → ${order.address_to || '-'}\n` +
-                                    `💰 ${order.tariff || '-'}\n` +
-                                    `📌 ${order.status || '-'}\n\n`;
-                            }
-
-                            await telegram(
-                                'sendMessage',
-                                {
-                                    chat_id: chatId,
-
-                                    text:
-                                        textOrders
-                                }
-                            );
-                        }
-                    }
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // HELP
-                // =================================================
-
-                if (
-                    text === '/help'
-                ) {
-
-                    if (driver) {
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '❓ ПОМОЩЬ ВОДИТЕЛЮ\n\n' +
-
-                                    '/start — главное меню\n' +
-                                    '/driver — режим водителя\n' +
-                                    '/profile — анкета водителя\n' +
-                                    '/myprofile — мой профиль\n' +
-                                    '/editprofile — изменить данные\n' +
-                                    '/cancel — отменить действие'
-                            }
-                        );
-
-                    } else {
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '❓ ПОМОЩЬ ПАССАЖИРУ\n\n' +
-
-                                    '/start — главное меню\n' +
-                                    '/profile — анкета\n' +
-                                    '/myprofile — мой профиль\n' +
-                                    '/myorders — мои заказы\n' +
-                                    '/cancel — отменить действие'
-                            }
-                        );
-                    }
-
-                    return res.sendStatus(200);
-                }
-            }
-
-            // =================================================
-            // CALLBACK
-            // =================================================
-
-            if (
-                update.callback_query
-            ) {
-
-                const callback =
-                    update.callback_query;
-
-                const data =
-                    callback.data;
-
-                const chatId =
-                    callback.message.chat.id;
-
-                // =================================================
-                // DRIVER EDIT
-                // =================================================
-
-                if (
-                    data.startsWith(
-                        'driver_edit:'
-                    )
-                ) {
-
-                    if (!isDriver(chatId)) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    '❌ Доступ запрещён.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    const field =
-                        data.split(':')[1];
-
-                    editSessions.set(
-                        String(chatId),
-                        {
-                            role: 'driver',
-                            field
-                        }
-                    );
-
-                    const names = {
-                        name: '👤 новое имя',
-                        car: '🚕 новый автомобиль',
-                        plate: '🔢 новый госномер',
-                        phone: '📞 новый номер телефона',
-                        photo: '📷 новую фотографию автомобиля'
-                    };
-
-                    await telegram(
-                        'answerCallbackQuery',
-                        {
-                            callback_query_id:
-                                callback.id
-                        }
-                    );
-
-                    await telegram(
-                        'sendMessage',
-                        {
-                            chat_id: chatId,
-
-                            text:
-                                `Введите ${names[field]}.\n\n` +
-                                'Для отмены:\n/cancel'
-                        }
-                    );
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // PASSENGER EDIT
-                // =================================================
-
-                if (
-                    data.startsWith(
-                        'passenger_edit:'
-                    )
-                ) {
-
-                    if (isDriver(chatId)) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    '❌ Эта анкета предназначена для пассажиров.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    const field =
-                        data.split(':')[1];
-
-                    editSessions.set(
-                        String(chatId),
-                        {
-                            role: 'passenger',
-                            field
-                        }
-                    );
-
-                    const names = {
-                        name: '👤 новое имя',
-                        phone: '📞 новый номер телефона',
-                        comment: '💬 новый комментарий'
-                    };
-
-                    await telegram(
-                        'answerCallbackQuery',
-                        {
-                            callback_query_id:
-                                callback.id
-                        }
-                    );
-
-                    await telegram(
-                        'sendMessage',
-                        {
-                            chat_id: chatId,
-
-                            text:
-                                `Введите ${names[field]}.\n\n` +
-                                'Для отмены:\n/cancel'
-                        }
-                    );
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // ACCEPT ORDER
-                // =================================================
-
-                if (
-                    data.startsWith(
-                        'accept_order:'
-                    )
-                ) {
-
-                    if (!isDriver(chatId)) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    '❌ Только водитель может принять заказ.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (!currentOrder) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    'Заказ уже недоступен.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    if (
-                        currentOrder.status !==
-                        'searching'
-                    ) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    'Этот заказ уже принят.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    const orderId =
-                        data.split(':')[1];
-
-                    if (
-                        String(currentOrder.id) !==
-                        String(orderId)
-                    ) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    'Этот заказ уже недоступен.'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    const profile =
-                        await getDriverProfile(
-                            chatId
-                        );
-
-                    if (!profile) {
-
-                        await telegram(
-                            'answerCallbackQuery',
-                            {
-                                callback_query_id:
-                                    callback.id,
-
-                                text:
-                                    'Сначала заполните анкету.'
-                            }
-                        );
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id: chatId,
-
-                                text:
-                                    '⚠️ Нельзя принять заказ без анкеты водителя.\n\n' +
-                                    'Используйте /profile'
-                            }
-                        );
-
-                        return res.sendStatus(200);
-                    }
-
-                    currentOrder.status =
-                        'accepted';
-
-                    currentOrder.driverChatId =
-                        chatId;
-
-                    currentOrder.driverName =
-                        profile.name;
-
-                    currentOrder.driverCar =
-                        profile.car;
-
-                    currentOrder.driverNumber =
-                        profile.plate;
-
-                    currentOrder.driverPhone =
-                        profile.phone;
-
-                    currentOrder.driverRating =
-                        profile.rating;
-
-                    currentOrder.driverPhoto =
-                        profile.photo_file_id;
-
-                    currentOrder.acceptedAt =
-                        Date.now();
-
-                    await telegram(
-                        'answerCallbackQuery',
-                        {
-                            callback_query_id:
-                                callback.id,
-
-                            text:
-                                '✅ Заказ принят!'
-                        }
-                    );
-
-                    await telegram(
-                        'editMessageReplyMarkup',
-                        {
-                            chat_id: chatId,
-
-                            message_id:
-                                callback.message.message_id,
-
-                            reply_markup: {
-                                inline_keyboard: []
-                            }
-                        }
-                    );
-
-                    await telegram(
-                        'sendMessage',
-                        {
-                            chat_id: chatId,
-
-                            text:
-                                '✅ ЗАКАЗ ПРИНЯТ\n\n' +
-
-                                `🚕 Заказ #${currentOrder.id}\n\n` +
-
-                                `📍 Откуда:\n${currentOrder.addressA || '-'}\n\n` +
-
-                                `📍 Куда:\n${currentOrder.addressB || '-'}\n\n` +
-
-                                `🚕 ${profile.car}\n` +
-                                `👤 ${profile.name}\n` +
-                                `🔢 ${profile.plate}\n` +
-                                `📞 ${profile.phone || '-'}\n\n` +
-
-                                'Пассажир получил данные водителя.'
-                        }
-                    );
-
-                    // ---------------------------------------------
-                    // ПАССАЖИРУ
-                    // ---------------------------------------------
-
-                    if (
-                        currentOrder.passengerChatId
-                    ) {
-
-                        const passengerText =
-                            '✅ ВОДИТЕЛЬ ПРИНЯЛ ВАШ ЗАКАЗ\n\n' +
-
-                            `🚕 ${profile.car}\n` +
-                            `👤 ${profile.name}\n` +
-                            `🔢 ${profile.plate}\n` +
-                            `📞 ${profile.phone || '-'}\n` +
-                            `⭐ Рейтинг: ${profile.rating || '5.00'}\n\n` +
-
-                            '🚗 Водитель едет к вам.';
-
-                        if (
-                            profile.photo_file_id
-                        ) {
-
-                            await telegram(
-                                'sendPhoto',
-                                {
-                                    chat_id:
-                                        currentOrder.passengerChatId,
-
-                                    photo:
-                                        profile.photo_file_id,
-
-                                    caption:
-                                        passengerText
-                                }
-                            );
-
-                        } else {
-
-                            await telegram(
-                                'sendMessage',
-                                {
-                                    chat_id:
-                                        currentOrder.passengerChatId,
-
-                                    text:
-                                        passengerText
-                                }
-                            );
-                        }
-                    }
-
-                    // ---------------------------------------------
-                    // ОСТАЛЬНЫМ ВОДИТЕЛЯМ
-                    // ---------------------------------------------
-
-                    for (
-                        const otherDriverId
-                        of DRIVER_CHAT_IDS
-                    ) {
-
-                        if (
-                            String(otherDriverId) ===
-                            String(chatId)
-                        ) {
-                            continue;
-                        }
-
-                        await telegram(
-                            'sendMessage',
-                            {
-                                chat_id:
-                                    otherDriverId,
-
-                                text:
-                                    'ℹ️ ЗАКАЗ УЖЕ ПРИНЯТ\n\n' +
-
-                                    `Заказ #${currentOrder.id} ` +
-                                    'уже забрал другой водитель.'
-                            }
-                        );
-                    }
-
-                    return res.sendStatus(200);
-                }
-
-                // =================================================
-                // REJECT
-                // =================================================
-
-                if (
-                    data.startsWith(
-                        'reject_order:'
-                    )
-                ) {
-
-                    if (!isDriver(chatId)) {
-                        return res.sendStatus(200);
-                    }
-
-                    await telegram(
-                        'answerCallbackQuery',
-                        {
-                            callback_query_id:
-                                callback.id,
-
-                            text:
-                                'Заказ отклонён'
-                        }
-                    );
-
-                    await telegram(
-                        'editMessageText',
-                        {
-                            chat_id: chatId,
-
-                            message_id:
-                                callback.message.message_id,
-
-                            text:
-                                '❌ Вы отклонили заказ.'
-                        }
-                    );
-
-                    return res.sendStatus(200);
-                }
-            }
-
-            res.sendStatus(200);
-
-        } catch (error) {
-
-            console.error(
-                'Ошибка webhook:',
-                error
+    /*
+    ==========================================
+    ПРИНЯТИЕ
+    ==========================================
+    */
+
+    if (
+        data.startsWith(
+            'accept:'
+        )
+    ) {
+        const orderId =
+            data.substring(
+                'accept:'.length
             );
-
-            res.sendStatus(200);
-        }
-    }
-);
-
-// =====================================================
-// СОЗДАНИЕ ЗАКАЗА
-// =====================================================
-
-app.post(
-    '/api/send-order',
-    async (req, res) => {
-
-        try {
-
-            const order =
-                req.body || {};
-
-            currentOrder = {
-                ...order,
-
-                status:
-                    'searching',
-
-                createdAt:
-                    Date.now()
-            };
-
-            // ---------------------------------------------
-            // СОХРАНЯЕМ ЗАКАЗ ПАССАЖИРА
-            // ---------------------------------------------
-
-            if (
-                currentOrder.passengerChatId
-            ) {
-
-                await pool.query(
-                    `
-                    INSERT INTO passenger_orders
-                    (
-                        telegram_id,
-                        order_id,
-                        status,
-                        address_from,
-                        address_to,
-                        tariff
-                    )
-                    VALUES
-                    (
-                        $1,
-                        $2,
-                        $3,
-                        $4,
-                        $5,
-                        $6
-                    )
-                    `,
-                    [
-                        String(
-                            currentOrder.passengerChatId
-                        ),
-                        String(
-                            currentOrder.id || ''
-                        ),
-                        'searching',
-                        currentOrder.addressA || '',
-                        currentOrder.addressB || '',
-                        currentOrder.tariff || ''
-                    ]
-                );
-            }
-
-            // ---------------------------------------------
-            // ОТПРАВЛЯЕМ ВОДИТЕЛЯМ
-            // ---------------------------------------------
-
-            for (
-                const driverId
-                of DRIVER_CHAT_IDS
-            ) {
-
-                await telegram(
-                    'sendMessage',
-                    {
-                        chat_id:
-                            driverId,
-
-                        text:
-                            '🚕 НОВЫЙ ЗАКАЗ\n\n' +
-
-                            `🔢 Заказ #${currentOrder.id || '-'}\n\n` +
-
-                            `📍 ОТКУДА:\n${currentOrder.addressA || '-'}\n\n` +
-
-                            `📍 КУДА:\n${currentOrder.addressB || '-'}\n\n` +
-
-                            `💰 Тариф: ${currentOrder.tariff || '-'}\n` +
-
-                            `🕐 Время: ${currentOrder.scheduled || 'Сейчас'}\n\n` +
-
-                            (
-                                currentOrder.childSeat
-                                    ? '👶 Детское кресло\n'
-                                    : ''
-                            ) +
-
-                            '\nПримите заказ:',
-
-                        reply_markup: {
-
-                            inline_keyboard: [
-
-                                [
-                                    {
-                                        text:
-                                            '✅ ПРИНЯТЬ ЗАКАЗ',
-
-                                        callback_data:
-                                            `accept_order:${currentOrder.id}`
-                                    }
-                                ],
-
-                                [
-                                    {
-                                        text:
-                                            '❌ ОТКЛОНИТЬ',
-
-                                        callback_data:
-                                            `reject_order:${currentOrder.id}`
-                                    }
-                                ]
-
-                            ]
-                        }
-                    }
-                );
-            }
-
-            res.json(
-                {
-                    success:
-                        true,
-
-                    order:
-                        currentOrder
-                }
-            );
-
-        } catch (error) {
-
-            console.error(
-                'Ошибка создания заказа:',
-                error
-            );
-
-            res.status(500).json(
-                {
-                    success:
-                        false,
-
-                    error:
-                        'Ошибка создания заказа'
-                }
-            );
-        }
-    }
-);
-
-// =====================================================
-// GET ORDER
-// =====================================================
-
-app.get(
-    '/api/get-order',
-    (req, res) => {
-
-        res.json(
-            currentOrder || {
-                status:
-                    'none'
-            }
-        );
-    }
-);
-
-// =====================================================
-// ORDER STATUS
-// =====================================================
-
-app.get(
-    '/api/order-status',
-    (req, res) => {
-
-        res.json(
-            currentOrder || {
-                status:
-                    'none'
-            }
-        );
-    }
-);
-
-// =====================================================
-// ACCEPT ORDER API
-// =====================================================
-
-app.post(
-    '/api/accept-order',
-    async (req, res) => {
-
-        try {
-
-            if (!currentOrder) {
-
-                return res.status(404).json(
-                    {
-                        success:
-                            false,
-
-                        error:
-                            'Активный заказ не найден'
-                    }
-                );
-            }
-
-            if (
-                currentOrder.status !==
-                'searching'
-            ) {
-
-                return res.status(400).json(
-                    {
-                        success:
-                            false,
-
-                        error:
-                            'Заказ уже принят'
-                    }
-                );
-            }
-
-            const driverChatId =
-                req.body.driverChatId;
-
-            if (
-                !driverChatId ||
-                !isDriver(driverChatId)
-            ) {
-
-                return res.status(403).json(
-                    {
-                        success:
-                            false,
-
-                        error:
-                            'Доступ водителя запрещён'
-                    }
-                );
-            }
-
-            const profile =
-                await getDriverProfile(
-                    driverChatId
-                );
-
-            if (!profile) {
-
-                return res.status(400).json(
-                    {
-                        success:
-                            false,
-
-                        error:
-                            'Профиль водителя не заполнен'
-                    }
-                );
-            }
-
-            currentOrder.status =
-                'accepted';
-
-            currentOrder.driverChatId =
-                driverChatId;
-
-            currentOrder.driverName =
-                profile.name;
-
-            currentOrder.driverCar =
-                profile.car;
-
-            currentOrder.driverNumber =
-                profile.plate;
-
-            currentOrder.driverPhone =
-                profile.phone;
-
-            currentOrder.driverRating =
-                profile.rating;
-
-            currentOrder.driverPhoto =
-                profile.photo_file_id;
-
-            currentOrder.acceptedAt =
-                Date.now();
-
-            if (
-                currentOrder.passengerChatId
-            ) {
-
-                const passengerText =
-                    '✅ ВОДИТЕЛЬ ПРИНЯЛ ВАШ ЗАКАЗ\n\n' +
-
-                    `🚕 ${profile.car}\n` +
-                    `👤 ${profile.name}\n` +
-                    `🔢 ${profile.plate}\n` +
-                    `📞 ${profile.phone || '-'}\n` +
-                    `⭐ Рейтинг: ${profile.rating || '5.00'}\n\n` +
-
-                    '🚗 Водитель едет к вам.';
-
-                if (
-                    profile.photo_file_id
-                ) {
-
-                    await telegram(
-                        'sendPhoto',
-                        {
-                            chat_id:
-                                currentOrder.passengerChatId,
-
-                            photo:
-                                profile.photo_file_id,
-
-                            caption:
-                                passengerText
-                        }
-                    );
-
-                } else {
-
-                    await telegram(
-                        'sendMessage',
-                        {
-                            chat_id:
-                                currentOrder.passengerChatId,
-
-                            text:
-                                passengerText
-                        }
-                    );
-                }
-            }
-
-            res.json(
-                {
-                    success:
-                        true,
-
-                    order:
-                        currentOrder
-                }
-            );
-
-        } catch (error) {
-
-            console.error(
-                'Ошибка accept-order:',
-                error
-            );
-
-            res.status(500).json(
-                {
-                    success:
-                        false,
-
-                    error:
-                        'Ошибка принятия заказа'
-                }
-            );
-        }
-    }
-);
-
-// =====================================================
-// DRIVER ARRIVED
-// =====================================================
-
-app.post(
-    '/api/driver-arrived',
-    (req, res) => {
-
-        if (!currentOrder) {
-
-            return res.status(404).json(
-                {
-                    success:
-                        false,
-
-                    error:
-                        'Активный заказ не найден'
-                }
-            );
-        }
-
-        currentOrder.status =
-            'arrived';
-
-        currentOrder.arrivedAt =
-            Date.now();
-
-        res.json(
-            {
-                success:
-                    true,
-
-                order:
-                    currentOrder
-            }
-        );
-    }
-);
-
-// =====================================================
-// START TRIP
-// =====================================================
-
-app.post(
-    '/api/start-trip',
-    (req, res) => {
-
-        if (!currentOrder) {
-
-            return res.status(404).json(
-                {
-                    success:
-                        false,
-
-                    error:
-                        'Активный заказ не найден'
-                }
-            );
-        }
-
-        currentOrder.status =
-            'trip';
-
-        currentOrder.tripStartedAt =
-            Date.now();
-
-        res.json(
-            {
-                success:
-                    true,
-
-                order:
-                    currentOrder
-            }
-        );
-    }
-);
-
-// =====================================================
-// COMPLETE ORDER
-// =====================================================
-
-app.post(
-    '/api/complete-order',
-    async (req, res) => {
-
-        if (!currentOrder) {
-
-            return res.status(404).json(
-                {
-                    success:
-                        false,
-
-                    error:
-                        'Активный заказ не найден'
-                }
-            );
-        }
-
-        currentOrder.status =
-            'completed';
-
-        currentOrder.completedAt =
-            Date.now();
 
         if (
-            currentOrder.passengerChatId
+            !isDriverTelegramId(
+                chatId
+            )
         ) {
+            await sendTelegramMessage(
+                chatId,
+                '⛔ У вас нет прав водителя.'
+            );
 
-            await pool.query(
-                `
-                UPDATE passenger_orders
-                SET status = $1
-                WHERE telegram_id = $2
-                AND order_id = $3
-                `,
-                [
-                    'completed',
-                    String(
-                        currentOrder.passengerChatId
-                    ),
-                    String(
-                        currentOrder.id || ''
-                    )
-                ]
+            return;
+        }
+
+        const result =
+            await acceptOrder(
+                orderId,
+                chatId
+            );
+
+        if (
+            result.success
+        ) {
+            await sendTelegramMessage(
+                chatId,
+                '✅ Заказ принят!\n\n' +
+                `Заказ #${result.order.id}\n\n` +
+                (
+                    result.order.isImmediate
+                        ? '🚗 Это текущий заказ.'
+                        : '📅 Это заранее назначенный заказ.'
+                ) +
+                '\n\n' +
+                'Откройте Mini App для управления поездкой.'
+            );
+        } else {
+            await sendTelegramMessage(
+                chatId,
+                `⚠️ ${result.error}`
             );
         }
 
-        res.json(
-            {
-                success:
-                    true,
+        return;
+    }
 
-                order:
-                    currentOrder
+    /*
+    ==========================================
+    ОТКЛОНЕНИЕ
+    ==========================================
+    */
+
+    if (
+        data.startsWith(
+            'reject:'
+        )
+    ) {
+        const orderId =
+            data.substring(
+                'reject:'.length
+            );
+
+        if (
+            isDriverTelegramId(
+                chatId
+            )
+        ) {
+            await rejectOrder(
+                orderId,
+                chatId
+            );
+
+            /*
+            Убираем кнопки только
+            у этого водителя.
+            */
+
+            try {
+                await telegram(
+                    'editMessageReplyMarkup',
+                    {
+                        chat_id:
+                            chatId,
+
+                        message_id:
+                            callback.message
+                                ?.message_id,
+
+                        reply_markup: {
+                            inline_keyboard: []
+                        }
+                    }
+                );
+            } catch (_) {}
+
+            await sendTelegramMessage(
+                chatId,
+                `❌ Заказ #${orderId} отклонён.`
+            );
+        }
+
+        return;
+    }
+
+    /*
+    ==========================================
+    РЕДАКТИРОВАНИЕ ПРОФИЛЯ
+    ==========================================
+    */
+
+    if (
+        data === 'editprofile'
+    ) {
+        if (
+            !isDriverTelegramId(
+                chatId
+            )
+        ) {
+            return;
+        }
+
+        await startDriverProfile(
+            chatId
+        );
+
+        return;
+    }
+
+    /*
+    ==========================================
+    ДЕТСКОЕ КРЕСЛО — НОВЫЙ ПРОФИЛЬ
+    ==========================================
+    */
+
+    if (
+        data === 'driver_seat:yes' ||
+        data === 'driver_seat:no'
+    ) {
+        const session =
+            driverSessions.get(
+                chatId
+            );
+
+        if (!session) {
+            return;
+        }
+
+        session.data.hasChildSeat =
+            data.endsWith(':yes');
+
+        session.step =
+            'photo';
+
+        await sendTelegramMessage(
+            chatId,
+            '📸 Отправьте фотографию автомобиля.\n\n' +
+            'Если не хотите добавлять фото — напишите /skip'
+        );
+
+        return;
+    }
+
+    /*
+    ==========================================
+    ДЕТСКОЕ КРЕСЛО — РЕДАКТИРОВАНИЕ
+    ==========================================
+    */
+
+    if (
+        data === 'driver_seat_edit:yes' ||
+        data === 'driver_seat_edit:no'
+    ) {
+        const session =
+            driverSessions.get(
+                chatId
+            );
+
+        if (!session) {
+            return;
+        }
+
+        session.data.hasChildSeat =
+            data.endsWith(':yes');
+
+        session.step =
+            'photo';
+
+        await sendTelegramMessage(
+            chatId,
+            '📸 Отправьте новую фотографию автомобиля.\n\n' +
+            'Или напишите /skip, чтобы оставить старую.'
+        );
+
+        return;
+    }
+}
+
+/*
+==================================================
+ TELEGRAM MESSAGE
+==================================================
+*/
+
+async function processTelegramMessage(
+    message
+) {
+    const chatId =
+        message.chat.id;
+
+    const text =
+        message.text || '';
+
+    const user =
+        message.from || {};
+
+    /*
+    ==========================================
+    ВОДИТЕЛЬ
+    ==========================================
+    */
+
+    if (
+        isDriverTelegramId(
+            chatId
+        )
+    ) {
+        driverChats.set(
+            chatId,
+            {
+                chatId,
+
+                telegramId:
+                    user.id,
+
+                firstName:
+                    user.first_name ||
+                    'Водитель',
+
+                username:
+                    user.username ||
+                    ''
             }
         );
     }
-);
 
-// =====================================================
-// DRIVER PROFILE API
-// =====================================================
+    /*
+    /start
+    */
 
-app.get(
-    '/api/driver-profile',
-    async (req, res) => {
+    if (
+        text.startsWith('/start')
+    ) {
+        if (
+            isDriverTelegramId(
+                chatId
+            )
+        ) {
+            await sendTelegramMessage(
+                chatId,
+                '🚕 Такси Речица\n\n' +
+                'Вы зарегистрированы как водитель.\n\n' +
+                'Команды:\n' +
+                '/profile — мой профиль\n' +
+                '/editprofile — изменить профиль\n' +
+                '/orders — мои активные заказы\n\n' +
+                'Когда появится подходящий заказ, он придёт сюда.'
+            );
+        } else {
+            await sendTelegramMessage(
+                chatId,
+                '🚕 Такси Речица\n\n' +
+                'Для заказа такси откройте Mini App.'
+            );
+        }
 
-        try {
+        return;
+    }
 
-            const chatId =
-                req.query.chatId;
+    /*
+    /profile
+    */
+
+    if (
+        text === '/profile'
+    ) {
+        if (
+            isDriverTelegramId(
+                chatId
+            )
+        ) {
+            await showDriverProfile(
+                chatId
+            );
+        }
+
+        return;
+    }
+
+    /*
+    /editprofile
+    */
+
+    if (
+        text === '/editprofile'
+    ) {
+        if (
+            isDriverTelegramId(
+                chatId
+            )
+        ) {
+            await startDriverProfile(
+                chatId
+            );
+        }
+
+        return;
+    }
+
+    /*
+    /orders
+    */
+
+    if (
+        text === '/orders'
+    ) {
+        if (
+            isDriverTelegramId(
+                chatId
+            )
+        ) {
+            const rows =
+                await getActiveDriverOrders(
+                    chatId
+                );
 
             if (
-                !chatId ||
-                !isDriver(chatId)
+                rows.length === 0
             ) {
-
-                return res.status(403).json(
-                    {
-                        success:
-                            false,
-
-                        error:
-                            'Доступ запрещён'
-                    }
+                await sendTelegramMessage(
+                    chatId,
+                    '🚕 Активных заказов нет.'
                 );
+
+                return;
             }
 
-            const profile =
+            let messageText =
+                '🚕 ВАШИ АКТИВНЫЕ ЗАКАЗЫ\n\n';
+
+            for (
+                const row of rows
+            ) {
+                const order =
+                    dbOrderToObject(
+                        row
+                    );
+
+                messageText +=
+                    `#${order.id}\n` +
+
+                    `📍 ${
+                        order.addressA
+                    } → ${
+                        order.addressB
+                    }\n` +
+
+                    `🕐 ${
+                        order.scheduled ||
+                        'Ближайшее время'
+                    }\n` +
+
+                    `📌 ${
+                        order.isImmediate
+                            ? 'Текущий заказ'
+                            : 'Предварительный заказ'
+                    }\n\n`;
+            }
+
+            await sendTelegramMessage(
+                chatId,
+                messageText
+            );
+        }
+
+        return;
+    }
+
+    /*
+    /skip
+    */
+
+    if (
+        text === '/skip'
+    ) {
+        const session =
+            driverSessions.get(
+                chatId
+            );
+
+        if (
+            session &&
+            session.step === 'photo'
+        ) {
+            const oldProfile =
                 await getDriverProfile(
                     chatId
                 );
 
-            res.json(
-                {
-                    success:
-                        true,
+            session.data.photoFileId =
+                oldProfile?.photo_file_id ||
+                null;
 
-                    profile
-                }
+            await saveDriverProfile({
+                telegramId:
+                    chatId,
+
+                name:
+                    session.data.name,
+
+                car:
+                    session.data.car,
+
+                plate:
+                    session.data.plate,
+
+                phone:
+                    session.data.phone,
+
+                photoFileId:
+                    session.data.photoFileId,
+
+                hasChildSeat:
+                    session.data.hasChildSeat
+            });
+
+            driverSessions.delete(
+                chatId
             );
 
+            await sendTelegramMessage(
+                chatId,
+                '✅ Профиль сохранён!\n\n' +
+                driverProfileText(
+                    await getDriverProfile(
+                        chatId
+                    )
+                )
+            );
+        }
+
+        return;
+    }
+
+    /*
+    Если сейчас заполняем профиль —
+    передаём сообщение туда.
+    */
+
+    if (
+        isDriverTelegramId(
+            chatId
+        )
+    ) {
+        const handled =
+            await processDriverMessage(
+                message
+            );
+
+        if (handled) {
+            return;
+        }
+    }
+}
+
+/*
+==================================================
+ ФОТО ВОДИТЕЛЯ
+==================================================
+*/
+
+async function processPhoto(
+    message
+) {
+    const chatId =
+        message.chat.id;
+
+    const session =
+        driverSessions.get(
+            chatId
+        );
+
+    if (!session) {
+        return false;
+    }
+
+    if (
+        session.step !== 'photo'
+    ) {
+        return false;
+    }
+
+    if (
+        !message.photo ||
+        message.photo.length === 0
+    ) {
+        return false;
+    }
+
+    const photo =
+        message.photo[
+            message.photo.length - 1
+        ];
+
+    session.data.photoFileId =
+        photo.file_id;
+
+    await saveDriverProfile({
+        telegramId:
+            chatId,
+
+        name:
+            session.data.name,
+
+        car:
+            session.data.car,
+
+        plate:
+            session.data.plate,
+
+        phone:
+            session.data.phone,
+
+        photoFileId:
+            session.data.photoFileId,
+
+        hasChildSeat:
+            session.data.hasChildSeat
+    });
+
+    driverSessions.delete(
+        chatId
+    );
+
+    const profile =
+        await getDriverProfile(
+            chatId
+        );
+
+    await sendTelegramMessage(
+        chatId,
+        '✅ Профиль водителя сохранён!\n\n' +
+        driverProfileText(profile)
+    );
+
+    return true;
+}
+
+/*
+==================================================
+ TELEGRAM UPDATE
+==================================================
+*/
+
+let telegramOffset = 0;
+let telegramPolling = false;
+
+async function processTelegramUpdate(
+    update
+) {
+    try {
+        if (
+            update.message
+        ) {
+            const handledPhoto =
+                await processPhoto(
+                    update.message
+                );
+
+            if (
+                handledPhoto
+            ) {
+                return;
+            }
+
+            await processTelegramMessage(
+                update.message
+            );
+        }
+
+        if (
+            update.callback_query
+        ) {
+            await processCallback(
+                update.callback_query
+            );
+        }
+    } catch (error) {
+        console.error(
+            'Ошибка Telegram update:',
+            error
+        );
+    }
+}
+
+/*
+==================================================
+ TELEGRAM POLLING
+==================================================
+*/
+
+async function telegramPollingLoop() {
+    if (
+        telegramPolling
+    ) {
+        return;
+    }
+
+    telegramPolling =
+        true;
+
+    if (!BOT_TOKEN) {
+        console.error(
+            'TELEGRAM_BOT_TOKEN не задан.'
+        );
+
+        telegramPolling =
+            false;
+
+        return;
+    }
+
+    try {
+        await telegram(
+            'deleteWebhook',
+            {
+                drop_pending_updates:
+                    false
+            }
+        );
+
+        const me =
+            await telegram(
+                'getMe'
+            );
+
+        console.log(
+            `Telegram бот подключён: @${me.username}`
+        );
+
+    } catch (error) {
+        console.error(
+            'Не удалось подключить Telegram:',
+            error.message
+        );
+
+        telegramPolling =
+            false;
+
+        return;
+    }
+
+    while (true) {
+        try {
+            const updates =
+                await telegram(
+                    'getUpdates',
+                    {
+                        offset:
+                            telegramOffset,
+
+                        timeout:
+                            25,
+
+                        allowed_updates: [
+                            'message',
+                            'callback_query'
+                        ]
+                    }
+                );
+
+            for (
+                const update of updates
+            ) {
+                telegramOffset =
+                    update.update_id + 1;
+
+                await processTelegramUpdate(
+                    update
+                );
+            }
+
         } catch (error) {
+            console.error(
+                'Telegram polling:',
+                error.message
+            );
 
-            console.error(error);
-
-            res.status(500).json(
-                {
-                    success:
-                        false,
-
-                    error:
-                        'Ошибка сервера'
-                }
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        3000
+                    )
             );
         }
     }
+}
+
+/*
+==================================================
+ HEALTH
+==================================================
+*/
+
+app.get(
+    '/health',
+    async (req, res) => {
+        let database =
+            false;
+
+        if (pool) {
+            try {
+                await pool.query(
+                    'SELECT 1'
+                );
+
+                database =
+                    true;
+            } catch (_) {}
+        }
+
+        res.json({
+            ok: true,
+
+            telegram:
+                Boolean(BOT_TOKEN),
+
+            database,
+
+            rules: {
+                maxNormalActiveOrders:
+                    MAX_NORMAL_ACTIVE_ORDERS,
+
+                futureOrderBlockMinutes:
+                    FUTURE_ORDER_BLOCK_MINUTES
+            }
+        });
+    }
 );
 
-// =====================================================
-// MAIN
-// =====================================================
+/*
+==================================================
+ ГЛАВНАЯ
+==================================================
+*/
 
 app.get(
     '/',
     (req, res) => {
-
         res.sendFile(
             __dirname +
             '/public/index.html'
@@ -2592,43 +3687,55 @@ app.get(
     }
 );
 
-// =====================================================
-// START SERVER
-// =====================================================
+/*
+==================================================
+ ЗАПУСК
+==================================================
+*/
 
-const PORT =
-    process.env.PORT || 3000;
-
-app.listen(
-    PORT,
-    async () => {
-
-        console.log(
-            '================================='
-        );
-
-        console.log(
-            `🚕 Такси Речица запущено: ${PORT}`
-        );
-
-        console.log(
-            `👨‍✈️ Водителей: ${DRIVER_CHAT_IDS.length}`
-        );
-
-        console.log(
-            '================================='
-        );
-
+async function startServer() {
+    try {
         await initDatabase();
 
-        await setupTelegramWebhook();
+        app.listen(
+            PORT,
+            () => {
+                console.log(
+                    '================================='
+                );
 
-        await setTelegramCommands();
+                console.log(
+                    `🚕 Такси Речица запущено`
+                );
 
-        await setDriverCommands();
+                console.log(
+                    `Порт: ${PORT}`
+                );
 
-        console.log(
-            '✅ Система готова'
+                console.log(
+                    `Максимум обычных заказов: ${MAX_NORMAL_ACTIVE_ORDERS}`
+                );
+
+                console.log(
+                    `Блокировка перед предварительным заказом: ${FUTURE_ORDER_BLOCK_MINUTES} минут`
+                );
+
+                console.log(
+                    '================================='
+                );
+
+                telegramPollingLoop();
+            }
         );
+
+    } catch (error) {
+        console.error(
+            'Ошибка запуска сервера:',
+            error
+        );
+
+        process.exit(1);
     }
-);
+}
+
+startServer();
