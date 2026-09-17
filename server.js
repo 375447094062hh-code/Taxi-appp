@@ -8,6 +8,16 @@ const app = express();
 
 app.use(express.json({ limit: "2mb" }));
 
+// Telegram Mini App: всегда отдаём свежий HTML, чтобы старый профиль/режим не кэшировался.
+app.use((req, res, next) => {
+    if (req.path === "/" || req.path === "/index.html" || req.path.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+    }
+    next();
+});
+
 const publicPath = path.join(__dirname, "public");
 
 if (fs.existsSync(publicPath)) {
