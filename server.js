@@ -2162,8 +2162,11 @@ app.get(
                 return res.status(400).json({ success: false, error: "Не указан Telegram ID." });
             }
 
-            if (isDriverTelegramId(telegramId)) {
-                const driver = await getDriver(telegramId);
+            // Сначала проверяем PostgreSQL. Это надёжнее, чем
+            // полагаться только на DRIVER_CHAT_IDS в Render.
+            const driver = await getDriver(telegramId);
+
+            if (driver || isDriverTelegramId(telegramId)) {
                 return res.json({
                     success: true,
                     role: "driver",
