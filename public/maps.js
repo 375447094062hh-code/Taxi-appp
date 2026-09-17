@@ -1,5 +1,5 @@
 (() => {
-  const S = { map:null, a:null, b:null, ma:null, mb:null, route:null, field:'pickup', timer:null, leaflet:null, locating:false };
+  const S = { map:null, a:null, b:null, ma:null, mb:null, route:null, field:'pickup', timer:null, leaflet:null, locating:false, booted:false };
 
   function css(){
     if(document.getElementById('taxiOldMapCss')) return;
@@ -43,7 +43,7 @@
     const c=document.createElement('div');c.id='passengerMapCard';c.className='taxi-map-card';
     c.innerHTML=`<div class="taxi-map-title"><span>🗺 Карта маршрута</span><span id="mapDistanceMini" style="color:#facc15">—</span></div>
       <div class="taxi-map-actions"><button id="mapPickupBtn" class="active" type="button">📍 A · Откуда</button><button id="mapDestinationBtn" type="button">🏁 B · Куда</button></div>
-      <button id="mapLocateBtn" class="taxi-map-location" type="button">📍 Определить моё местоположение</button>
+      <button id="mapLocateBtn" class="taxi-map-location" type="button">📍 Моё местоположение</button>
       <div id="mapLocationHint" style="font-size:9px;color:#718097;text-align:center;margin:-2px 0 8px"></div>
       <div id="passengerMap" class="taxi-map taxi-map-dark"><div class="taxi-map-loading">Загрузка карты…</div></div>
       <div class="taxi-route-info"><div class="taxi-route-stat"><b id="routeDistance">—</b><span>расстояние</span></div><div class="taxi-route-stat"><b id="routeDuration">—</b><span>примерное время</span></div></div>
@@ -61,11 +61,13 @@
 
   function stats(km,min){
     const d=km==null?'—':Number(km).toFixed(1)+' км';
-    document.getElementById('routeDistance')?.replaceChildren(d);document.getElementById('mapDistanceMini')?.replaceChildren(d);
+    document.getElementById('routeDistance')?.replaceChildren(d);
+    document.getElementById('mapDistanceMini')?.replaceChildren(d);
     document.getElementById('routeDuration')?.replaceChildren(min==null?'—':Math.max(1,Math.round(min))+' мин');
     const price=km==null?null:3+Math.ceil(Number(km)*10)/10;
     document.getElementById('routePrice')?.replaceChildren(price==null?'—':price.toFixed(1)+' BYN');
-    window.taxiRouteDistanceKm=km==null?null:Number(km);window.taxiRoutePrice=price;
+    window.taxiRouteDistanceKm=km==null?null:Number(km);
+    window.taxiRoutePrice=price;
   }
 
   function reverse(lat,lng,type){
@@ -80,7 +82,8 @@
   }
 
   function setPoint(type,lat,lng,address){
-    const p={lat:+lat,lng:+lng}; if(type==='pickup')S.a=p; else S.b=p;
+    const p={lat:+lat,lng:+lng};
+    if(type==='pickup')S.a=p; else S.b=p;
     const input=document.getElementById(type==='pickup'?'addressA':'addressB'); if(input&&address)input.value=address;
     if(!S.map){init();return;}
     const marker=type==='pickup'?S.ma:S.mb;
@@ -91,7 +94,8 @@
       m.on('dragend',()=>{const q=m.getLatLng();if(type==='pickup')S.a={lat:q.lat,lng:q.lng};else S.b={lat:q.lat,lng:q.lng};reverse(q.lat,q.lng,type);route()});
       if(type==='pickup')S.ma=m;else S.mb=m;
     }
-    S.map.flyTo([p.lat,p.lng],15,{duration:.25}); route();
+    S.map.flyTo([p.lat,p.lng],15,{duration:.25});
+    route();
   }
 
   function route(){
@@ -107,24 +111,62 @@
   function locationError(err){
     const hint=document.getElementById('mapLocationHint');
     const b=document.getElementById('mapLocateBtn');
-    if(b)b.textContent='📍 Определить моё местоположение';
+    if(b)b.textContent='📍 Моё местоположение';
     let text='Не удалось определить местоположение.';
-    if(err?.code===1) text='Доступ к геолокации запрещён. Разрешите доступ к местоположению для Telegram.';
-    if(err?.code===2) text='Местоположение недоступно. Включите GPS и попробуйте ещё раз.';
-    if(err?.code===3) text='Определение заняло слишком долго. Включите GPS и попробуйте ещё раз.';
+    if(err?.code===1) text='Доступ запрещён. Разрешите геолокацию для этого Mini App.';
+    if(err?.code===2) text='Местоположение недоступно. Включите геолокацию на телефоне.';
+    if(err?.code===3) text='Определение заняло слишком долго. Попробуйте ещё раз.';
     if(hint)hint.textContent=text;
+  }
+
+  function applyTelegramLocation(data){
+    if(!data||!Number.isFinite(Number(data.latitude))||!Number.isFinite(Number(data.longitude)))return false;
+    S.locating=false;
+    const lat=Number(data.latitude),lng=Number(data.longitude);
+    setPoint('pickup',lat,lng);
+    reverse(lat,lng,'pickup');
+    const b=document.getElementById('mapLocateBtn'),hint=document.getElementById('mapLocationHint');
+    if(b)b.textContent='✅ Местоположение определено';
+    if(hint)hint.textContent='Точка A установлена по геолокации Telegram';
+    return true;
+  }
+
+  function locateWithTelegram(){
+    const tg=window.Telegram?.WebApp;
+    const lm=tg?.LocationManager;
+    if(!lm||typeof lm.init!=='function'||typeof lm.getLocation!=='function')return false;
+    const hint=document.getElementById('mapLocationHint');
+    if(hint)hint.textContent='Telegram запрашивает доступ к местоположению…';
+    try{
+      lm.init(()=>{
+        if(lm.isLocationAvailable===false){locationError({code:2});return;}
+        lm.getLocation(data=>{
+          if(applyTelegramLocation(data))return;
+          if(typeof lm.openSettings==='function'&&lm.isAccessRequested&&!lm.isAccessGranted){
+            const h=document.getElementById('mapLocationHint');
+            if(h)h.textContent='Доступ к геолокации не выдан. Нажмите кнопку ещё раз и разрешите доступ.';
+          } else locationError({code:1});
+        });
+      });
+      return true;
+    }catch(e){return false}
   }
 
   function locate(){
     if(S.locating)return;
-    if(!window.isSecureContext){locationError({code:2});return;}
-    if(!navigator.geolocation){locationError({code:2});return;}
     S.locating=true;S.field='pickup';active();
-    const b=document.getElementById('mapLocateBtn');const hint=document.getElementById('mapLocationHint');
-    if(b)b.textContent='⏳ Определяем местоположение…';if(hint)hint.textContent='Разрешите доступ к геолокации, если Telegram спросит.';
-    const done=(p)=>{S.locating=false;const lat=p.coords.latitude,lng=p.coords.longitude;setPoint('pickup',lat,lng);reverse(lat,lng,'pickup');if(b)b.textContent='✅ Местоположение определено';if(hint)hint.textContent='Точка A установлена по GPS';};
-    const fail=err=>{S.locating=false;locationError(err)};
-    navigator.geolocation.getCurrentPosition(done,fail,{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    const b=document.getElementById('mapLocateBtn'),hint=document.getElementById('mapLocationHint');
+    if(b)b.textContent='⏳ Определяем…';
+    if(hint)hint.textContent='Получаем ваше местоположение…';
+    if(locateWithTelegram())return;
+    if(!navigator.geolocation){S.locating=false;locationError({code:2});return;}
+    navigator.geolocation.getCurrentPosition(p=>{
+      S.locating=false;
+      const lat=p.coords.latitude,lng=p.coords.longitude;
+      setPoint('pickup',lat,lng);reverse(lat,lng,'pickup');
+      if(b)b.textContent='✅ Местоположение определено';
+      if(hint)hint.textContent='Точка A установлена по GPS';
+    },err=>{S.locating=false;locationError(err)},{enableHighAccuracy:true,timeout:15000,maximumAge:0});
   }
 
   function bind(){
@@ -134,14 +176,15 @@
   function init(){
     const e=document.getElementById('passengerMap');if(!e||S.map)return;
     loadLeaflet().then(()=>{
+      if(S.map)return;
       e.innerHTML='';
-      S.map=L.map('passengerMap',{zoomControl:true,attributionControl:true}).setView([52.36,30.39],13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(S.map);
+      S.map=L.map('passengerMap',{zoomControl:true,attributionControl:true,preferCanvas:true}).setView([52.36,30.39],13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,updateWhenZooming:false,updateWhenIdle:true,keepBuffer:2,attribution:'© OpenStreetMap contributors'}).addTo(S.map);
       S.map.on('click',choose);
+      setTimeout(()=>S.map?.invalidateSize({pan:false}),120);
     }).catch(()=>{e.innerHTML='<div class="taxi-map-loading">Не удалось загрузить карту. Проверьте интернет.</div>'});
   }
 
-  function boot(){css();ui();bind();init()}
+  function boot(){if(S.booted)return;S.booted=true;css();ui();bind();init()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-  new MutationObserver(()=>{ui();bind()}).observe(document.body,{childList:true,subtree:true});
 })();
