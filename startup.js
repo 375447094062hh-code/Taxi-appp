@@ -85,16 +85,14 @@ async function migrate() {
         }
 
         const legacyColumn = await pool.query(`
-            SELECT 1
-            FROM information_schema.columns
+            SELECT 1 FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name = 'passenger_orders'
               AND column_name = 'telegram_id'
         `);
 
         const currentColumn = await pool.query(`
-            SELECT 1
-            FROM information_schema.columns
+            SELECT 1 FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name = 'passenger_orders'
               AND column_name = 'telegram_user_id'
@@ -161,16 +159,12 @@ function installExpressHooks() {
         if (app.__taxiMapsHooksInstalled) return app;
         app.__taxiMapsHooksInstalled = true;
 
-        // Body parser нужен до нашего GPS endpoint.
         app.use(originalExpress.json({ limit: "2mb" }));
 
         app.post("/api/driver-location", async (req, res) => {
             try {
                 if (!runtimePool) {
-                    return res.status(500).json({
-                        success: false,
-                        error: "PostgreSQL не подключён"
-                    });
+                    return res.status(500).json({ success: false, error: "PostgreSQL не подключён" });
                 }
 
                 const telegramId = normalizeId(req.body?.telegramId);
@@ -179,24 +173,17 @@ function installExpressHooks() {
                 const accuracy = req.body?.accuracy == null ? null : Number(req.body.accuracy);
 
                 if (!driverAllowed(telegramId)) {
-                    return res.status(403).json({
-                        success: false,
-                        error: "Нет доступа водителя."
-                    });
+                    return res.status(403).json({ success: false, error: "Нет доступа водителя." });
                 }
 
                 if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: "Некорректные координаты."
-                    });
+                    return res.status(400).json({ success: false, error: "Некорректные координаты." });
                 }
 
                 await runtimePool.query(
                     `
                     UPDATE drivers
-                    SET
-                        latitude = $1,
+                    SET latitude = $1,
                         longitude = $2,
                         location_accuracy = $3,
                         location_updated_at = NOW(),
@@ -214,10 +201,7 @@ function installExpressHooks() {
                 });
             } catch (error) {
                 console.error("driver-location:", error);
-                return res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
+                return res.status(500).json({ success: false, error: error.message });
             }
         });
 
@@ -230,6 +214,13 @@ function installExpressHooks() {
                         if (!runtimePool || !data) return originalJson(data);
 
                         const requestPath = req.path || "";
+
+                        // Сохраняем совместимость профиля пассажира со старым frontend.
+                        if (requestPath === "/api/passenger-profile" && data.profile) {
+                            data.name = data.profile.name || "";
+                            data.phone = data.profile.phone || "";
+                            data.telegramId = data.profile.telegramId || data.telegramId || "";
+                        }
 
                         if (requestPath === "/api/send-order" && req.method === "POST" && data.orderId) {
                             const body = req.body || {};
@@ -246,8 +237,7 @@ function installExpressHooks() {
                             await runtimePool.query(
                                 `
                                 UPDATE passenger_orders
-                                SET
-                                    pickup_lat = $1,
+                                SET pickup_lat = $1,
                                     pickup_lng = $2,
                                     destination_lat = $3,
                                     destination_lng = $4
@@ -272,7 +262,8 @@ function installExpressHooks() {
                                     po.destination_lng,
                                     d.latitude AS driver_latitude,
                                     d.longitude AS driver_longitude,
-                                    d.location_updated_at AS driver_location_updated_at
+                                    d.location_updated_at AS driver_location_updated_at,
+                                    d.phone AS driver_db_phone
                                 FROM passenger_orders po
                                 LEFT JOIN drivers d ON d.telegram_id = po.driver_telegram_id
                                 WHERE po.id = $1
@@ -290,6 +281,9 @@ function installExpressHooks() {
                                 data.driverLatitude = row.driver_latitude;
                                 data.driverLongitude = row.driver_longitude;
                                 data.driverLocationUpdatedAt = row.driver_location_updated_at;
+                                if (!data.driverPhone && row.driver_db_phone) {
+                                    data.driverPhone = row.driver_db_phone;
+                                }
                             }
                         }
 
