@@ -1,3 +1,4 @@
+const express = require("express");
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
@@ -43,7 +44,6 @@ async function migrate() {
     });
 
     try {
-        // Telegram ID храним как TEXT.
         const columns = [
             ["passengers", "telegram_id"],
             ["drivers", "telegram_id"],
@@ -74,10 +74,6 @@ async function migrate() {
             }
         }
 
-        // В старой базе мог остаться telegram_id с NOT NULL.
-        // Новый server.js использует telegram_user_id.
-        // Переносим старые значения и убираем обязательность старого поля,
-        // чтобы старое ограничение больше не ломало создание заказа.
         const legacyColumn = await pool.query(`
             SELECT 1
             FROM information_schema.columns
@@ -98,7 +94,7 @@ async function migrate() {
             await pool.query(`
                 UPDATE passenger_orders
                 SET telegram_user_id = telegram_id
-                WHERE telegram_user_id IS NULL
+                WHERE (telegram_user_id IS NULL OR telegram_user_id = '')
                   AND telegram_id IS NOT NULL
             `);
 
@@ -120,6 +116,63 @@ injectAddressAutocomplete();
 
 migrate()
     .then(() => {
+        // Совместимость с текущим Mini App:
+        // профиль API возвращает данные внутри profile, а приложение
+        // использует name/phone на верхнем уровне.
+        const originalJson = express.response.json;
+        const runtimePool = DATABASE_URL
+            ? new Pool({
+                connectionString: DATABASE_URL,
+                ssl: { rejectUnauthorized: false }
+            })
+            : null;
+
+        express.response.json = function(data) {
+            const requestPath = this.req?.path || "";
+
+            if (
+                requestPath === "/api/passenger-profile" &&
+                data &&
+                data.profile
+            ) {
+                data.name = data.profile.name || "";
+                data.phone = data.profile.phone || "";
+                data.telegramId =
+                    data.profile.telegramId ||
+                    data.telegramId ||
+                    "";
+            }
+
+            if (
+                requestPath === "/api/order-status" &&
+                data &&
+                data.driverTelegramId &&
+                !data.driverPhone &&
+                runtimePool
+            ) {
+                const response = this;
+                const driverId = String(data.driverTelegramId);
+
+                runtimePool.query(
+                    `SELECT phone FROM drivers WHERE telegram_id = $1 LIMIT 1`,
+                    [driverId]
+                )
+                .then((result) => {
+                    if (result.rows.length && result.rows[0].phone) {
+                        data.driverPhone = result.rows[0].phone;
+                    }
+                    originalJson.call(response, data);
+                })
+                .catch(() => {
+                    originalJson.call(response, data);
+                });
+
+                return response;
+            }
+
+            return originalJson.call(this, data);
+        };
+
         require("./server.js");
     })
     .catch((error) => {
