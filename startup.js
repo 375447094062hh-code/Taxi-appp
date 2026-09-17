@@ -54,6 +54,61 @@ async function migrate() {
     const pool = runtimePool;
 
     try {
+        // На новом проекте server.js создаст те же таблицы позже.
+        // Создаём их здесь тоже, чтобы карта могла сразу добавить координаты.
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS drivers (
+                telegram_id TEXT PRIMARY KEY,
+                name TEXT,
+                car TEXT,
+                plate TEXT,
+                phone TEXT,
+                photo_file_id TEXT,
+                rating NUMERIC(3,2) NOT NULL DEFAULT 5.00,
+                has_child_seat BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS passengers (
+                telegram_id TEXT PRIMARY KEY,
+                name TEXT,
+                phone TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS passenger_orders (
+                id TEXT PRIMARY KEY,
+                telegram_user_id TEXT NOT NULL,
+                address_a TEXT,
+                address_b TEXT,
+                tariff TEXT,
+                scheduled TEXT,
+                scheduled_at TIMESTAMPTZ,
+                is_immediate BOOLEAN NOT NULL DEFAULT TRUE,
+                is_weekend BOOLEAN NOT NULL DEFAULT FALSE,
+                child_seat BOOLEAN NOT NULL DEFAULT FALSE,
+                status TEXT NOT NULL DEFAULT 'searching',
+                driver_telegram_id TEXT,
+                driver_name TEXT,
+                driver_car TEXT,
+                driver_number TEXT,
+                driver_phone TEXT,
+                driver_rating NUMERIC(3,2),
+                driver_photo_file_id TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                accepted_at TIMESTAMPTZ,
+                arrived_at TIMESTAMPTZ,
+                trip_started_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ
+            )
+        `);
+
         const columns = [
             ["passengers", "telegram_id"],
             ["drivers", "telegram_id"],
@@ -215,7 +270,6 @@ function installExpressHooks() {
 
                         const requestPath = req.path || "";
 
-                        // Сохраняем совместимость профиля пассажира со старым frontend.
                         if (requestPath === "/api/passenger-profile" && data.profile) {
                             data.name = data.profile.name || "";
                             data.phone = data.profile.phone || "";
