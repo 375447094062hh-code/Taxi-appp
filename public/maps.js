@@ -1,5 +1,5 @@
 (() => {
-  const S = { map:null, a:null, b:null, ma:null, mb:null, route:null, field:'pickup', timer:null, leaflet:null };
+  const S = { map:null, a:null, b:null, ma:null, mb:null, route:null, field:'pickup', timer:null, leaflet:null, locating:false };
 
   function css(){
     if(document.getElementById('taxiOldMapCss')) return;
@@ -12,7 +12,7 @@
       .taxi-map-actions button.active{background:#facc15;color:#17120a}
       .taxi-map-location{width:100%;margin-bottom:8px}
       .taxi-map{width:100%;height:245px;border-radius:16px;overflow:hidden;background:#0b1118}
-      .taxi-map-loading{height:100%;display:flex;align-items:center;justify-content:center;color:#8b98aa;font-size:11px}
+      .taxi-map-loading{height:100%;display:flex;align-items:center;justify-content:center;color:#8b98aa;font-size:11px;padding:15px;text-align:center}
       .taxi-route-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
       .taxi-route-stat{background:#151f2f;border:1px solid #26354c;border-radius:12px;padding:8px;text-align:center}
       .taxi-route-stat b{display:block;font-size:15px}.taxi-route-stat span{font-size:9px;color:#8290a7}
@@ -43,7 +43,8 @@
     const c=document.createElement('div');c.id='passengerMapCard';c.className='taxi-map-card';
     c.innerHTML=`<div class="taxi-map-title"><span>🗺 Карта маршрута</span><span id="mapDistanceMini" style="color:#facc15">—</span></div>
       <div class="taxi-map-actions"><button id="mapPickupBtn" class="active" type="button">📍 A · Откуда</button><button id="mapDestinationBtn" type="button">🏁 B · Куда</button></div>
-      <button id="mapLocateBtn" class="taxi-map-location" type="button">📍 Моё местоположение</button>
+      <button id="mapLocateBtn" class="taxi-map-location" type="button">📍 Определить моё местоположение</button>
+      <div id="mapLocationHint" style="font-size:9px;color:#718097;text-align:center;margin:-2px 0 8px"></div>
       <div id="passengerMap" class="taxi-map taxi-map-dark"><div class="taxi-map-loading">Загрузка карты…</div></div>
       <div class="taxi-route-info"><div class="taxi-route-stat"><b id="routeDistance">—</b><span>расстояние</span></div><div class="taxi-route-stat"><b id="routeDuration">—</b><span>примерное время</span></div></div>
       <div class="taxi-price-box"><span>3 BYN + 1 BYN / км</span><strong id="routePrice">—</strong></div>`;
@@ -103,6 +104,33 @@
 
   function choose(e){setPoint(S.field,e.latlng.lat,e.latlng.lng);reverse(e.latlng.lat,e.latlng.lng,S.field)}
 
+  function locationError(err){
+    const hint=document.getElementById('mapLocationHint');
+    const b=document.getElementById('mapLocateBtn');
+    if(b)b.textContent='📍 Определить моё местоположение';
+    let text='Не удалось определить местоположение.';
+    if(err?.code===1) text='Доступ к геолокации запрещён. Разрешите доступ к местоположению для Telegram.';
+    if(err?.code===2) text='Местоположение недоступно. Включите GPS и попробуйте ещё раз.';
+    if(err?.code===3) text='Определение заняло слишком долго. Включите GPS и попробуйте ещё раз.';
+    if(hint)hint.textContent=text;
+  }
+
+  function locate(){
+    if(S.locating)return;
+    if(!window.isSecureContext){locationError({code:2});return;}
+    if(!navigator.geolocation){locationError({code:2});return;}
+    S.locating=true;S.field='pickup';active();
+    const b=document.getElementById('mapLocateBtn');const hint=document.getElementById('mapLocationHint');
+    if(b)b.textContent='⏳ Определяем местоположение…';if(hint)hint.textContent='Разрешите доступ к геолокации, если Telegram спросит.';
+    const done=(p)=>{S.locating=false;const lat=p.coords.latitude,lng=p.coords.longitude;setPoint('pickup',lat,lng);reverse(lat,lng,'pickup');if(b)b.textContent='✅ Местоположение определено';if(hint)hint.textContent='Точка A установлена по GPS';};
+    const fail=err=>{S.locating=false;locationError(err)};
+    navigator.geolocation.getCurrentPosition(done,fail,{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  }
+
+  function bind(){
+    [['addressA','pickup'],['addressB','destination']].forEach(([id,f])=>{const i=document.getElementById(id);if(!i||i.dataset.oldMapBound)return;i.dataset.oldMapBound='1';i.addEventListener('focus',()=>{S.field=f;active()});['change','blur'].forEach(ev=>i.addEventListener(ev,()=>setTimeout(()=>geocode(i.value).then(p=>p&&setPoint(f,p.lat,p.lng,i.value)),100)))});
+  }
+
   function init(){
     const e=document.getElementById('passengerMap');if(!e||S.map)return;
     loadLeaflet().then(()=>{
@@ -110,17 +138,7 @@
       S.map=L.map('passengerMap',{zoomControl:true,attributionControl:true}).setView([52.36,30.39],13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(S.map);
       S.map.on('click',choose);
-      if(S.a)setPoint('pickup',S.a.lat,S.a.lng);if(S.b)setPoint('destination',S.b.lat,S.b.lng);
     }).catch(()=>{e.innerHTML='<div class="taxi-map-loading">Не удалось загрузить карту. Проверьте интернет.</div>'});
-  }
-
-  function locate(){
-    if(!navigator.geolocation)return;const b=document.getElementById('mapLocateBtn');if(b)b.textContent='⏳ Определяем…';
-    navigator.geolocation.getCurrentPosition(p=>{S.field='pickup';active();setPoint('pickup',p.coords.latitude,p.coords.longitude);reverse(p.coords.latitude,p.coords.longitude,'pickup');if(b)b.textContent='📍 Моё местоположение'},()=>{if(b)b.textContent='📍 Не удалось определить';setTimeout(()=>{if(b)b.textContent='📍 Моё местоположение'},1800)},{enableHighAccuracy:true,timeout:10000,maximumAge:30000});
-  }
-
-  function bind(){
-    [['addressA','pickup'],['addressB','destination']].forEach(([id,f])=>{const i=document.getElementById(id);if(!i||i.dataset.oldMapBound)return;i.dataset.oldMapBound='1';i.addEventListener('focus',()=>{S.field=f;active()});['change','blur'].forEach(ev=>i.addEventListener(ev,()=>setTimeout(()=>geocode(i.value).then(p=>p&&setPoint(f,p.lat,p.lng,i.value)),100)))});
   }
 
   function boot(){css();ui();bind();init()}
