@@ -744,7 +744,16 @@
 
     // --- ФУНКЦИЯ СОЗДАНИЯ ЗАКАЗА И ОТПРАВКИ НА СЕРВЕР ---
     function createOrderAndSearch() {
-      const order = {
+    const telegramUser =
+        window.Telegram &&
+        window.Telegram.WebApp &&
+        window.Telegram.WebApp.initDataUnsafe &&
+        window.Telegram.WebApp.initDataUnsafe.user;
+
+    const passengerChatId =
+        telegramUser ? telegramUser.id : null;
+
+    const order = {
         id: Date.now().toString(),
         addressA: document.getElementById('inputA').value,
         addressB: document.getElementById('inputB').value,
@@ -752,28 +761,47 @@
         scheduled: scheduledDateTimeText,
         isWeekend: isWeekend,
         childSeat: hasChildSeat,
+        passengerChatId: passengerChatId,
         status: 'searching'
-      };
+    };
 
-      fetch('/api/send-order', {
+    fetch('/api/send-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(order)
-      })
-      .then(async response => {
+    })
+    .then(async response => {
         const data = await response.json();
+
         if (!response.ok || data.success === false) {
-          throw new Error(data.error || 'Сервер не принял заказ');
+            throw new Error(
+                data.error || 'Сервер не принял заказ'
+            );
         }
-        console.log('Заказ отправлен на сервер:', data);
-        activeOrder = data.order || order;
+
+        console.log(
+            'Заказ отправлен на сервер:',
+            data
+        );
+
+        activeOrder =
+            data.order || order;
+
         goTo(8);
+
         startClientWaitingCheck();
-      })
-      .catch(error => {
-        console.error('Ошибка отправки:', error);
-        alert('Не удалось отправить заказ. Проверьте соединение с сервером.');
-      });
+    })
+    .catch(error => {
+        console.error(
+            'Ошибка отправки:',
+            error
+        );
+
+        alert(
+            'Не удалось отправить заказ. ' +
+            'Проверьте соединение с сервером.'
+        );
+    });
     }
 
     function updatePassengerDriverInfo(order) {
