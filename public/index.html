@@ -1,1093 +1,2586 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Такси Речица — Mini App</title>
-  
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
 
-  <style>
-    :root {
-      --bg-color: #0b111e;
-      --card-bg: #151d2a;
-      --card-border: #232e42;
-      --accent-yellow: #facc15;
-      --accent-yellow-hover: #eab308;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --green: #22c55e;
-      --red: #ef4444;
-      --orange: #f97316;
-      --yandex-red: #fc3f1d;
-    }
+    <title>Такси Речица</title>
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background-color: #05080e; color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; }
-    
-    .app-container {
-      width: 100%; max-width: 410px; height: 840px; background-color: var(--bg-color);
-      border-radius: 40px; border: 8px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-      position: relative; overflow: hidden; display: flex; flex-direction: column;
-    }
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    .status-bar { height: 40px; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; z-index: 100; background: rgba(11, 17, 30, 0.85); backdrop-filter: blur(10px); }
-    .status-bar-left { display: flex; align-items: center; gap: 8px; }
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    .app-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-color); z-index: 90; }
-    .header-btn { background: transparent; border: none; color: var(--text-main); font-size: 18px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
-    .header-title { font-size: 16px; font-weight: 700; }
-    
-    .viewport { flex: 1; position: relative; overflow-y: auto; overflow-x: hidden; }
-    .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; padding: 16px; overflow-y: auto; }
-    .screen.active { display: flex; }
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #080c14;
+            color: #ffffff;
+        }
 
-    .btn-primary {
-      background: var(--accent-yellow); color: #000; border: none; border-radius: 14px; padding: 16px;
-      font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; text-align: center; transition: all 0.2s; margin-top: auto;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-primary:active { transform: scale(0.98); background: var(--accent-yellow-hover); }
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
-    .btn-tab {
-      flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--card-border);
-      background: var(--card-bg); color: var(--text-muted); font-weight: 600; cursor: pointer; text-align: center;
-    }
-    .btn-tab.active { background: var(--accent-yellow); color: #000; border-color: var(--accent-yellow); }
+        button,
+        input,
+        select {
+            font: inherit;
+        }
 
-    .btn-yandex {
-      background: var(--yandex-red); color: #fff; border: none; border-radius: 14px; padding: 14px;
-      font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; text-align: center; transition: all 0.2s;
-      display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;
-    }
+        button {
+            cursor: pointer;
+            border: 0;
+        }
 
-    .input-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px 14px; color: var(--text-main); width: 100%; font-size: 14px; outline: none; margin-top: 4px; }
-    .input-box::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        .app {
+            width: 100%;
+            max-width: 430px;
+            min-height: 100vh;
+            margin: 0 auto;
+            padding: 16px 14px 30px;
+            background:
+                radial-gradient(circle at 80% 0%, rgba(250, 204, 21, .10), transparent 30%),
+                radial-gradient(circle at 0% 40%, rgba(34, 197, 94, .05), transparent 25%),
+                #080c14;
+        }
 
-    .label-text { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-    .form-group { margin-bottom: 12px; position: relative; }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
 
-    .suggestions-list {
-      position: absolute; top: 100%; left: 0; right: 0; background: #1a2436;
-      border: 1px solid var(--accent-yellow); border-radius: 12px; max-height: 200px; overflow-y: auto;
-      z-index: 1000; box-shadow: 0 10px 25px rgba(0,0,0,0.7); margin-top: 4px; display: none;
-    }
-    .suggestion-item {
-      padding: 12px 14px; font-size: 13px; color: var(--text-main); cursor: pointer;
-      border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;
-    }
-    .suggestion-item:last-child { border-bottom: none; }
-    .suggestion-item:hover { background: rgba(250, 204, 21, 0.15); color: var(--accent-yellow); }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
 
-    .logo-card { text-align: center; padding: 22px 20px; background: linear-gradient(180deg, #1e293b 0%, #151d2a 100%); border-radius: 20px; margin-bottom: 16px; }
-    .logo-icon { width: 50px; height: 50px; background: var(--accent-yellow); color: #000; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 10px; font-weight: bold; }
-    .menu-list { display: flex; flex-direction: column; gap: 10px; }
-    .menu-item { background: var(--card-bg); border: 1px solid var(--card-border); padding: 14px 16px; border-radius: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-    .menu-item-left { display: flex; align-items: center; gap: 12px; }
+        .brand-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #facc15, #f59e0b);
+            color: #111827;
+            font-size: 21px;
+            font-weight: 900;
+            box-shadow: 0 8px 25px rgba(250, 204, 21, .20);
+        }
 
-    .tariff-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
-    .tariff-card.active { border-color: var(--accent-yellow); background: rgba(250, 204, 21, 0.05); box-shadow: 0 0 12px rgba(250, 204, 21, 0.15); }
-    .tariff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .tariff-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-    .tariff-details { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 8px; }
-    .tariff-desc { font-size: 12px; color: #cbd5e1; line-height: 1.4; }
+        .brand-title {
+            font-size: 17px;
+            font-weight: 800;
+            line-height: 1.1;
+        }
 
-    .option-card {
-      background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px;
-      padding: 12px 14px; display: flex; align-items: center; justify-content: space-between;
-      cursor: pointer; margin-top: 10px; user-select: none;
-    }
-    .option-card input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-yellow); cursor: pointer; }
+        .brand-subtitle {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #7f8ca3;
+        }
 
-    .info-only-mode .tariff-card { cursor: default !important; border-color: var(--card-border) !important; background: var(--card-bg) !important; box-shadow: none !important; }
+        .status-dot {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(34, 197, 94, .08);
+            border: 1px solid rgba(34, 197, 94, .16);
+            color: #6ee7a0;
+            font-size: 11px;
+            font-weight: 700;
+        }
 
-    .tariff-info-box { background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--card-border); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
-    .tariff-info-title { font-size: 12px; font-weight: 700; color: var(--accent-yellow); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-    .tariff-info-list { font-size: 11px; color: var(--text-muted); line-height: 1.5; padding-left: 16px; }
+        .status-dot::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 10px rgba(34, 197, 94, .7);
+        }
 
-    .weekend-badge-notice { background: rgba(250, 204, 21, 0.1); border: 1px solid var(--accent-yellow); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: var(--accent-yellow); display: flex; align-items: center; gap: 8px; font-weight: 600; }
+        .hero {
+            position: relative;
+            overflow: hidden;
+            padding: 22px;
+            border-radius: 25px;
+            margin-bottom: 14px;
+            background:
+                linear-gradient(135deg, rgba(250,204,21,.13), rgba(250,204,21,.02)),
+                #111827;
+            border: 1px solid rgba(250, 204, 21, .13);
+        }
 
-    .summary-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-    .summary-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; color: var(--text-muted); }
-    .summary-row span:last-child { color: var(--text-main); font-weight: 600; }
+        .hero::after {
+            content: "";
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            right: -60px;
+            top: -70px;
+            border-radius: 50%;
+            background: rgba(250, 204, 21, .08);
+            filter: blur(3px);
+        }
 
-    .search-radar { width: 110px; height: 110px; border-radius: 50%; background: rgba(250, 204, 21, 0.1); border: 2px solid var(--accent-yellow); display: flex; align-items: center; justify-content: center; margin: 30px auto; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
+        .hero-title {
+            position: relative;
+            z-index: 2;
+            font-size: 25px;
+            line-height: 1.08;
+            font-weight: 900;
+            max-width: 270px;
+        }
 
-    .driver-timer-box { background: rgba(250, 204, 21, 0.1); border: 1px solid var(--accent-yellow); border-radius: 16px; padding: 12px; text-align: center; margin-bottom: 10px; }
-    .timer-display { font-size: 28px; font-weight: 800; color: var(--accent-yellow); font-family: monospace; margin: 2px 0; }
+        .hero-text {
+            position: relative;
+            z-index: 2;
+            margin-top: 9px;
+            color: #9ba7ba;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 290px;
+        }
 
-    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
-    .status-waiting { background: rgba(249, 115, 22, 0.2); color: var(--orange); }
-    .status-moving { background: rgba(34, 197, 94, 0.2); color: var(--green); }
-    .status-done { background: rgba(34, 197, 94, 0.2); color: var(--green); }
+        .quick-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 17px;
+        }
 
-    .rating-stars { display: flex; justify-content: center; gap: 8px; font-size: 24px; color: var(--text-muted); margin: 12px 0; cursor: pointer; }
-    .rating-stars .fa-star.active { color: var(--accent-yellow); }
-  </style>
+        .quick-btn {
+            min-height: 52px;
+            border-radius: 15px;
+            font-weight: 800;
+            font-size: 13px;
+            transition: .2s;
+        }
+
+        .quick-btn.primary {
+            background: #facc15;
+            color: #17120a;
+        }
+
+        .quick-btn.secondary {
+            background: #1a2231;
+            border: 1px solid #293449;
+            color: #fff;
+        }
+
+        .quick-btn:active {
+            transform: scale(.98);
+        }
+
+        .card {
+            margin-top: 12px;
+            padding: 17px;
+            border-radius: 22px;
+            background: rgba(17, 24, 39, .92);
+            border: 1px solid #202b3e;
+            box-shadow: 0 12px 35px rgba(0,0,0,.14);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 850;
+            margin-bottom: 14px;
+        }
+
+        .field {
+            margin-bottom: 12px;
+        }
+
+        .field-label {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 11px;
+            color: #7f8ca3;
+            font-weight: 700;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #68758a;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .input {
+            width: 100%;
+            height: 48px;
+            border-radius: 14px;
+            padding: 0 13px 0 38px;
+            background: #0d1421;
+            border: 1px solid #243044;
+            color: #fff;
+            outline: none;
+        }
+
+        .input:focus {
+            border-color: rgba(250,204,21,.65);
+            box-shadow: 0 0 0 3px rgba(250,204,21,.07);
+        }
+
+        .mode-switch {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            padding: 4px;
+            border-radius: 15px;
+            background: #0b111d;
+            border: 1px solid #202b3e;
+            margin-bottom: 14px;
+        }
+
+        .mode-btn {
+            height: 40px;
+            border-radius: 11px;
+            color: #7f8ca3;
+            background: transparent;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .mode-btn.active {
+            background: #facc15;
+            color: #17120a;
+        }
+
+        .tariffs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 9px;
+        }
+
+        .tariff {
+            padding: 13px;
+            border-radius: 15px;
+            background: #0d1421;
+            border: 1px solid #243044;
+            color: #fff;
+            text-align: left;
+            transition: .2s;
+        }
+
+        .tariff.active {
+            border-color: #facc15;
+            background: rgba(250,204,21,.08);
+            box-shadow: inset 0 0 0 1px rgba(250,204,21,.15);
+        }
+
+        .tariff-name {
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .tariff-info {
+            margin-top: 5px;
+            color: #7f8ca3;
+            font-size: 10px;
+        }
+
+        .tariff-price {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #facc15;
+            font-weight: 800;
+        }
+
+        .date-row {
+            display: grid;
+            grid-template-columns: 1.3fr .7fr;
+            gap: 9px;
+        }
+
+        .date-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 11px;
+            border-radius: 14px;
+            background: #0d1421;
+            border: 1px solid #243044;
+            color: #fff;
+            outline: none;
+        }
+
+        .date-input:focus {
+            border-color: rgba(250,204,21,.65);
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 13px;
+            border-radius: 15px;
+            background: #0d1421;
+            border: 1px solid #243044;
+            margin-top: 10px;
+        }
+
+        .checkbox-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-left strong {
+            display: block;
+            font-size: 12px;
+        }
+
+        .checkbox-left span {
+            display: block;
+            margin-top: 3px;
+            font-size: 10px;
+            color: #7f8ca3;
+        }
+
+        .switch {
+            position: relative;
+            width: 45px;
+            height: 25px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            display: none;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            background: #273247;
+            transition: .2s;
+        }
+
+        .slider::before {
+            content: "";
+            position: absolute;
+            width: 19px;
+            height: 19px;
+            left: 3px;
+            top: 3px;
+            border-radius: 50%;
+            background: #fff;
+            transition: .2s;
+        }
+
+        .switch input:checked + .slider {
+            background: #facc15;
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(20px);
+            background: #17120a;
+        }
+
+        .price-box {
+            margin-top: 14px;
+            padding: 16px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #171f2e, #111827);
+            border: 1px solid #293449;
+        }
+
+        .price-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .price-label {
+            color: #7f8ca3;
+            font-size: 11px;
+        }
+
+        .price-value {
+            font-size: 22px;
+            font-weight: 900;
+            color: #facc15;
+        }
+
+        .small-note {
+            margin-top: 7px;
+            color: #66748a;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .main-btn {
+            width: 100%;
+            height: 53px;
+            margin-top: 12px;
+            border-radius: 16px;
+            background: #facc15;
+            color: #17120a;
+            font-size: 14px;
+            font-weight: 900;
+            box-shadow: 0 10px 28px rgba(250,204,21,.14);
+        }
+
+        .main-btn:active {
+            transform: scale(.985);
+        }
+
+        .main-btn:disabled {
+            opacity: .45;
+            box-shadow: none;
+        }
+
+        .outline-btn {
+            width: 100%;
+            height: 47px;
+            margin-top: 9px;
+            border-radius: 14px;
+            background: #0d1421;
+            color: #fff;
+            border: 1px solid #293449;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .order-status {
+            text-align: center;
+            padding: 22px 12px;
+        }
+
+        .status-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 13px;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(250,204,21,.09);
+            border: 1px solid rgba(250,204,21,.17);
+            font-size: 27px;
+        }
+
+        .status-title {
+            font-size: 17px;
+            font-weight: 900;
+        }
+
+        .status-text {
+            margin-top: 7px;
+            color: #7f8ca3;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .driver-card {
+            padding: 15px;
+            border-radius: 18px;
+            background: #0d1421;
+            border: 1px solid #263247;
+        }
+
+        .driver-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .driver-avatar {
+            width: 54px;
+            height: 54px;
+            border-radius: 17px;
+            object-fit: cover;
+            background: #202a3a;
+        }
+
+        .driver-name {
+            font-weight: 900;
+            font-size: 14px;
+        }
+
+        .driver-car {
+            margin-top: 4px;
+            color: #8996aa;
+            font-size: 11px;
+        }
+
+        .rating {
+            margin-left: auto;
+            color: #facc15;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .driver-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .detail {
+            padding: 10px;
+            border-radius: 12px;
+            background: #141d2b;
+        }
+
+        .detail span {
+            display: block;
+            color: #65738a;
+            font-size: 9px;
+        }
+
+        .detail strong {
+            display: block;
+            margin-top: 3px;
+            font-size: 11px;
+        }
+
+        .driver-action {
+            width: 100%;
+            height: 43px;
+            margin-top: 10px;
+            border-radius: 13px;
+            background: #22c55e;
+            color: #07130c;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .driver-order {
+            padding: 14px;
+            border-radius: 17px;
+            background: #0d1421;
+            border: 1px solid #263247;
+            margin-bottom: 10px;
+        }
+
+        .driver-order-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .order-number {
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .order-badge {
+            padding: 5px 8px;
+            border-radius: 9px;
+            background: rgba(250,204,21,.09);
+            color: #facc15;
+            font-size: 9px;
+            font-weight: 800;
+        }
+
+        .route {
+            display: grid;
+            gap: 7px;
+        }
+
+        .route-line {
+            display: flex;
+            gap: 9px;
+            align-items: flex-start;
+        }
+
+        .route-dot {
+            width: 8px;
+            height: 8px;
+            margin-top: 4px;
+            border-radius: 50%;
+            background: #facc15;
+            flex-shrink: 0;
+        }
+
+        .route-dot.end {
+            background: #22c55e;
+        }
+
+        .route-text {
+            font-size: 11px;
+            line-height: 1.35;
+            color: #d5dbe5;
+        }
+
+        .route-line + .route-line {
+            padding-top: 7px;
+            border-top: 1px solid #1c2738;
+        }
+
+        .driver-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 11px;
+        }
+
+        .driver-buttons button {
+            height: 42px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 850;
+        }
+
+        .arrived {
+            background: #facc15;
+            color: #17120a;
+        }
+
+        .start {
+            background: #22c55e;
+            color: #07130c;
+        }
+
+        .complete {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loader {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #283449;
+            border-top-color: #facc15;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 8px auto 15px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 22px;
+            transform: translate(-50%, 20px);
+            width: calc(100% - 32px);
+            max-width: 398px;
+            padding: 13px 15px;
+            border-radius: 14px;
+            background: #1a2332;
+            border: 1px solid #344158;
+            box-shadow: 0 14px 35px rgba(0,0,0,.35);
+            font-size: 12px;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: .25s;
+            z-index: 999;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+
+        .toast.error {
+            border-color: rgba(239,68,68,.45);
+        }
+
+        .footer {
+            padding: 20px 0 5px;
+            text-align: center;
+            color: #4e5a6d;
+            font-size: 10px;
+        }
+
+        @media (min-width: 500px) {
+            body {
+                padding: 20px 0;
+            }
+
+            .app {
+                min-height: calc(100vh - 40px);
+                border-radius: 30px;
+                border: 1px solid #1d2737;
+            }
+        }
+    </style>
 </head>
+
 <body>
 
-  <div class="app-container">
-    <div class="status-bar">
-      <div class="status-bar-left"><i class="fa-solid fa-taxi" style="color:var(--accent-yellow);"></i> Такси Речица</div>
-      <div><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-full" style="margin-left: 5px;"></i></div>
-    </div>
+<div class="app">
 
-    <div class="app-header">
-      <button class="header-btn" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></button>
-      <span class="header-title" id="screenTitle">Главная</span>
-      <button class="header-btn"><i class="fa-regular fa-bell"></i></button>
-    </div>
+    <!-- TOP -->
+    <div class="topbar">
+        <div class="brand">
+            <div class="brand-icon">T</div>
 
-    <div class="viewport">
-
-      <!-- ЭКРАН 1: Главное меню -->
-      <div class="screen active" id="screen1">
-        <div class="logo-card">
-          <div class="logo-icon"><i class="fa-solid fa-taxi"></i></div>
-          <h2 style="font-size: 20px;">Такси Речица</h2>
-          <p style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">Быстро • Удобно • Надежно</p>
-        </div>
-        <button class="btn-primary" onclick="startOrderProcess()" style="margin-bottom: 16px;"><i class="fa-solid fa-location-arrow"></i> Вызвать такси</button>
-        <div class="menu-list">
-          <div class="menu-item" onclick="openTariffsInfoOnly()"><div class="menu-item-left"><i class="fa-solid fa-car" style="color: var(--accent-yellow);"></i> Тарифы и авто</div><i class="fa-solid fa-chevron-right" style="color: var(--text-muted);"></i></div>
-          <div class="menu-item" onclick="goTo(12)"><div class="menu-item-left"><i class="fa-solid fa-id-card" style="color: var(--accent-yellow);"></i> Режим Водителя</div><i class="fa-solid fa-chevron-right" style="color: var(--text-muted);"></i></div>
-        </div>
-      </div>
-
-      <!-- ЭКРАН 2: Откуда -->
-      <div class="screen" id="screen2">
-        <div class="form-group" style="margin-top: 10px;">
-          <label class="label-text">Откуда вас забрать?</label>
-          <input type="text" class="input-box" id="inputA" value="ул. Советская, 10" oninput="showSuggestions('A')" onfocus="showSuggestions('A')" autocomplete="off" placeholder="Введите улицу и дом...">
-          <div class="suggestions-list" id="suggestionsA"></div>
-        </div>
-        <button class="btn-primary" onclick="goTo(3)">Указать куда едем</button>
-      </div>
-
-      <!-- ЭКРАН 3: Куда -->
-      <div class="screen" id="screen3">
-        <div class="form-group" style="margin-top: 10px;">
-          <label class="label-text">Куда едем?</label>
-          <input type="text" class="input-box" id="inputB" value="ул. Строителей, 15" oninput="showSuggestions('B')" onfocus="showSuggestions('B')" autocomplete="off" placeholder="Введите улицу и дом...">
-          <div class="suggestions-list" id="suggestionsB"></div>
-        </div>
-        <div class="form-group">
-          <label class="label-text">Комментарий / Подъезд</label>
-          <input type="text" class="input-box" id="inputNote" placeholder="Например: 2 подъезд, подвезти к шлагбауму">
-        </div>
-        <button class="btn-primary" onclick="goTo(4)">Выбрать время</button>
-      </div>
-
-      <!-- ЭКРАН 4: Дата и время + Опции -->
-      <div class="screen" id="screen4">
-        <div style="display:flex; gap:10px; margin-bottom:16px;">
-          <button class="btn-tab active" id="tabNow" onclick="setOrderTimeType('now')">Сейчас</button>
-          <button class="btn-tab" id="tabFuture" onclick="setOrderTimeType('future')">На дату</button>
-        </div>
-        <div class="summary-card">
-          <div class="form-group">
-            <label class="label-text">Дата подачи</label>
-            <input type="date" class="input-box" id="pickupDate" disabled onchange="updateScheduledTime()">
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="label-text">Время подачи</label>
-            <input type="time" class="input-box" id="pickupTime" disabled onchange="updateScheduledTime()">
-          </div>
-        </div>
-
-        <div id="weekendAlertBox" class="weekend-badge-notice" style="display:none;">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          <span>Пятница, суббота, воскресенье — действует тариф выходного дня (+1.00 BYN к посадке).</span>
-        </div>
-
-        <label class="option-card" for="childSeatCheckbox">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <i class="fa-solid fa-child-reaching" style="color:var(--accent-yellow); font-size:18px;"></i>
             <div>
-              <div style="font-size:13px; font-weight:700;">Детское кресло</div>
-              <div style="font-size:11px; color:var(--text-muted);">Безопасная поездка для детей (+1.00 BYN)</div>
+                <div class="brand-title">Такси Речица</div>
+                <div class="brand-subtitle">Быстро • Удобно • Надежно</div>
             </div>
-          </div>
-          <input type="checkbox" id="childSeatCheckbox" onchange="toggleChildSeat()">
-        </label>
-
-        <button class="btn-primary" onclick="openTariffsSelection()">Выбрать тариф</button>
-      </div>
-
-      <!-- ЭКРАН 5: Тарифы -->
-      <div class="screen" id="screen5">
-        <div id="weekendAlertBoxTariff" class="weekend-badge-notice" style="display:none;">
-          <i class="fa-solid fa-calendar-star"></i>
-          <span>Тариф выходного дня активен (Пт, Сб, Вс)</span>
         </div>
 
-        <div class="tariff-card active" id="cardEco" onclick="selectTariff('Эконом', 3.00, 0.90, 1.20, 2.50, 'cardEco')">
-          <div class="tariff-header">
-            <div class="tariff-title"><i class="fa-solid fa-car-side" style="color:var(--accent-yellow);"></i> Эконом</div>
-          </div>
-          <div class="tariff-details">
-            <span id="ecoBaseText">Посадка: 3.00 BYN</span>
-            <span id="ecoKmText">1-5км: 0.90 | 5-10км: 1.20 | >10км: 2.50 BYN/км</span>
-          </div>
-          <div class="tariff-desc">Надежные авто (Lada Vesta, Renault Logan). Практичный выбор на каждый день.</div>
-        </div>
-
-        <div class="tariff-card" id="cardComf" onclick="selectTariff('Комфорт', 4.00, 1.10, 1.50, 2.60, 'cardComf')">
-          <div class="tariff-header">
-            <div class="tariff-title"><i class="fa-solid fa-couch" style="color:var(--accent-yellow);"></i> Комфорт</div>
-          </div>
-          <div class="tariff-details">
-            <span id="comfBaseText">Посадка: 4.00 BYN</span>
-            <span id="comfKmText">1-5км: 1.10 | 5-10км: 1.50 | >10км: 2.60 BYN/км</span>
-          </div>
-          <div class="tariff-desc">Просторные авто с кондиционером (Toyota Corolla, VW Polo). Высокий рейтинг водителей.</div>
-        </div>
-
-        <div class="tariff-info-box">
-          <div class="tariff-info-title"><i class="fa-solid fa-circle-info"></i> Условия обслуживания</div>
-          <ul class="tariff-info-list">
-            <li><strong>Зональный тариф:</strong> 1-5 км, 5-10 км, >10 км (плавный рост стоимости).</li>
-            <li><strong>Тариф выходного дня:</strong> Пт, Сб, Вс (+1.00 BYN к посадке).</li>
-            <li><strong>Бесплатное ожидание:</strong> 2 минуты с момента подачи.</li>
-          </ul>
-        </div>
-
-        <button class="btn-primary" id="btnTariffAction" onclick="handleTariffAction()">Способ оплаты</button>
-      </div>
-
-      <!-- ЭКРАН 6: Способ оплаты -->
-      <div class="screen" id="screen6">
-        <div class="summary-card">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <i class="fa-solid fa-money-bill-wave" style="color:var(--accent-yellow); font-size:24px;"></i>
-            <div><strong>Наличными водителю</strong><div style="font-size:11px; color:var(--text-muted);">Расчет по одометру в конце поездки</div></div>
-          </div>
-        </div>
-        <button class="btn-primary" onclick="goTo(7)">Проверить заказ</button>
-      </div>
-
-      <!-- ЭКРАН 7: Подтверждение -->
-      <div class="screen" id="screen7">
-        <div class="summary-card">
-          <div class="summary-row"><span>Откуда:</span><span id="sumA"></span></div>
-          <div class="summary-row"><span>Куда:</span><span id="sumB"></span></div>
-          <div class="summary-row"><span>Подача:</span><span id="sumDateTime" style="color:var(--accent-yellow);"></span></div>
-          <div class="summary-row"><span>Тариф:</span><span id="sumTariff"></span></div>
-          <div class="summary-row" id="sumWeekendRow" style="display:none;"><span>День недели:</span><span style="color:var(--accent-yellow);">Выходной (+1.00 BYN посадка)</span></div>
-          <div class="summary-row" id="sumChildSeatRow" style="display:none;"><span>Опции:</span><span style="color:var(--accent-yellow);">Детское кресло (+1.00 BYN)</span></div>
-          <div class="summary-row"><span>Условия:</span><span id="sumRates" style="font-size:11px;"></span></div>
-          <div class="summary-row" style="margin-top:10px; border-top:1px solid var(--card-border); padding-top:8px;">
-            <span>Стоимость:</span><span style="color:var(--accent-yellow); font-weight:700;">По счетчику водителя</span>
-          </div>
-        </div>
-        <button class="btn-primary" onclick="createOrderAndSearch()">Заказать такси</button>
-      </div>
-
-      <!-- ЭКРАН 8: Поиск -->
-      <div class="screen" id="screen8" style="text-align:center;">
-        <div class="search-radar"><i class="fa-solid fa-taxi" style="font-size:36px; color:var(--accent-yellow);"></i></div>
-        <h3>Ищем ближайшее авто...</h3>
-        <p style="color:var(--text-muted); font-size:12px; margin-top:8px;">Перейдите во вкладку «Режим Водителя», чтобы принять заказ!</p>
-      </div>
-
-      <!-- ЭКРАН 9: Водитель найден -->
-      <div class="screen" id="screen9" style="text-align:center;">
-        <div class="summary-card">
-          <div class="logo-icon" style="border-radius:50%;"><i class="fa-solid fa-user-check"></i></div>
-          <h3>Александр Иванов</h3>
-          <p style="color:var(--accent-yellow); font-size:13px; margin:4px 0;">★ 4.95 (142 отзыва)</p>
-          <p style="color:var(--text-muted); font-size:12px;">Toyota Corolla • 3-TAP-1234</p>
-        </div>
-        <button class="btn-primary" onclick="goTo(10)">Смотреть статус</button>
-      </div>
-
-      <!-- ЭКРАН 10: Статус пассажира -->
-      <div class="screen" id="screen10">
-        <div class="summary-card" style="margin-top: 10px;">
-          <span class="status-badge status-moving" id="clientStatusBadge">В пути</span>
-          <div style="font-size: 15px; font-weight: 700; color: var(--accent-yellow);" id="clientStatusText">Едем к месту назначения</div>
-          
-          <div id="clientWaitingBox" style="display:none; background: rgba(249, 115, 22, 0.1); border: 1px solid var(--orange); border-radius: 12px; padding: 10px; margin-top: 10px;">
-            <div style="font-size: 11px; color: var(--orange); font-weight: 700;" id="clientWaitingTitle"><i class="fa-solid fa-pause"></i> Ожидание</div>
-            <div style="font-size: 20px; font-weight: 800; color: #fff; font-family: monospace;" id="clientTimerDisplay">02:00</div>
-          </div>
-
-          <div class="summary-row" style="margin-top:10px;"><span>Время подачи:</span><span style="color:#fff;" id="clientScheduledDisplay">Сейчас</span></div>
-          <div class="summary-row" id="clientWeekendDisplay" style="display:none;"><span>Тариф:</span><span style="color:var(--accent-yellow);">Выходной день (+1 BYN)</span></div>
-          <div class="summary-row" id="clientChildSeatDisplay" style="display:none;"><span>Опции:</span><span style="color:var(--accent-yellow);">Детское кресло</span></div>
-          <div class="summary-row"><span>Пробег:</span><span style="color:#fff;" id="clientKmDisplay">Поездка идет...</span></div>
-          <div class="summary-row"><span>Стоимость:</span><span style="color:var(--accent-yellow); font-weight:700;" id="clientPriceDisplay">Считает водитель</span></div>
-        </div>
-        <button class="btn-primary" onclick="goTo(12)">Перейти в Кабинет Водителя</button>
-      </div>
-
-      <!-- ЭКРАН 12: Водитель -->
-      <div class="screen" id="screen12">
-        <div class="summary-card" style="margin-bottom:8px;">
-          <div style="font-size: 11px; color: var(--text-muted);" id="driverOrderIdLabel">Активный заказ: нет заказов</div>
-          <div style="font-size: 14px; font-weight: 700; margin-top:2px;" id="driverOrderAddresses">Ожидание нового заказа...</div>
-          <div style="font-size: 12px; color: var(--accent-yellow); margin-top:4px;" id="driverScheduledTime">Подача: -</div>
-          <div style="font-size: 12px; color: var(--accent-yellow); margin-top:2px; display:none;" id="driverWeekendBadge"><i class="fa-solid fa-calendar-star"></i> Тариф выходного дня (+1.00 BYN)</div>
-          <div style="font-size: 12px; color: var(--accent-yellow); margin-top:2px; display:none;" id="driverChildSeatBadge"><i class="fa-solid fa-child-reaching"></i> С детским креслом (+1.00 BYN)</div>
-          
-          <div style="margin-top:10px; border-top:1px solid var(--card-border); padding-top:8px;">
-            <label class="label-text">Пробег по одометру (км):</label>
-            <input type="number" step="0.1" class="input-box" id="driverKmInput" placeholder="0.0" oninput="calculateDriverPrice()">
-          </div>
-          <div style="font-size: 14px; font-weight: 800; color: var(--green); margin-top:6px;" id="driverCalculatedPrice">Итого: 0.00 BYN</div>
-        </div>
-
-        <button class="btn-yandex" id="btnNavA" onclick="openYandexMaps('A')">
-          <i class="fa-solid fa-location-dot"></i> Навигатор в Точку А (Забрать)
-        </button>
-        <button class="btn-yandex" id="btnNavB" onclick="openYandexMaps('B')" style="display:none; background: #2563eb;">
-          <i class="fa-solid fa-flag-checkered"></i> Навигатор в Точку Б (Куда едем)
-        </button>
-
-        <div class="driver-timer-box" id="driverTimerWidget">
-          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight:700;" id="timerLabel">Бесплатное ожидание</div>
-          <div class="timer-display" id="driverTimerDisplay">02:00</div>
-          <div style="font-size: 11px; color: var(--green); font-weight: 600;" id="timerSubLabel">Запас: 120 сек</div>
-        </div>
-
-        <div style="display:flex; flex-direction:column; gap:6px; margin-top:auto;">
-          <button class="btn-primary" id="btnArrived" onclick="startPickupWaiting()" style="padding: 12px;">
-            <i class="fa-solid fa-location-crosshairs"></i> На месте
-          </button>
-          
-          <button class="btn-primary" id="btnStartTrip" style="display:none; background: var(--green); color:#fff; padding: 12px;" onclick="startTripAndSaveRemainingTime()">
-            <i class="fa-solid fa-play"></i> Поехали (Выбрать Точку Б)
-          </button>
-          
-          <button class="btn-primary" id="btnTransitWaiting" style="display:none; background: var(--orange); color:#fff; padding: 12px;" onclick="toggleTransitWaiting()">
-            <i class="fa-solid fa-pause"></i> Остановка в пути
-          </button>
-
-          <button class="btn-primary" id="btnFinishTrip" style="display:none; background: var(--red); color:#fff; padding: 12px;" onclick="finishTrip()">
-            <i class="fa-solid fa-flag-checkered"></i> Завершить поездку
-          </button>
-
-          <button class="btn-primary" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-main); padding: 10px;" onclick="goTo(10)">Вид пассажира</button>
-        </div>
-      </div>
-
-      <!-- ЭКРАН 13: Поездка завершена -->
-      <div class="screen" id="screen13" style="text-align: center;">
-        <div class="summary-card" style="margin-top: 10px; text-align: left;">
-          <div style="text-align: center; margin-bottom: 12px;">
-            <span class="status-badge status-done">Поездка завершена</span>
-            <div style="font-size: 18px; font-weight: 800; color: var(--accent-yellow); margin-top: 4px;" id="finalPriceDisplay">0.00 BYN</div>
-          </div>
-          <div class="summary-row"><span>Маршрут:</span><span id="finalRouteDisplay">Советская → Строителей</span></div>
-          <div class="summary-row"><span>Пробег:</span><span id="finalKmDisplay">0 км</span></div>
-          <div class="summary-row"><span>Оплата:</span><span style="color:var(--green);">Наличными водителю</span></div>
-        </div>
-
-        <div class="summary-card">
-          <div style="font-size: 13px; font-weight: 700; margin-bottom: 4px;">Оцените поездку</div>
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Это поможет улучшить сервис</div>
-          <div class="rating-stars" id="ratingStars">
-            <i class="fa-solid fa-star" onclick="setRating(1)"></i>
-            <i class="fa-solid fa-star" onclick="setRating(2)"></i>
-            <i class="fa-solid fa-star" onclick="setRating(3)"></i>
-            <i class="fa-solid fa-star" onclick="setRating(4)"></i>
-            <i class="fa-solid fa-star active" onclick="setRating(5)"></i>
-          </div>
-        </div>
-
-        <button class="btn-primary" onclick="goTo(1)"><i class="fa-solid fa-house"></i> На главную</button>
-      </div>
-
+        <div class="status-dot">Онлайн</div>
     </div>
-  </div>
 
-  <script>
-    const RECHITSA_STREETS = [
-      "пр-т Октября", "б-р Молодежный", "пл. Октября", "пл. Центральная", "пл. Победы",
-      "Светлогорское шоссе", "ул. 10 лет Октября", "ул. 40 лет Октября", "ул. 50 лет БССР", 
-      "ул. 60 лет СССР", "ул. Амбулаторная", "ул. Багратиона", "ул. Белова", "ул. Белая", 
-      "ул. Белорусская", "ул. Беляева", "ул. Берёзовая", "ул. Блестящая", "ул. Бобруйская", 
-      "ул. Большая Садовая", "ул. Братская", "ул. Брестская", "ул. Брусилова", "ул. Василевичская", 
-      "ул. Ведричская", "ул. Виноградная", "ул. Витебская", "ул. Вишневая", "ул. Володарского", 
-      "ул. Восточная", "ул. Гагарина", "ул. Гастелло", "ул. Гоголя", "ул. Гомельская", "ул. Горького", 
-      "ул. Гражданская", "ул. Грицевца", "ул. Гродненская", "ул. Дачная", "ул. Декабристов", 
-      "ул. Дзержинского", "ул. Днепровская", "ул. Доватора", "ул. Дорожная", "ул. Достоевского", 
-      "ул. Дружбы", "ул. Елецкого", "ул. Есенина", "ул. Железнодорожная", "ул. Заводская", 
-      "ул. Залинейная", "ул. Западная", "ул. Заслонова", "ул. Зелёная", "ул. Знаменская", 
-      "ул. Зои Космодемьянской", "ул. Ивана Ковтунова", "ул. Ивановская", "ул. Ильича", 
-      "ул. Интернациональная", "ул. Калинина", "ул. Карбышева", "ул. Карла Маркса", 
-      "ул. Каштановая", "ул. Кирпичная", "ул. Кирова", "ул. Клары Цеткин", "ул. Кленовая", 
-      "ул. Клещёва", "ул. Кмитовская", "ул. Ковалева", "ул. Комарова", "ул. Коммунаров", 
-      "ул. Комсомольская", "ул. Конева", "ул. Королёва", "ул. Космонавтов", "ул. Котовского", 
-      "ул. Кошевого", "ул. Красноармейская", "ул. Краснознамённая", "ул. Криничная", "ул. Крупской", 
-      "ул. Куйбышева", "ул. Куликовская", "ул. Кутузова", "ул. Лазо", "ул. Ленина", "ул. Леонова", 
-      "ул. Лесная", "ул. Лермонтова", "ул. Линейная", "ул. Ломоносова", "ул. Луговая", 
-      "ул. Луначарского", "ул. Лучистая", "ул. Льнозаводская", "ул. М. Лынькова", "ул. Малая Садовая", 
-      "ул. Малиновая", "ул. Маресьева", "ул. Матросова", "ул. Маяковского", "ул. Мебельная", 
-      "ул. Мелиораторов", "ул. Менделеева", "ул. Милаградская", "ул. Мира", "ул. Минская", 
-      "ул. Могилевская", "ул. Молодежная", "ул. Мопровская", "ул. Набережная", "ул. Нахимова", 
-      "ул. Наумова", "ул. Некрасова", "ул. Нефтяников", "ул. Новая", "ул. Огородная", 
-      "ул. Октябрьская", "ул. Октябрьской Революции", "ул. Опятькина", "ул. Озёрная", 
-      "ул. Офицерская", "ул. Островского", "ул. Павлова", "ул. Панфилова", "ул. Парковая", 
-      "ул. Партизанская", "ул. Первомайская", "ул. Пескопольская", "ул. Пионерская", "ул. Победы", 
-      "ул. Полевая", "ул. Полесская", "ул. Пономарёва", "ул. Попова", "ул. Почтовая", 
-      "ул. Прибрежная", "ул. Привокзальная", "ул. Приднепровская", "ул. Приозерная", 
-      "ул. Пролетарская", "ул. Промышленная", "ул. Пугачева", "ул. Путевая", "ул. Пушкина", 
-      "ул. Рабочая", "ул. Ракетная", "ул. Редкова", "ул. Революционная", "ул. Репина", 
-      "ул. Речная", "ул. Рокоссовского", "ул. Розы Люксембург", "ул. Рябиновая", "ул. Садовая", 
-      "ул. Санаторная", "ул. Светлогорская", "ул. Свободы", "ул. Северная", "ул. Снежкова", 
-      "ул. Советская", "ул. Советской Конституции", "ул. Социалистическая", "ул. Спортивная", 
-      "ул. Степная", "ул. Строителей", "ул. Строительная", "ул. Суворова", "ул. Сыдько", 
-      "ул. Танковая", "ул. Терешковой", "ул. Тимирязева", "ул. Титова", "ул. Толстого", 
-      "ул. Трифонова", "ул. Трудовая", "ул. Тургенева", "ул. Турчинского", "ул. Урицкого", 
-      "ул. Урожайная", "ул. Ушакова", "ул. Фрунзе", "ул. Фруктовая", "ул. Фурманова", 
-      "ул. Хлусса", "ул. Цветочная", "ул. Чайкина", "ул. Чапаева", "ул. Чернышевского", 
-      "ул. Чехова", "ул. Чкалова", "ул. Шатилковская", "ул. Шевченко", "ул. Ширмы", 
-      "ул. Шишкина", "ул. Школьная", "ул. Щорса", "ул. Энергетиков", "ул. Южная", 
-      "ул. Якуба Коласа", "ул. Янки Купалы", "пер. 1-й Куликовский", "пер. 2-й Куликовский", 
-      "пер. 1-й Луговой", "пер. 2-й Луговой", "пер. 1-й Набережный", "пер. 2-й Набережный", 
-      "пер. 1-й Светлогорский", "пер. 2-й Светлогорский", "пер. 1-й Стадионный", "пер. 2-й Стадионный", 
-      "пер. 1-й переулок Горького", "пер. 2-й переулок Горького", "пер. 1-й переулок Карла Маркса", 
-      "пер. 2-й переулок Карла Маркса", "пер. 1-й переулок Кирова", "пер. 2-й переулок Кирова", 
-      "пер. 1-й переулок Фрунзе", "пер. 2-й переулок Фрунзе", "пер. Авиационный", "пер. Березовый", 
-      "пер. Больничный", "пер. Восточный", "пер. Вокзальный", "пер. Грибной", "пер. Заводской", 
-      "пер. Залинейный", "пер. Заслонова", "пер. Зеленый", "пер. Индустриальный", "пер. Калинина", 
-      "пер. Кирпичный", "пер. Короткий", "пер. Крупской", "пер. Лермонтова", "пер. Ленина", 
-      "пер. Лесной", "пер. Льнозаводской", "пер. Мира", "пер. Набережный", "пер. Огородный", 
-      "пер. Озёрный", "пер. Октябрьский", "пер. Островского", "пер. Офицерский", "пер. Парковый", 
-      "пер. Первомайский", "пер. Полевой", "пер. Пролетарский", "пер. Путевой", "пер. Пушкина", 
-      "пер. Речной", "пер. Садовый", "пер. Северный", "пер. Советский", "пер. Совхозный", 
-      "пер. Солнечный", "пер. Танковый", "пер. Толстого", "пер. Фурманова", "пер. Чехова", 
-      "пер. Шевченко", "пер. Школьный", "пр-д Коммунальный", "пр-д Строителей", "пр-д Нефтяников", 
-      "пр-д Энергетиков", "пр-д Промышленный", "пр-д Заводской", "пр-д Машиностроителей",
-      "Железнодорожный вокзал", "Автовокзал Речица", "ТРЦ Global Market", "ТЦ Евроопт", 
-      "ТЦ «Mojo»", "Городская больница", "Речицкий медколледж", "РЦОП", "Стадион Центральный", 
-      "Рынок «Центральный»", "Рынок «Славянский»", "Кинотеатр «Беларусь»", 
-      "Дворец культуры и техники «Нефтяник»", "Головные сооружения", "Памятник М. Довнар-Запольскому"
-    ];
 
-    let currentScreen = 1;
-    let isInfoOnlyMode = false;
-    let hasChildSeat = false;
-    let isWeekend = false;
+    <!-- ================= PASSENGER ================= -->
 
-    let currentTariff = {
-      name: "Эконом",
-      base: 3.00,
-      rate1: 0.90,
-      rate2: 1.20,
-      rate3: 2.50
-    };
+    <section id="passengerScreen">
 
-    let totalWaitFee = 0;
-    let freeTimeRemaining = 120;
-    let paidWaitingSeconds = 0;
-    let activeInterval = null;
-    let isTransitWaiting = false;
+        <div class="hero">
+            <div class="hero-title">
+                Закажите такси<br>в пару касаний
+            </div>
 
-    let scheduledDateTimeText = 'Ближайшее время';
-    let clientCheckInterval = null;
-    let activeOrder = null;
-    let driverCheckInterval = null;
+            <div class="hero-text">
+                Укажите маршрут, время и дополнительные пожелания.
+                Заявка сразу отправится доступным водителям.
+            </div>
 
-    window.onload = function() {
-      initDateInputs();
-      checkIfWeekend();
-      updateDisplays();
-      startDriverListener();
-      
-      document.addEventListener('click', function(e) {
-        if (!e.target.closest('.form-group')) {
-          document.querySelectorAll('.suggestions-list').forEach(el => el.style.display = 'none');
-        }
-      });
-    };
+            <div class="quick-buttons">
+                <button
+                    class="quick-btn primary"
+                    onclick="scrollToOrder()"
+                >
+                    Вызвать такси
+                </button>
 
-    function startOrderProcess() {
-      isInfoOnlyMode = false;
-      checkIfWeekend();
-      goTo(2);
+                <button
+                    class="quick-btn secondary"
+                    onclick="showTariffInfo()"
+                >
+                    Тарифы
+                </button>
+            </div>
+        </div>
+
+
+        <div id="orderForm" class="card">
+
+            <div class="card-title">Маршрут</div>
+
+            <div class="field">
+                <label class="field-label">ОТКУДА</label>
+
+                <div class="input-wrap">
+                    <span class="input-icon">●</span>
+
+                    <input
+                        id="addressA"
+                        class="input"
+                        type="text"
+                        placeholder="Введите адрес подачи"
+                    >
+                </div>
+            </div>
+
+
+            <div class="field">
+                <label class="field-label">КУДА</label>
+
+                <div class="input-wrap">
+                    <span class="input-icon">●</span>
+
+                    <input
+                        id="addressB"
+                        class="input"
+                        type="text"
+                        placeholder="Введите адрес назначения"
+                    >
+                </div>
+            </div>
+
+
+            <div class="field">
+                <label class="field-label">ВРЕМЯ ПОДАЧИ</label>
+
+                <div class="mode-switch">
+
+                    <button
+                        id="nowBtn"
+                        class="mode-btn active"
+                        onclick="setTimeMode('now')"
+                    >
+                        Сейчас
+                    </button>
+
+                    <button
+                        id="laterBtn"
+                        class="mode-btn"
+                        onclick="setTimeMode('later')"
+                    >
+                        На дату
+                    </button>
+
+                </div>
+            </div>
+
+
+            <div id="laterFields" class="field hidden">
+
+                <div class="date-row">
+
+                    <input
+                        id="orderDate"
+                        class="date-input"
+                        type="date"
+                    >
+
+                    <input
+                        id="orderTime"
+                        class="date-input"
+                        type="time"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="card-title" style="margin-top:18px;">
+                Тариф
+            </div>
+
+
+            <div class="tariffs">
+
+                <button
+                    class="tariff active"
+                    data-tariff="Эконом"
+                    onclick="selectTariff(this)"
+                >
+                    <div class="tariff-name">
+                        Эконом
+                    </div>
+
+                    <div class="tariff-info">
+                        Обычная поездка
+                    </div>
+
+                    <div class="tariff-price">
+                        от 3 BYN
+                    </div>
+                </button>
+
+
+                <button
+                    class="tariff"
+                    data-tariff="Комфорт"
+                    onclick="selectTariff(this)"
+                >
+                    <div class="tariff-name">
+                        Комфорт
+                    </div>
+
+                    <div class="tariff-info">
+                        Повышенный комфорт
+                    </div>
+
+                    <div class="tariff-price">
+                        от 3 BYN
+                    </div>
+                </button>
+
+            </div>
+
+
+            <div class="checkbox-row">
+
+                <div class="checkbox-left">
+                    <div style="font-size:20px;">👶</div>
+
+                    <div>
+                        <strong>Детское кресло</strong>
+                        <span>Нужно кресло для ребенка</span>
+                    </div>
+                </div>
+
+                <label class="switch">
+                    <input
+                        id="childSeat"
+                        type="checkbox"
+                    >
+
+                    <span class="slider"></span>
+                </label>
+
+            </div>
+
+
+            <div class="price-box">
+
+                <div class="price-line">
+
+                    <div>
+                        <div class="price-label">
+                            Ориентировочная стоимость
+                        </div>
+
+                        <div class="small-note">
+                            Посадка 3 BYN + расстояние
+                        </div>
+                    </div>
+
+                    <div class="price-value">
+                        3 BYN+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <button
+                id="orderButton"
+                class="main-btn"
+                onclick="sendOrder()"
+            >
+                🚕 Заказать такси
+            </button>
+
+        </div>
+
+
+        <!-- WAITING -->
+        <div id="waitingCard" class="card hidden">
+
+            <div class="order-status">
+
+                <div class="status-icon">
+                    🚕
+                </div>
+
+                <div class="status-title">
+                    Ищем водителя
+                </div>
+
+                <div class="status-text">
+                    Ваша заявка отправлена.<br>
+                    Подождите, водитель скоро примет заказ.
+                </div>
+
+                <div class="loader"></div>
+
+                <div
+                    id="waitingOrderText"
+                    class="small-note"
+                >
+                    Заявка №—
+                </div>
+
+                <button
+                    class="outline-btn"
+                    onclick="cancelLocalOrder()"
+                >
+                    Вернуться
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- DRIVER ACCEPTED -->
+        <div id="acceptedCard" class="card hidden">
+
+            <div class="card-title">
+                Водитель найден
+            </div>
+
+            <div id="driverInfo"></div>
+
+            <button
+                class="outline-btn"
+                onclick="openDriverPhone()"
+            >
+                📞 Позвонить водителю
+            </button>
+
+        </div>
+
+
+        <!-- ARRIVED -->
+        <div id="arrivedCard" class="card hidden">
+
+            <div class="order-status">
+
+                <div class="status-icon">
+                    🚘
+                </div>
+
+                <div class="status-title">
+                    Водитель прибыл
+                </div>
+
+                <div class="status-text">
+                    Водитель уже на месте.
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- TRIP -->
+        <div id="tripCard" class="card hidden">
+
+            <div class="order-status">
+
+                <div class="status-icon">
+                    🛣️
+                </div>
+
+                <div class="status-title">
+                    Поездка началась
+                </div>
+
+                <div class="status-text">
+                    Желаем приятной поездки!
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= DRIVER ================= -->
+
+    <section id="driverScreen" class="hidden">
+
+        <div class="hero">
+
+            <div class="hero-title">
+                Режим водителя
+            </div>
+
+            <div class="hero-text">
+                Здесь отображаются ваши активные заказы.
+            </div>
+
+        </div>
+
+
+        <div id="driverOrdersCard" class="card">
+
+            <div class="card-title">
+                Мои активные заказы
+            </div>
+
+            <div id="driverOrders">
+                <div class="order-status">
+                    <div class="loader"></div>
+                    <div class="status-text">
+                        Загружаем заказы...
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <div class="footer">
+        Такси Речица • Mini App
+    </div>
+
+</div>
+
+
+<div id="toast" class="toast"></div>
+
+
+<script>
+
+    const tg = window.Telegram?.WebApp;
+
+    if (tg) {
+        tg.ready();
+        tg.expand();
+
+        try {
+            tg.setHeaderColor("#080c14");
+            tg.setBackgroundColor("#080c14");
+        } catch (e) {}
     }
 
-    function openTariffsInfoOnly() {
-      isInfoOnlyMode = true;
-      checkIfWeekend();
-      const screen5 = document.getElementById('screen5');
-      screen5.classList.add('info-only-mode');
-      
-      const btn = document.getElementById('btnTariffAction');
-      btn.innerText = 'В главное меню';
-      
-      goTo(5);
-    }
 
-    function openTariffsSelection() {
-      isInfoOnlyMode = false;
-      checkIfWeekend();
-      const screen5 = document.getElementById('screen5');
-      screen5.classList.remove('info-only-mode');
-      
-      const btn = document.getElementById('btnTariffAction');
-      btn.innerText = 'Способ оплаты';
-      
-      goTo(5);
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | TELEGRAM USER
+    |--------------------------------------------------------------------------
+    */
 
-    function handleTariffAction() {
-      if (isInfoOnlyMode) {
-        goTo(1);
-      } else {
-        goTo(6);
-      }
-    }
-
-    function toggleChildSeat() {
-      hasChildSeat = document.getElementById('childSeatCheckbox').checked;
-      updateDisplays();
-      calculateDriverPrice();
-    }
-
-    function checkIfWeekend() {
-      const tabNowActive = document.getElementById('tabNow').classList.contains('active');
-      let targetDate = new Date();
-
-      if (!tabNowActive) {
-        const dateVal = document.getElementById('pickupDate').value;
-        if (dateVal) {
-          targetDate = new Date(dateVal);
-        }
-      }
-
-      const dayOfWeek = targetDate.getDay(); 
-      isWeekend = (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0);
-
-      document.getElementById('weekendAlertBox').style.display = isWeekend ? 'flex' : 'none';
-      document.getElementById('weekendAlertBoxTariff').style.display = isWeekend ? 'flex' : 'none';
-
-      updateTariffPricesDisplay();
-    }
-
-    function updateTariffPricesDisplay() {
-      const weekendBonus = isWeekend ? 1.00 : 0.00;
-
-      document.getElementById('ecoBaseText').innerText = `Посадка: ${(3.00 + weekendBonus).toFixed(2)} BYN`;
-      document.getElementById('comfBaseText').innerText = `Посадка: ${(4.00 + weekendBonus).toFixed(2)} BYN`;
-    }
-
-    function selectTariff(name, base, rate1, rate2, rate3, cardId) {
-      if (isInfoOnlyMode) return;
-
-      document.querySelectorAll('.tariff-card').forEach(c => c.classList.remove('active'));
-      document.getElementById(cardId).classList.add('active');
-      
-      const weekendBonus = isWeekend ? 1.00 : 0.00;
-      currentTariff = { 
-        name, 
-        base: base + weekendBonus, 
-        rate1,
-        rate2,
-        rate3
-      };
-      updateDisplays();
-      calculateDriverPrice();
-    }
-
-    function showSuggestions(type) {
-      const input = document.getElementById(`input${type}`);
-      const list = document.getElementById(`suggestions${type}`);
-      const val = input.value.trim();
-
-      const matches = val.length < 1 
-        ? RECHITSA_STREETS.slice(0, 30) 
-        : RECHITSA_STREETS.filter(s => s.toLowerCase().includes(val.toLowerCase()));
-      
-      list.innerHTML = '';
-
-      if (matches.length > 0) {
-        matches.forEach(street => {
-          const item = document.createElement('div');
-          item.className = 'suggestion-item';
-          item.innerHTML = `<span><i class="fa-solid fa-location-dot" style="margin-right:8px; color:var(--accent-yellow);"></i>${street}</span>`;
-          item.onmousedown = function(e) {
-            e.preventDefault(); 
-            selectStreetSuggestion(type, street);
-          };
-          list.appendChild(item);
-        });
-        list.style.display = 'block';
-      } else {
-        list.style.display = 'none';
-      }
-    }
-
-    function selectStreetSuggestion(type, street) {
-      const input = document.getElementById(`input${type}`);
-      input.value = `${street}, `;
-      input.focus();
-
-      document.getElementById(`suggestions${type}`).style.display = 'none';
-      updateDisplays();
-    }
-
-    function calculateDriverPrice() {
-      const kmVal = parseFloat(document.getElementById('driverKmInput').value) || 0;
-      const seatFee = hasChildSeat ? 1.00 : 0.00;
-      
-      let distanceCost = 0;
-      if (kmVal <= 5) {
-        distanceCost = kmVal * currentTariff.rate1;
-      } else if (kmVal <= 10) {
-        distanceCost = (5 * currentTariff.rate1) + ((kmVal - 5) * currentTariff.rate2);
-      } else {
-        distanceCost = (5 * currentTariff.rate1) + (5 * currentTariff.rate2) + ((kmVal - 10) * currentTariff.rate3);
-      }
-
-      let total = currentTariff.base + distanceCost + seatFee + totalWaitFee;
-      let formattedTotal = `${total.toFixed(2)} BYN`;
-
-      document.getElementById('driverCalculatedPrice').innerText = `Итого: ${formattedTotal}`;
-      document.getElementById('clientKmDisplay').innerText = `${kmVal} км`;
-      document.getElementById('clientPriceDisplay').innerText = formattedTotal;
-      document.getElementById('finalPriceDisplay').innerText = formattedTotal;
-      document.getElementById('finalKmDisplay').innerText = `${kmVal} км`;
-    }
-
-    function updateDisplays() {
-      const addressA = document.getElementById('inputA').value;
-      const addressB = document.getElementById('inputB').value;
-
-      document.getElementById('sumA').innerText = addressA;
-      document.getElementById('sumB').innerText = addressB;
-      document.getElementById('sumDateTime').innerText = scheduledDateTimeText;
-      document.getElementById('sumTariff').innerText = currentTariff.name;
-      
-      const sumWeekendRow = document.getElementById('sumWeekendRow');
-      if (sumWeekendRow) sumWeekendRow.style.display = isWeekend ? 'flex' : 'none';
-
-      const childSeatRow = document.getElementById('sumChildSeatRow');
-      if (childSeatRow) childSeatRow.style.display = hasChildSeat ? 'flex' : 'none';
-
-      let rateDetails = `Посадка ${currentTariff.base.toFixed(2)} | 1-5км: ${currentTariff.rate1} | 5-10км: ${currentTariff.rate2} | >10км: ${currentTariff.rate3} BYN/км`;
-      if (isWeekend) rateDetails += ' (вкл. выходной)';
-      if (hasChildSeat) rateDetails += ' + 1.00 BYN (кресло)';
-      document.getElementById('sumRates').innerText = rateDetails;
-
-      document.getElementById('clientScheduledDisplay').innerText = scheduledDateTimeText;
-      
-      const clientWeekendDisplay = document.getElementById('clientWeekendDisplay');
-      if (clientWeekendDisplay) clientWeekendDisplay.style.display = isWeekend ? 'flex' : 'none';
-
-      const clientChildSeatDisplay = document.getElementById('clientChildSeatDisplay');
-      if (clientChildSeatDisplay) clientChildSeatDisplay.style.display = hasChildSeat ? 'flex' : 'none';
-
-      document.getElementById('driverOrderAddresses').innerText = `${addressA} → ${addressB}`;
-      document.getElementById('finalRouteDisplay').innerText = `${addressA} → ${addressB}`;
-      document.getElementById('driverScheduledTime').innerText = `Подача: ${scheduledDateTimeText}`;
-      
-      const driverWeekendBadge = document.getElementById('driverWeekendBadge');
-      if (driverWeekendBadge) driverWeekendBadge.style.display = isWeekend ? 'block' : 'none';
-
-      const driverBadge = document.getElementById('driverChildSeatBadge');
-      if (driverBadge) driverBadge.style.display = hasChildSeat ? 'block' : 'none';
-    }
-
-    function initDateInputs() {
-      const now = new Date();
-      const dateInput = document.getElementById('pickupDate');
-      const timeInput = document.getElementById('pickupTime');
-
-      dateInput.value = now.toISOString().split('T')[0];
-      dateInput.min = dateInput.value;
-      timeInput.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    }
-
-    function setOrderTimeType(type) {
-      const tabNow = document.getElementById('tabNow');
-      const tabFuture = document.getElementById('tabFuture');
-      const dateInput = document.getElementById('pickupDate');
-      const timeInput = document.getElementById('pickupTime');
-
-      if (type === 'now') {
-        tabNow.classList.add('active');
-        tabFuture.classList.remove('active');
-        dateInput.disabled = true;
-        timeInput.disabled = true;
-        scheduledDateTimeText = 'Ближайшее время';
-      } else {
-        tabFuture.classList.add('active');
-        tabNow.classList.remove('active');
-        dateInput.disabled = false;
-        timeInput.disabled = false;
-        updateScheduledTime();
-      }
-      checkIfWeekend();
-      updateDisplays();
-    }
-
-    function updateScheduledTime() {
-      const dateVal = document.getElementById('pickupDate').value;
-      const timeVal = document.getElementById('pickupTime').value;
-
-      if (dateVal && timeVal) {
-        const p = dateVal.split('-');
-        scheduledDateTimeText = `${p[2]}.${p[1]}.${p[0]} в ${timeVal}`;
-      } else {
-        scheduledDateTimeText = 'Укажите время';
-      }
-      checkIfWeekend();
-      updateDisplays();
-    }
-
-    // --- ФУНКЦИЯ СОЗДАНИЯ ЗАКАЗА И ОТПРАВКИ НА СЕРВЕР ---
-    function createOrderAndSearch() {
     const telegramUser =
-        window.Telegram &&
-        window.Telegram.WebApp &&
-        window.Telegram.WebApp.initDataUnsafe &&
-        window.Telegram.WebApp.initDataUnsafe.user;
+        tg?.initDataUnsafe?.user || null;
 
-    const passengerChatId =
-        telegramUser ? telegramUser.id : null;
+    const telegramUserId =
+        telegramUser?.id
+            ? String(telegramUser.id)
+            : "";
 
-    const order = {
-        id: Date.now().toString(),
-        addressA: document.getElementById('inputA').value,
-        addressB: document.getElementById('inputB').value,
-        tariff: currentTariff.name,
-        scheduled: scheduledDateTimeText,
-        isWeekend: isWeekend,
-        childSeat: hasChildSeat,
-        passengerChatId: passengerChatId,
-        status: 'searching'
-    };
 
-    fetch('/api/send-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order)
-    })
-    .then(async response => {
-        const data = await response.json();
+    /*
+    |--------------------------------------------------------------------------
+    | STATE
+    |--------------------------------------------------------------------------
+    */
 
-        if (!response.ok || data.success === false) {
-            throw new Error(
-                data.error || 'Сервер не принял заказ'
+    let timeMode = "now";
+
+    let selectedTariff = "Эконом";
+
+    let currentOrderId =
+        localStorage.getItem("taxi_current_order_id") || "";
+
+    let currentDriverPhone = "";
+
+    let passengerPolling = null;
+
+    let driverPolling = null;
+
+    let isDriver = false;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DEFAULT DATE
+    |--------------------------------------------------------------------------
+    */
+
+    function setDefaultDateTime() {
+
+        const now = new Date();
+
+        const minskDate =
+            new Date(
+                now.toLocaleString(
+                    "en-US",
+                    {
+                        timeZone: "Europe/Minsk"
+                    }
+                )
+            );
+
+        const yyyy =
+            minskDate.getFullYear();
+
+        const mm =
+            String(
+                minskDate.getMonth() + 1
+            ).padStart(2, "0");
+
+        const dd =
+            String(
+                minskDate.getDate()
+            ).padStart(2, "0");
+
+        document.getElementById("orderDate").value =
+            `${yyyy}-${mm}-${dd}`;
+
+
+        const hours =
+            String(
+                minskDate.getHours()
+            ).padStart(2, "0");
+
+        const minutes =
+            String(
+                minskDate.getMinutes() + 30
+            ).padStart(2, "0");
+
+        document.getElementById("orderTime").value =
+            `${hours}:${minutes}`;
+    }
+
+
+    setDefaultDateTime();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOAST
+    |--------------------------------------------------------------------------
+    */
+
+    let toastTimer = null;
+
+    function toast(message, error = false) {
+
+        const el =
+            document.getElementById("toast");
+
+        el.textContent = message;
+
+        el.classList.toggle("error", error);
+
+        el.classList.add("show");
+
+        clearTimeout(toastTimer);
+
+        toastTimer =
+            setTimeout(() => {
+                el.classList.remove("show");
+            }, 3000);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SCROLL
+    |--------------------------------------------------------------------------
+    */
+
+    function scrollToOrder() {
+
+        document
+            .getElementById("orderForm")
+            .scrollIntoView({
+                behavior: "smooth"
+            });
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | TARIFF
+    |--------------------------------------------------------------------------
+    */
+
+    function selectTariff(button) {
+
+        document
+            .querySelectorAll(".tariff")
+            .forEach(el => {
+                el.classList.remove("active");
+            });
+
+        button.classList.add("active");
+
+        selectedTariff =
+            button.dataset.tariff;
+    }
+
+
+    function showTariffInfo() {
+
+        toast(
+            "Посадка — 3 BYN, далее 1 км — 1 BYN."
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | TIME MODE
+    |--------------------------------------------------------------------------
+    */
+
+    function setTimeMode(mode) {
+
+        timeMode = mode;
+
+        document
+            .getElementById("nowBtn")
+            .classList.toggle(
+                "active",
+                mode === "now"
+            );
+
+        document
+            .getElementById("laterBtn")
+            .classList.toggle(
+                "active",
+                mode === "later"
+            );
+
+        document
+            .getElementById("laterFields")
+            .classList.toggle(
+                "hidden",
+                mode !== "later"
+            );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | MINSK DATE → ISO
+    |--------------------------------------------------------------------------
+    |
+    | Важно:
+    | время заказа всегда считается временем Беларуси,
+    | даже если телефон пользователя находится в другой стране.
+    |
+    */
+
+    function minskLocalToISO(
+        dateValue,
+        timeValue
+    ) {
+
+        const parts =
+            dateValue
+                .split("-")
+                .map(Number);
+
+        const timeParts =
+            timeValue
+                .split(":")
+                .map(Number);
+
+        const year = parts[0];
+        const month = parts[1];
+        const day = parts[2];
+
+        const hour = timeParts[0];
+        const minute = timeParts[1];
+
+
+        const utcMs =
+            Date.UTC(
+                year,
+                month - 1,
+                day,
+                hour,
+                minute
+            ) -
+            (3 * 60 * 60 * 1000);
+
+
+        return new Date(
+            utcMs
+        ).toISOString();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | WEEKEND
+    |--------------------------------------------------------------------------
+    */
+
+    function isWeekendDate(dateValue) {
+
+        const date =
+            new Date(
+                `${dateValue}T12:00:00`
+            );
+
+        const day =
+            date.getDay();
+
+        return (
+            day === 0 ||
+            day === 5 ||
+            day === 6
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | HUMAN DATE
+    |--------------------------------------------------------------------------
+    */
+
+    function formatScheduled(
+        dateValue,
+        timeValue
+    ) {
+
+        const parts =
+            dateValue.split("-");
+
+        const formatted =
+            `${parts[2]}.${parts[1]}.${parts[0]}`;
+
+        return `${formatted} в ${timeValue}`;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SEND ORDER
+    |--------------------------------------------------------------------------
+    */
+
+    async function sendOrder() {
+
+        const addressA =
+            document
+                .getElementById("addressA")
+                .value
+                .trim();
+
+        const addressB =
+            document
+                .getElementById("addressB")
+                .value
+                .trim();
+
+        const childSeat =
+            document
+                .getElementById("childSeat")
+                .checked;
+
+
+        if (!telegramUserId) {
+
+            toast(
+                "Откройте приложение через Telegram.",
+                true
+            );
+
+            return;
+        }
+
+
+        if (!addressA) {
+
+            toast(
+                "Введите адрес подачи.",
+                true
+            );
+
+            return;
+        }
+
+
+        if (!addressB) {
+
+            toast(
+                "Введите адрес назначения.",
+                true
+            );
+
+            return;
+        }
+
+
+        let scheduled =
+            "Ближайшее время";
+
+        let scheduledAt = null;
+
+        let isImmediate = true;
+
+        let isWeekend = false;
+
+
+        if (timeMode === "later") {
+
+            const dateValue =
+                document
+                    .getElementById("orderDate")
+                    .value;
+
+            const timeValue =
+                document
+                    .getElementById("orderTime")
+                    .value;
+
+
+            if (!dateValue || !timeValue) {
+
+                toast(
+                    "Выберите дату и время.",
+                    true
+                );
+
+                return;
+            }
+
+
+            scheduled =
+                formatScheduled(
+                    dateValue,
+                    timeValue
+                );
+
+
+            scheduledAt =
+                minskLocalToISO(
+                    dateValue,
+                    timeValue
+                );
+
+
+            isImmediate = false;
+
+            isWeekend =
+                isWeekendDate(
+                    dateValue
+                );
+        }
+
+
+        const button =
+            document.getElementById(
+                "orderButton"
+            );
+
+        button.disabled = true;
+
+        button.textContent =
+            "⏳ Отправляем заявку...";
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/send-order",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            telegramUserId,
+
+                            addressA,
+
+                            addressB,
+
+                            tariff:
+                                selectedTariff,
+
+                            scheduled,
+
+                            scheduledAt,
+
+                            isImmediate,
+
+                            isWeekend,
+
+                            childSeat
+
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    "Не удалось отправить заявку."
+                );
+            }
+
+
+            currentOrderId =
+                String(
+                    data.orderId ||
+                    data.id ||
+                    ""
+                );
+
+
+            if (!currentOrderId) {
+
+                throw new Error(
+                    "Сервер не вернул номер заказа."
+                );
+            }
+
+
+            localStorage.setItem(
+                "taxi_current_order_id",
+                currentOrderId
+            );
+
+
+            showWaiting();
+
+
+            startPassengerPolling();
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            toast(
+                error.message ||
+                "Ошибка отправки заказа.",
+                true
+            );
+
+        } finally {
+
+            button.disabled = false;
+
+            button.textContent =
+                "🚕 Заказать такси";
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHOW WAITING
+    |--------------------------------------------------------------------------
+    */
+
+    function hidePassengerCards() {
+
+        document
+            .getElementById("orderForm")
+            .classList.add("hidden");
+
+        document
+            .getElementById("waitingCard")
+            .classList.add("hidden");
+
+        document
+            .getElementById("acceptedCard")
+            .classList.add("hidden");
+
+        document
+            .getElementById("arrivedCard")
+            .classList.add("hidden");
+
+        document
+            .getElementById("tripCard")
+            .classList.add("hidden");
+    }
+
+
+    function showWaiting() {
+
+        hidePassengerCards();
+
+        document
+            .getElementById("waitingCard")
+            .classList.remove("hidden");
+
+        document
+            .getElementById("waitingOrderText")
+            .textContent =
+            `Заявка №${currentOrderId}`;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER INFO
+    |--------------------------------------------------------------------------
+    */
+
+    function showDriver(data) {
+
+        hidePassengerCards();
+
+        document
+            .getElementById("acceptedCard")
+            .classList.remove("hidden");
+
+
+        currentDriverPhone =
+            data.driverPhone || "";
+
+
+        const photo =
+            data.driverPhotoFileId || "";
+
+
+        document
+            .getElementById("driverInfo")
+            .innerHTML = `
+
+                <div class="driver-card">
+
+                    <div class="driver-top">
+
+                        ${
+                            photo
+                            ? `<img
+                                class="driver-avatar"
+                                src="${escapeHtml(photo)}"
+                                alt=""
+                              >`
+                            : `
+                                <div class="driver-avatar"
+                                     style="
+                                        display:flex;
+                                        align-items:center;
+                                        justify-content:center;
+                                        font-size:22px;
+                                     ">
+                                    🚕
+                                </div>
+                            `
+                        }
+
+                        <div>
+
+                            <div class="driver-name">
+                                ${escapeHtml(
+                                    data.driverName ||
+                                    "Водитель"
+                                )}
+                            </div>
+
+                            <div class="driver-car">
+                                ${escapeHtml(
+                                    data.driverCar ||
+                                    "Автомобиль"
+                                )}
+                            </div>
+
+                        </div>
+
+                        <div class="rating">
+                            ⭐ ${
+                                data.driverRating ??
+                                "—"
+                            }
+                        </div>
+
+                    </div>
+
+
+                    <div class="driver-details">
+
+                        <div class="detail">
+                            <span>Номер автомобиля</span>
+                            <strong>
+                                ${escapeHtml(
+                                    data.driverNumber ||
+                                    "—"
+                                )}
+                            </strong>
+                        </div>
+
+                        <div class="detail">
+                            <span>Телефон</span>
+                            <strong>
+                                ${escapeHtml(
+                                    data.driverPhone ||
+                                    "—"
+                                )}
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+            `;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ORDER STATUS
+    |--------------------------------------------------------------------------
+    */
+
+    async function checkOrderStatus() {
+
+        if (!currentOrderId) {
+            return;
+        }
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `/api/order-status?id=${encodeURIComponent(
+                        currentOrderId
+                    )}`
+                );
+
+
+            if (!response.ok) {
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (!data) {
+                return;
+            }
+
+
+            const status =
+                data.status;
+
+
+            if (status === "searching") {
+
+                showWaiting();
+
+                return;
+            }
+
+
+            if (status === "accepted") {
+
+                showDriver(data);
+
+                return;
+            }
+
+
+            if (
+                status === "arrived"
+            ) {
+
+                hidePassengerCards();
+
+                document
+                    .getElementById("arrivedCard")
+                    .classList.remove("hidden");
+
+                return;
+            }
+
+
+            if (
+                status === "trip"
+            ) {
+
+                hidePassengerCards();
+
+                document
+                    .getElementById("tripCard")
+                    .classList.remove("hidden");
+
+                return;
+            }
+
+
+            if (
+                status === "completed"
+            ) {
+
+                stopPassengerPolling();
+
+                localStorage.removeItem(
+                    "taxi_current_order_id"
+                );
+
+                currentOrderId = "";
+
+                hidePassengerCards();
+
+                document
+                    .getElementById("orderForm")
+                    .classList.remove("hidden");
+
+                toast(
+                    "Поездка завершена."
+                );
+
+                return;
+            }
+
+
+            if (
+                status === "cancelled"
+            ) {
+
+                stopPassengerPolling();
+
+                localStorage.removeItem(
+                    "taxi_current_order_id"
+                );
+
+                currentOrderId = "";
+
+                hidePassengerCards();
+
+                document
+                    .getElementById("orderForm")
+                    .classList.remove("hidden");
+
+                toast(
+                    "Заказ отменён."
+                );
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "ORDER STATUS ERROR",
+                error
             );
         }
-
-        console.log(
-            'Заказ отправлен на сервер:',
-            data
-        );
-
-        activeOrder =
-            data.order || order;
-
-        goTo(8);
-
-        startClientWaitingCheck();
-    })
-    .catch(error => {
-        console.error(
-            'Ошибка отправки:',
-            error
-        );
-
-        alert(
-            'Не удалось отправить заказ. ' +
-            'Проверьте соединение с сервером.'
-        );
-    });
     }
 
-    function updatePassengerDriverInfo(order) {
-      const nameElement = document.querySelector('#screen9 h3');
-      const carElement = document.querySelector('#screen9 p:nth-of-type(2)');
 
-      if (nameElement) {
-        nameElement.innerText = order.driverName || 'Водитель найден';
-      }
+    /*
+    |--------------------------------------------------------------------------
+    | PASSENGER POLLING
+    |--------------------------------------------------------------------------
+    */
 
-      if (carElement) {
-        const car = order.driverCar || 'Автомобиль уточняется';
-        const number = order.driverNumber || '';
-        carElement.innerText = car + (number ? ' • ' + number : '');
-      }
+    function startPassengerPolling() {
+
+        stopPassengerPolling();
+
+        checkOrderStatus();
+
+        passengerPolling =
+            setInterval(
+                checkOrderStatus,
+                2500
+            );
     }
 
-    function startClientWaitingCheck() {
-      clearInterval(clientCheckInterval);
 
-      clientCheckInterval = setInterval(async () => {
-        try {
-          const response = await fetch('/api/order-status', {
-            method: 'GET',
-            cache: 'no-store'
-          });
+    function stopPassengerPolling() {
 
-          if (!response.ok) return;
+        if (passengerPolling) {
 
-          const order = await response.json();
+            clearInterval(
+                passengerPolling
+            );
 
-          if (!order || order.status === 'none') return;
+            passengerPolling = null;
+        }
+    }
 
-          console.log('Статус заказа для пассажира:', order);
 
-          if (activeOrder && order.id && String(order.id) !== String(activeOrder.id)) {
+    /*
+    |--------------------------------------------------------------------------
+    | LOCAL RESET
+    |--------------------------------------------------------------------------
+    */
+
+    function cancelLocalOrder() {
+
+        stopPassengerPolling();
+
+        localStorage.removeItem(
+            "taxi_current_order_id"
+        );
+
+        currentOrderId = "";
+
+        hidePassengerCards();
+
+        document
+            .getElementById("orderForm")
+            .classList.remove("hidden");
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER DETECTION
+    |--------------------------------------------------------------------------
+    */
+
+    async function detectDriver() {
+
+        if (!telegramUserId) {
             return;
-          }
-
-          activeOrder = order;
-
-          if (order.status === 'accepted') {
-            clearInterval(clientCheckInterval);
-            updatePassengerDriverInfo(order);
-
-            const badge = document.getElementById('clientStatusBadge');
-            const statusText = document.getElementById('clientStatusText');
-            const waitingBox = document.getElementById('clientWaitingBox');
-
-            if (badge) {
-              badge.className = 'status-badge status-waiting';
-              badge.innerText = 'Водитель принял';
-            }
-
-            if (statusText) {
-              statusText.innerText = 'Водитель едет к вам';
-            }
-
-            if (waitingBox) {
-              waitingBox.style.display = 'none';
-            }
-
-            goTo(9);
-          }
-        } catch (error) {
-          console.error('Ошибка проверки статуса заказа:', error);
         }
-      }, 1500);
-    }
 
-    function startDriverListener() {
-      clearInterval(driverCheckInterval);
 
-      driverCheckInterval = setInterval(async () => {
         try {
-          const response = await fetch('/api/get-order', {
-            method: 'GET',
-            cache: 'no-store'
-          });
 
-          if (!response.ok) return;
+            const response =
+                await fetch(
+                    `/api/driver-orders?telegramId=${encodeURIComponent(
+                        telegramUserId
+                    )}`
+                );
 
-          const order = await response.json();
 
-          if (order && order.status === 'searching') {
-            activeOrder = order;
+            if (
+                response.status === 401 ||
+                response.status === 403
+            ) {
 
-            document.getElementById('driverOrderIdLabel').innerText =
-              `Активный заказ #${order.id}`;
+                return;
+            }
 
-            document.getElementById('driverOrderAddresses').innerText =
-              `${order.addressA || ''} → ${order.addressB || ''}`;
 
-            document.getElementById('driverScheduledTime').innerText =
-              `Подача: ${order.scheduled || '-'}`;
+            if (!response.ok) {
+                return;
+            }
 
-            document.getElementById('driverWeekendBadge').style.display =
-              order.isWeekend ? 'block' : 'none';
 
-            document.getElementById('driverChildSeatBadge').style.display =
-              order.childSeat ? 'block' : 'none';
-          }
+            isDriver = true;
+
+
+            document
+                .getElementById(
+                    "passengerScreen"
+                )
+                .classList.add("hidden");
+
+
+            document
+                .getElementById(
+                    "driverScreen"
+                )
+                .classList.remove("hidden");
+
+
+            loadDriverOrders();
+
+
+            driverPolling =
+                setInterval(
+                    loadDriverOrders,
+                    5000
+                );
+
+
         } catch (error) {
-          console.log('Ошибка связи с сервером:', error);
+
+            console.log(
+                "Passenger mode"
+            );
         }
-      }, 1500);
     }
 
-    function openYandexMaps(pointType) {
-      const address = pointType === 'A' 
-        ? document.getElementById('inputA').value 
-        : document.getElementById('inputB').value;
-        
-      const url = `https://yandex.by/maps/?rtext=~Речица, ${encodeURIComponent(address)}&rtt=auto`;
 
-      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
-        window.Telegram.WebApp.openLink(url);
-      } else {
-        window.open(url, '_blank');
-      }
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER ORDERS
+    |--------------------------------------------------------------------------
+    */
 
-    async function startPickupWaiting() {
-      if (!activeOrder) {
-        alert('Активный заказ не найден. Подождите, пока заказ появится у водителя.');
-        return;
-      }
+    async function loadDriverOrders() {
 
-      try {
-        const response = await fetch('/api/accept-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            orderId: activeOrder.id,
-            driverName: 'Александр Иванов',
-            driverCar: 'Toyota Corolla',
-            driverNumber: '3-TAP-1234'
-          })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || data.success === false) {
-          throw new Error(data.error || 'Не удалось принять заказ');
+        if (!telegramUserId) {
+            return;
         }
 
-        activeOrder = data.order || {
-          ...activeOrder,
-          status: 'accepted',
-          driverName: 'Александр Иванов',
-          driverCar: 'Toyota Corolla',
-          driverNumber: '3-TAP-1234'
-        };
 
-        console.log('Водитель принял заказ:', activeOrder);
+        const container =
+            document.getElementById(
+                "driverOrders"
+            );
 
-        document.getElementById('btnArrived').style.display = 'none';
-        document.getElementById('btnStartTrip').style.display = 'flex';
 
-        document.getElementById('clientWaitingBox').style.display = 'block';
+        try {
 
-        document.getElementById('clientStatusBadge').className =
-          'status-badge status-waiting';
+            const response =
+                await fetch(
+                    `/api/driver-orders?telegramId=${encodeURIComponent(
+                        telegramUserId
+                    )}`
+                );
 
-        document.getElementById('clientStatusBadge').innerText =
-          'Водитель на месте';
 
-        document.getElementById('clientStatusText').innerText =
-          'Ожидание пассажира';
+            if (!response.ok) {
 
-        runWaitingTimer();
+                if (
+                    response.status === 401 ||
+                    response.status === 403
+                ) {
 
-      } catch (error) {
-        console.error('Ошибка принятия заказа:', error);
-        alert('Не удалось принять заказ.\n' + error.message);
-      }
-    }
+                    isDriver = false;
 
-    function runWaitingTimer() {
-      clearInterval(activeInterval);
-      activeInterval = setInterval(() => {
-        if (freeTimeRemaining > 0) {
-          freeTimeRemaining--;
-          document.getElementById('driverTimerDisplay').innerText = formatTime(freeTimeRemaining);
-          document.getElementById('clientTimerDisplay').innerText = formatTime(freeTimeRemaining);
-          document.getElementById('timerSubLabel').innerText = `Запас: ${freeTimeRemaining} сек`;
-        } else {
-          paidWaitingSeconds++;
-          document.getElementById('timerLabel').innerText = 'Платный простой (0.50 BYN/мин)';
-          document.getElementById('timerLabel').style.color = "var(--red)";
-          document.getElementById('driverTimerDisplay').style.color = "var(--red)";
-          document.getElementById('driverTimerDisplay').innerText = formatTime(paidWaitingSeconds);
-          document.getElementById('clientTimerDisplay').innerText = formatTime(paidWaitingSeconds);
+                    document
+                        .getElementById(
+                            "driverScreen"
+                        )
+                        .classList.add("hidden");
 
-          totalWaitFee = Math.ceil(paidWaitingSeconds / 60) * 0.50;
-          document.getElementById('timerSubLabel').innerText = `Доплата за простой: ${totalWaitFee.toFixed(2)} BYN`;
-          document.getElementById('timerSubLabel').style.color = "var(--red)";
-          document.getElementById('clientWaitingTitle').innerText = "Платный простой";
-          calculateDriverPrice();
+                    document
+                        .getElementById(
+                            "passengerScreen"
+                        )
+                        .classList.remove("hidden");
+                }
+
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+
+            const orders =
+                Array.isArray(data)
+                    ? data
+                    : (
+                        data.orders ||
+                        []
+                    );
+
+
+            if (!orders.length) {
+
+                container.innerHTML = `
+
+                    <div class="order-status">
+
+                        <div class="status-icon">
+                            ✓
+                        </div>
+
+                        <div class="status-title">
+                            Активных заказов нет
+                        </div>
+
+                        <div class="status-text">
+                            Когда появится новый заказ,
+                            он будет показан здесь.
+                        </div>
+
+                    </div>
+                `;
+
+                return;
+            }
+
+
+            container.innerHTML =
+                orders
+                    .map(
+                        renderDriverOrder
+                    )
+                    .join("");
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            container.innerHTML = `
+
+                <div class="status-text"
+                     style="text-align:center;">
+                    Не удалось загрузить заказы.
+                </div>
+            `;
         }
-      }, 1000);
     }
 
-    function startTripAndSaveRemainingTime() {
-      clearInterval(activeInterval);
-      document.getElementById('btnStartTrip').style.display = 'none';
-      document.getElementById('btnTransitWaiting').style.display = 'flex';
-      document.getElementById('btnFinishTrip').style.display = 'flex';
-      
-      document.getElementById('btnNavA').style.display = 'none';
-      document.getElementById('btnNavB').style.display = 'flex';
 
-      document.getElementById('clientWaitingBox').style.display = 'none';
-      document.getElementById('clientStatusBadge').className = 'status-badge status-moving';
-      document.getElementById('clientStatusBadge').innerText = 'В пути';
-      document.getElementById('clientStatusText').innerText = 'Поездка началась';
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER ORDER HTML
+    |--------------------------------------------------------------------------
+    */
 
-      document.getElementById('timerLabel').innerText = "Запас на остановки";
-      document.getElementById('driverTimerDisplay').innerText = formatTime(freeTimeRemaining);
-      document.getElementById('driverTimerDisplay').style.color = "var(--accent-yellow)";
-      document.getElementById('timerSubLabel').innerText = `Сохранено: ${freeTimeRemaining} сек`;
+    function renderDriverOrder(order) {
 
-      openYandexMaps('B');
-    }
+        const status =
+            order.status || "accepted";
 
-    function toggleTransitWaiting() {
-      const btn = document.getElementById('btnTransitWaiting');
-      if (!isTransitWaiting) {
-        isTransitWaiting = true;
-        btn.innerHTML = '<i class="fa-solid fa-play"></i> Продолжить';
-        btn.style.background = 'var(--green)';
-        document.getElementById('clientWaitingBox').style.display = 'block';
-        document.getElementById('clientStatusBadge').className = 'status-badge status-waiting';
-        document.getElementById('clientStatusBadge').innerText = 'Остановка';
-        document.getElementById('clientStatusText').innerText = 'Ожидание у точки';
-        runWaitingTimer();
-      } else {
-        isTransitWaiting = false;
-        clearInterval(activeInterval);
-        btn.innerHTML = '<i class="fa-solid fa-pause"></i> Остановка в пути';
-        btn.style.background = 'var(--orange)';
-        document.getElementById('clientWaitingBox').style.display = 'none';
-        document.getElementById('clientStatusBadge').className = 'status-badge status-moving';
-        document.getElementById('clientStatusBadge').innerText = 'В пути';
-        document.getElementById('clientStatusText').innerText = 'Поездка продолжается';
-      }
-    }
 
-    function finishTrip() {
-      clearInterval(activeInterval);
-      goTo(13);
-    }
+        let badge =
+            "Принят";
 
-    function setRating(starsCount) {
-      const stars = document.querySelectorAll('#ratingStars .fa-star');
-      stars.forEach((star, index) => {
-        if (index < starsCount) {
-          star.classList.add('active');
-        } else {
-          star.classList.remove('active');
+
+        if (status === "arrived") {
+            badge = "На месте";
         }
-      });
+
+        if (status === "trip") {
+            badge = "В поездке";
+        }
+
+
+        let buttons = "";
+
+
+        if (status === "accepted") {
+
+            buttons = `
+
+                <button
+                    class="arrived"
+                    onclick="driverArrived('${escapeJs(
+                        order.id
+                    )}')"
+                >
+                    🚕 Я на месте
+                </button>
+
+            `;
+        }
+
+
+        if (status === "arrived") {
+
+            buttons = `
+
+                <button
+                    class="start"
+                    onclick="startTrip('${escapeJs(
+                        order.id
+                    )}')"
+                >
+                    ▶ Начать поездку
+                </button>
+
+            `;
+        }
+
+
+        if (status === "trip") {
+
+            buttons = `
+
+                <button
+                    class="complete"
+                    onclick="completeOrder('${escapeJs(
+                        order.id
+                    )}')"
+                >
+                    ✓ Завершить поездку
+                </button>
+
+            `;
+        }
+
+
+        return `
+
+            <div class="driver-order">
+
+                <div class="driver-order-head">
+
+                    <div class="order-number">
+                        Заказ №${escapeHtml(
+                            String(order.id)
+                        )}
+                    </div>
+
+                    <div class="order-badge">
+                        ${badge}
+                    </div>
+
+                </div>
+
+
+                <div class="route">
+
+                    <div class="route-line">
+
+                        <div class="route-dot"></div>
+
+                        <div class="route-text">
+                            ${escapeHtml(
+                                order.addressA ||
+                                "Адрес подачи"
+                            )}
+                        </div>
+
+                    </div>
+
+
+                    <div class="route-line">
+
+                        <div class="route-dot end"></div>
+
+                        <div class="route-text">
+                            ${escapeHtml(
+                                order.addressB ||
+                                "Адрес назначения"
+                            )}
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="driver-details">
+
+                    <div class="detail">
+
+                        <span>Время</span>
+
+                        <strong>
+                            ${escapeHtml(
+                                order.scheduled ||
+                                "Сейчас"
+                            )}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail">
+
+                        <span>Тариф</span>
+
+                        <strong>
+                            ${escapeHtml(
+                                order.tariff ||
+                                "Эконом"
+                            )}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail">
+
+                        <span>Детское кресло</span>
+
+                        <strong>
+                            ${
+                                order.childSeat
+                                ? "👶 Нужно"
+                                : "Не нужно"
+                            }
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail">
+
+                        <span>Клиент</span>
+
+                        <strong>
+                            ${escapeHtml(
+                                order.telegramUserId
+                                    ? "Telegram"
+                                    : "Клиент"
+                            )}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="driver-buttons">
+                    ${buttons}
+                </div>
+
+            </div>
+        `;
     }
 
-    function formatTime(sec) {
-      let m = Math.floor(sec / 60);
-      let s = sec % 60;
-      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER ACTIONS
+    |--------------------------------------------------------------------------
+    */
+
+    async function driverArrived(orderId) {
+
+        await driverAction(
+            "/api/driver-arrived",
+            orderId,
+            "Водитель отмечен как прибывший."
+        );
     }
 
-    function goTo(num) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(`screen${num}`).classList.add('active');
-      currentScreen = num;
 
-      const titles = {
-        1: "Главная", 2: "Откуда", 3: "Куда", 4: "Время", 
-        5: "Тарифы", 6: "Оплата", 7: "Проверка", 8: "Поиск", 
-        9: "Водитель", 10: "Статус", 12: "Водитель", 13: "Итог поездки"
-      };
-      document.getElementById('screenTitle').innerText = titles[num] || "Такси";
+    async function startTrip(orderId) {
+
+        await driverAction(
+            "/api/start-trip",
+            orderId,
+            "Поездка началась."
+        );
     }
 
-    function goBack() { if (currentScreen > 1) goTo(currentScreen - 1); }
-  </script>
+
+    async function completeOrder(orderId) {
+
+        await driverAction(
+            "/api/complete-order",
+            orderId,
+            "Поездка завершена."
+        );
+    }
+
+
+    async function driverAction(
+        url,
+        orderId,
+        successMessage
+    ) {
+
+        try {
+
+            const response =
+                await fetch(
+                    url,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            telegramId:
+                                telegramUserId,
+
+                            orderId:
+                                orderId
+
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    "Не удалось изменить статус."
+                );
+            }
+
+
+            toast(
+                successMessage
+            );
+
+
+            loadDriverOrders();
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            toast(
+                error.message ||
+                "Ошибка.",
+                true
+            );
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PHONE
+    |--------------------------------------------------------------------------
+    */
+
+    function openDriverPhone() {
+
+        if (!currentDriverPhone) {
+
+            toast(
+                "Телефон водителя недоступен.",
+                true
+            );
+
+            return;
+        }
+
+
+        window.location.href =
+            `tel:${currentDriverPhone}`;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESCAPE
+    |--------------------------------------------------------------------------
+    */
+
+    function escapeHtml(value) {
+
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+
+    function escapeJs(value) {
+
+        return String(value ?? "")
+            .replaceAll("\\", "\\\\")
+            .replaceAll("'", "\\'")
+            .replaceAll('"', '\\"');
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESTORE CURRENT ORDER
+    |--------------------------------------------------------------------------
+    */
+
+    if (currentOrderId) {
+
+        showWaiting();
+
+        startPassengerPolling();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | START
+    |--------------------------------------------------------------------------
+    */
+
+    detectDriver();
+
+</script>
+
 </body>
-          </html>
+</html>
