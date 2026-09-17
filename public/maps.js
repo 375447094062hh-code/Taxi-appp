@@ -136,20 +136,38 @@
     const lm=tg?.LocationManager;
     if(!lm||typeof lm.init!=='function'||typeof lm.getLocation!=='function')return false;
     const hint=document.getElementById('mapLocationHint');
+    const b=document.getElementById('mapLocateBtn');
     if(hint)hint.textContent='Telegram запрашивает доступ к местоположению…';
     try{
       lm.init(()=>{
-        if(lm.isLocationAvailable===false){locationError({code:2});return;}
+        if(lm.isLocationAvailable===false){
+          S.locating=false;
+          if(hint)hint.textContent='Геолокация недоступна. Включите геолокацию телефона и разрешите доступ Telegram.';
+          if(b)b.textContent='📍 Моё местоположение';
+          return;
+        }
         lm.getLocation(data=>{
           if(applyTelegramLocation(data))return;
-          if(typeof lm.openSettings==='function'&&lm.isAccessRequested&&!lm.isAccessGranted){
-            const h=document.getElementById('mapLocationHint');
-            if(h)h.textContent='Доступ к геолокации не выдан. Нажмите кнопку ещё раз и разрешите доступ.';
-          } else locationError({code:1});
+          S.locating=false;
+          if(lm.isAccessRequested&&!lm.isAccessGranted){
+            if(hint)hint.textContent='Доступ не разрешён. Откройте настройки Telegram и разрешите геолокацию.';
+            if(b){
+              b.textContent='⚙️ Разрешить геолокацию';
+              b.onclick=()=>{
+                try{lm.openSettings?.();}catch(_){}
+              };
+            }
+          }else{
+            if(hint)hint.textContent='Telegram не передал координаты. Попробуйте ещё раз.';
+            if(b)b.textContent='📍 Моё местоположение';
+          }
         });
       });
       return true;
-    }catch(e){return false}
+    }catch(e){
+      console.error('Telegram LocationManager:',e);
+      return false;
+    }
   }
 
   function locate(){
