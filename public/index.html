@@ -1,750 +1,662 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    >
-
-    <title>Такси Речица</title>
-
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <style>
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            min-height: 100%;
-            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #080c14;
-            color: #ffffff;
-        }
-
-        body {
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        button,
-        input,
-        select {
-            font: inherit;
-        }
-
-        button {
-            cursor: pointer;
-            border: 0;
-        }
-
-        .app {
-            width: 100%;
-            max-width: 430px;
-            min-height: 100vh;
-            margin: 0 auto;
-            padding: 16px 14px 30px;
-            background:
-                radial-gradient(circle at 80% 0%, rgba(250, 204, 21, .10), transparent 30%),
-                radial-gradient(circle at 0% 40%, rgba(34, 197, 94, .05), transparent 25%),
-                #080c14;
-        }
-
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 18px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-        }
-
-        .brand-icon {
-            width: 45px;
-            height: 45px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(145deg, #facc15, #f59e0b);
-            color: #111827;
-            font-size: 21px;
-            font-weight: 900;
-            box-shadow: 0 8px 25px rgba(250, 204, 21, .20);
-        }
-
-        .brand-title {
-            font-size: 17px;
-            font-weight: 800;
-            line-height: 1.1;
-        }
-
-        .brand-subtitle {
-            margin-top: 4px;
-            font-size: 11px;
-            color: #7f8ca3;
-        }
-
-        .status-dot {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 10px;
-            border-radius: 12px;
-            background: rgba(34, 197, 94, .08);
-            border: 1px solid rgba(34, 197, 94, .16);
-            color: #6ee7a0;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .status-dot::before {
-            content: "";
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #22c55e;
-            box-shadow: 0 0 10px rgba(34, 197, 94, .7);
-        }
-
-        .hero {
-            position: relative;
-            overflow: hidden;
-            padding: 22px;
-            border-radius: 25px;
-            margin-bottom: 14px;
-            background:
-                linear-gradient(135deg, rgba(250,204,21,.13), rgba(250,204,21,.02)),
-                #111827;
-            border: 1px solid rgba(250, 204, 21, .13);
-        }
-
-        .hero::after {
-            content: "";
-            position: absolute;
-            width: 150px;
-            height: 150px;
-            right: -60px;
-            top: -70px;
-            border-radius: 50%;
-            background: rgba(250, 204, 21, .08);
-            filter: blur(3px);
-        }
-
-        .hero-title {
-            position: relative;
-            z-index: 2;
-            font-size: 25px;
-            line-height: 1.08;
-            font-weight: 900;
-            max-width: 270px;
-        }
-
-        .hero-text {
-            position: relative;
-            z-index: 2;
-            margin-top: 9px;
-            color: #9ba7ba;
-            font-size: 13px;
-            line-height: 1.5;
-            max-width: 290px;
-        }
-
-        .quick-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 17px;
-        }
-
-        .quick-btn {
-            min-height: 52px;
-            border-radius: 15px;
-            font-weight: 800;
-            font-size: 13px;
-            transition: .2s;
-        }
-
-        .quick-btn.primary {
-            background: #facc15;
-            color: #17120a;
-        }
-
-        .quick-btn.secondary {
-            background: #1a2231;
-            border: 1px solid #293449;
-            color: #fff;
-        }
-
-        .quick-btn:active {
-            transform: scale(.98);
-        }
-
-        .card {
-            margin-top: 12px;
-            padding: 17px;
-            border-radius: 22px;
-            background: rgba(17, 24, 39, .92);
-            border: 1px solid #202b3e;
-            box-shadow: 0 12px 35px rgba(0,0,0,.14);
-        }
-
-        .card-title {
-            font-size: 15px;
-            font-weight: 850;
-            margin-bottom: 14px;
-        }
-
-        .field {
-            margin-bottom: 12px;
-        }
-
-        .field-label {
-            display: block;
-            margin-bottom: 7px;
-            font-size: 11px;
-            color: #7f8ca3;
-            font-weight: 700;
-        }
-
-        .input-wrap {
-            position: relative;
-        }
-
-        .input-icon {
-            position: absolute;
-            left: 13px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #68758a;
-            font-size: 14px;
-            pointer-events: none;
-        }
-
-        .input {
-            width: 100%;
-            height: 48px;
-            border-radius: 14px;
-            padding: 0 13px 0 38px;
-            background: #0d1421;
-            border: 1px solid #243044;
-            color: #fff;
-            outline: none;
-        }
-
-        .input:focus {
-            border-color: rgba(250,204,21,.65);
-            box-shadow: 0 0 0 3px rgba(250,204,21,.07);
-        }
-
-        .mode-switch {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            padding: 4px;
-            border-radius: 15px;
-            background: #0b111d;
-            border: 1px solid #202b3e;
-            margin-bottom: 14px;
-        }
-
-        .mode-btn {
-            height: 40px;
-            border-radius: 11px;
-            color: #7f8ca3;
-            background: transparent;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .mode-btn.active {
-            background: #facc15;
-            color: #17120a;
-        }
-
-        .tariffs {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 9px;
-        }
-
-        .tariff {
-            padding: 13px;
-            border-radius: 15px;
-            background: #0d1421;
-            border: 1px solid #243044;
-            color: #fff;
-            text-align: left;
-            transition: .2s;
-        }
-
-        .tariff.active {
-            border-color: #facc15;
-            background: rgba(250,204,21,.08);
-            box-shadow: inset 0 0 0 1px rgba(250,204,21,.15);
-        }
-
-        .tariff-name {
-            font-size: 13px;
-            font-weight: 850;
-        }
-
-        .tariff-info {
-            margin-top: 5px;
-            color: #7f8ca3;
-            font-size: 10px;
-        }
-
-        .tariff-price {
-            margin-top: 8px;
-            font-size: 12px;
-            color: #facc15;
-            font-weight: 800;
-        }
-
-        .date-row {
-            display: grid;
-            grid-template-columns: 1.3fr .7fr;
-            gap: 9px;
-        }
-
-        .date-input {
-            width: 100%;
-            height: 48px;
-            padding: 0 11px;
-            border-radius: 14px;
-            background: #0d1421;
-            border: 1px solid #243044;
-            color: #fff;
-            outline: none;
-        }
-
-        .date-input:focus {
-            border-color: rgba(250,204,21,.65);
-        }
-
-        .checkbox-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 13px;
-            border-radius: 15px;
-            background: #0d1421;
-            border: 1px solid #243044;
-            margin-top: 10px;
-        }
-
-        .checkbox-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .checkbox-left strong {
-            display: block;
-            font-size: 12px;
-        }
-
-        .checkbox-left span {
-            display: block;
-            margin-top: 3px;
-            font-size: 10px;
-            color: #7f8ca3;
-        }
-
-        .switch {
-            position: relative;
-            width: 45px;
-            height: 25px;
-            flex-shrink: 0;
-        }
-
-        .switch input {
-            display: none;
-        }
-
-        .slider {
-            position: absolute;
-            inset: 0;
-            border-radius: 20px;
-            background: #273247;
-            transition: .2s;
-        }
-
-        .slider::before {
-            content: "";
-            position: absolute;
-            width: 19px;
-            height: 19px;
-            left: 3px;
-            top: 3px;
-            border-radius: 50%;
-            background: #fff;
-            transition: .2s;
-        }
-
-        .switch input:checked + .slider {
-            background: #facc15;
-        }
-
-        .switch input:checked + .slider::before {
-            transform: translateX(20px);
-            background: #17120a;
-        }
-
-        .price-box {
-            margin-top: 14px;
-            padding: 16px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #171f2e, #111827);
-            border: 1px solid #293449;
-        }
-
-        .price-line {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        .price-label {
-            color: #7f8ca3;
-            font-size: 11px;
-        }
-
-        .price-value {
-            font-size: 22px;
-            font-weight: 900;
-            color: #facc15;
-        }
-
-        .small-note {
-            margin-top: 7px;
-            color: #66748a;
-            font-size: 10px;
-            line-height: 1.4;
-        }
-
-        .main-btn {
-            width: 100%;
-            height: 53px;
-            margin-top: 12px;
-            border-radius: 16px;
-            background: #facc15;
-            color: #17120a;
-            font-size: 14px;
-            font-weight: 900;
-            box-shadow: 0 10px 28px rgba(250,204,21,.14);
-        }
-
-        .main-btn:active {
-            transform: scale(.985);
-        }
-
-        .main-btn:disabled {
-            opacity: .45;
-            box-shadow: none;
-        }
-
-        .outline-btn {
-            width: 100%;
-            height: 47px;
-            margin-top: 9px;
-            border-radius: 14px;
-            background: #0d1421;
-            color: #fff;
-            border: 1px solid #293449;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .order-status {
-            text-align: center;
-            padding: 22px 12px;
-        }
-
-        .status-icon {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 13px;
-            border-radius: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(250,204,21,.09);
-            border: 1px solid rgba(250,204,21,.17);
-            font-size: 27px;
-        }
-
-        .status-title {
-            font-size: 17px;
-            font-weight: 900;
-        }
-
-        .status-text {
-            margin-top: 7px;
-            color: #7f8ca3;
-            font-size: 12px;
-            line-height: 1.5;
-        }
-
-        .driver-card {
-            padding: 15px;
-            border-radius: 18px;
-            background: #0d1421;
-            border: 1px solid #263247;
-        }
-
-        .driver-top {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .driver-avatar {
-            width: 54px;
-            height: 54px;
-            border-radius: 17px;
-            object-fit: cover;
-            background: #202a3a;
-        }
-
-        .driver-name {
-            font-weight: 900;
-            font-size: 14px;
-        }
-
-        .driver-car {
-            margin-top: 4px;
-            color: #8996aa;
-            font-size: 11px;
-        }
-
-        .rating {
-            margin-left: auto;
-            color: #facc15;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .driver-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .detail {
-            padding: 10px;
-            border-radius: 12px;
-            background: #141d2b;
-        }
-
-        .detail span {
-            display: block;
-            color: #65738a;
-            font-size: 9px;
-        }
-
-        .detail strong {
-            display: block;
-            margin-top: 3px;
-            font-size: 11px;
-        }
-
-        .driver-action {
-            width: 100%;
-            height: 43px;
-            margin-top: 10px;
-            border-radius: 13px;
-            background: #22c55e;
-            color: #07130c;
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .driver-order {
-            padding: 14px;
-            border-radius: 17px;
-            background: #0d1421;
-            border: 1px solid #263247;
-            margin-bottom: 10px;
-        }
-
-        .driver-order-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .order-number {
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .order-badge {
-            padding: 5px 8px;
-            border-radius: 9px;
-            background: rgba(250,204,21,.09);
-            color: #facc15;
-            font-size: 9px;
-            font-weight: 800;
-        }
-
-        .route {
-            display: grid;
-            gap: 7px;
-        }
-
-        .route-line {
-            display: flex;
-            gap: 9px;
-            align-items: flex-start;
-        }
-
-        .route-dot {
-            width: 8px;
-            height: 8px;
-            margin-top: 4px;
-            border-radius: 50%;
-            background: #facc15;
-            flex-shrink: 0;
-        }
-
-        .route-dot.end {
-            background: #22c55e;
-        }
-
-        .route-text {
-            font-size: 11px;
-            line-height: 1.35;
-            color: #d5dbe5;
-        }
-
-        .route-line + .route-line {
-            padding-top: 7px;
-            border-top: 1px solid #1c2738;
-        }
-
-        .driver-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 11px;
-        }
-
-        .driver-buttons button {
-            height: 42px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 850;
-        }
-
-        .arrived {
-            background: #facc15;
-            color: #17120a;
-        }
-
-        .start {
-            background: #22c55e;
-            color: #07130c;
-        }
-
-        .complete {
-            background: #2563eb;
-            color: #fff;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .loader {
-            width: 30px;
-            height: 30px;
-            border: 3px solid #283449;
-            border-top-color: #facc15;
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
-            margin: 8px auto 15px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .toast {
-            position: fixed;
-            left: 50%;
-            bottom: 22px;
-            transform: translate(-50%, 20px);
-            width: calc(100% - 32px);
-            max-width: 398px;
-            padding: 13px 15px;
-            border-radius: 14px;
-            background: #1a2332;
-            border: 1px solid #344158;
-            box-shadow: 0 14px 35px rgba(0,0,0,.35);
-            font-size: 12px;
-            text-align: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: .25s;
-            z-index: 999;
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translate(-50%, 0);
-        }
-
-        .toast.error {
-            border-color: rgba(239,68,68,.45);
-        }
-
-        .footer {
-            padding: 20px 0 5px;
-            text-align: center;
-            color: #4e5a6d;
-            font-size: 10px;
-        }
-
-        @media (min-width: 500px) {
-            body {
-                padding: 20px 0;
-            }
-
-            .app {
-                min-height: calc(100vh - 40px);
-                border-radius: 30px;
-                border: 1px solid #1d2737;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Такси Речица</title>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+    margin:0;
+    padding:0;
+    min-height:100%;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:#080c14;
+    color:#fff
+}
+body{min-height:100vh;overflow-x:hidden}
+button,input{font:inherit}
+button{border:0;cursor:pointer}
+
+.app{
+    width:100%;
+    max-width:430px;
+    min-height:100vh;
+    margin:auto;
+    padding:16px 14px 30px;
+    background:
+        radial-gradient(circle at 80% 0%,rgba(250,204,21,.10),transparent 30%),
+        radial-gradient(circle at 0% 40%,rgba(34,197,94,.05),transparent 25%),
+        #080c14
+}
+
+.topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:11px
+}
+
+.brand-icon{
+    width:45px;
+    height:45px;
+    border-radius:15px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(145deg,#facc15,#f59e0b);
+    color:#111827;
+    font-size:21px;
+    font-weight:900;
+    box-shadow:0 8px 25px rgba(250,204,21,.20)
+}
+
+.brand-title{
+    font-size:17px;
+    font-weight:800;
+    line-height:1.1
+}
+
+.brand-subtitle{
+    margin-top:4px;
+    font-size:11px;
+    color:#7f8ca3
+}
+
+.status-dot{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 10px;
+    border-radius:12px;
+    background:rgba(34,197,94,.08);
+    border:1px solid rgba(34,197,94,.16);
+    color:#6ee7a0;
+    font-size:11px;
+    font-weight:700
+}
+
+.status-dot:before{
+    content:"";
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#22c55e;
+    box-shadow:0 0 10px rgba(34,197,94,.7)
+}
+
+.hero{
+    position:relative;
+    overflow:hidden;
+    padding:22px;
+    border-radius:25px;
+    margin-bottom:14px;
+    background:
+        linear-gradient(135deg,rgba(250,204,21,.13),rgba(250,204,21,.02)),
+        #111827;
+    border:1px solid rgba(250,204,21,.13)
+}
+
+.hero-title{
+    position:relative;
+    z-index:2;
+    font-size:25px;
+    line-height:1.08;
+    font-weight:900
+}
+
+.hero-text{
+    position:relative;
+    z-index:2;
+    margin-top:9px;
+    color:#9ba7ba;
+    font-size:13px;
+    line-height:1.5
+}
+
+.quick-buttons{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:17px
+}
+
+.quick-btn{
+    min-height:52px;
+    border-radius:15px;
+    font-weight:800;
+    font-size:13px
+}
+
+.primary{
+    background:#facc15;
+    color:#17120a
+}
+
+.secondary{
+    background:#1a2231;
+    border:1px solid #293449;
+    color:#fff
+}
+
+.card{
+    margin-top:12px;
+    padding:17px;
+    border-radius:22px;
+    background:rgba(17,24,39,.92);
+    border:1px solid #202b3e;
+    box-shadow:0 12px 35px rgba(0,0,0,.14)
+}
+
+.card-title{
+    font-size:15px;
+    font-weight:850;
+    margin-bottom:14px
+}
+
+.field{margin-bottom:12px}
+
+.field-label{
+    display:block;
+    margin-bottom:7px;
+    font-size:11px;
+    color:#7f8ca3;
+    font-weight:700
+}
+
+.input{
+    width:100%;
+    height:48px;
+    border-radius:14px;
+    padding:0 13px;
+    background:#0d1421;
+    border:1px solid #243044;
+    color:#fff;
+    outline:none
+}
+
+.input:focus{
+    border-color:rgba(250,204,21,.65);
+    box-shadow:0 0 0 3px rgba(250,204,21,.07)
+}
+
+.profile-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:15px
+}
+
+.profile-status{
+    padding:6px 9px;
+    border-radius:9px;
+    font-size:10px;
+    font-weight:800;
+    background:rgba(34,197,94,.09);
+    color:#6ee7a0;
+    border:1px solid rgba(34,197,94,.15)
+}
+
+.profile-status.empty{
+    background:rgba(250,204,21,.08);
+    color:#facc15;
+    border-color:rgba(250,204,21,.15)
+}
+
+.profile-info{
+    padding:13px;
+    border-radius:15px;
+    background:#0d1421;
+    border:1px solid #243044;
+    margin-bottom:12px
+}
+
+.profile-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 0;
+    border-bottom:1px solid #1c2738
+}
+
+.profile-row:last-child{border-bottom:0}
+
+.profile-row span{
+    color:#718097;
+    font-size:11px
+}
+
+.profile-row strong{
+    font-size:12px;
+    text-align:right
+}
+
+.mode-switch{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    padding:4px;
+    border-radius:15px;
+    background:#0b111d;
+    border:1px solid #202b3e;
+    margin-bottom:14px
+}
+
+.mode-btn{
+    height:40px;
+    border-radius:11px;
+    color:#7f8ca3;
+    background:transparent;
+    font-size:12px;
+    font-weight:800
+}
+
+.mode-btn.active{
+    background:#facc15;
+    color:#17120a
+}
+
+.tariffs{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:9px
+}
+
+.tariff{
+    padding:13px;
+    border-radius:15px;
+    background:#0d1421;
+    border:1px solid #243044;
+    color:#fff;
+    text-align:left
+}
+
+.tariff.active{
+    border-color:#facc15;
+    background:rgba(250,204,21,.08)
+}
+
+.tariff-name{
+    font-size:13px;
+    font-weight:850
+}
+
+.tariff-info{
+    margin-top:5px;
+    color:#7f8ca3;
+    font-size:10px
+}
+
+.tariff-price{
+    margin-top:8px;
+    font-size:12px;
+    color:#facc15;
+    font-weight:800
+}
+
+.date-row{
+    display:grid;
+    grid-template-columns:1.3fr .7fr;
+    gap:9px
+}
+
+.date-input{
+    width:100%;
+    height:48px;
+    padding:0 11px;
+    border-radius:14px;
+    background:#0d1421;
+    border:1px solid #243044;
+    color:#fff;
+    outline:none
+}
+
+.checkbox-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:13px;
+    border-radius:15px;
+    background:#0d1421;
+    border:1px solid #243044;
+    margin-top:10px
+}
+
+.checkbox-left{
+    display:flex;
+    align-items:center;
+    gap:10px
+}
+
+.checkbox-left strong{
+    display:block;
+    font-size:12px
+}
+
+.checkbox-left span{
+    display:block;
+    margin-top:3px;
+    font-size:10px;
+    color:#7f8ca3
+}
+
+.switch{
+    position:relative;
+    width:45px;
+    height:25px;
+    flex-shrink:0
+}
+
+.switch input{display:none}
+
+.slider{
+    position:absolute;
+    inset:0;
+    border-radius:20px;
+    background:#273247
+}
+
+.slider:before{
+    content:"";
+    position:absolute;
+    width:19px;
+    height:19px;
+    left:3px;
+    top:3px;
+    border-radius:50%;
+    background:#fff;
+    transition:.2s
+}
+
+.switch input:checked+.slider{background:#facc15}
+
+.switch input:checked+.slider:before{
+    transform:translateX(20px);
+    background:#17120a
+}
+
+.main-btn{
+    width:100%;
+    height:53px;
+    margin-top:12px;
+    border-radius:16px;
+    background:#facc15;
+    color:#17120a;
+    font-size:14px;
+    font-weight:900
+}
+
+.main-btn:disabled{
+    opacity:.45;
+    box-shadow:none
+}
+
+.outline-btn{
+    width:100%;
+    height:47px;
+    margin-top:9px;
+    border-radius:14px;
+    background:#0d1421;
+    color:#fff;
+    border:1px solid #293449;
+    font-size:12px;
+    font-weight:800
+}
+
+.status-box{
+    text-align:center;
+    padding:22px 12px
+}
+
+.status-icon{
+    width:64px;
+    height:64px;
+    margin:0 auto 13px;
+    border-radius:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(250,204,21,.09);
+    border:1px solid rgba(250,204,21,.17);
+    font-size:27px
+}
+
+.status-title{
+    font-size:17px;
+    font-weight:900
+}
+
+.status-text{
+    margin-top:7px;
+    color:#7f8ca3;
+    font-size:12px;
+    line-height:1.5
+}
+
+.driver-card{
+    padding:15px;
+    border-radius:18px;
+    background:#0d1421;
+    border:1px solid #263247
+}
+
+.driver-top{
+    display:flex;
+    align-items:center;
+    gap:12px
+}
+
+.driver-avatar{
+    width:54px;
+    height:54px;
+    border-radius:17px;
+    object-fit:cover;
+    background:#202a3a
+}
+
+.driver-name{
+    font-weight:900;
+    font-size:14px
+}
+
+.driver-car{
+    margin-top:4px;
+    color:#8996aa;
+    font-size:11px
+}
+
+.rating{
+    margin-left:auto;
+    color:#facc15;
+    font-size:12px;
+    font-weight:800
+}
+
+.driver-details{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:12px
+}
+
+.detail{
+    padding:10px;
+    border-radius:12px;
+    background:#141d2b
+}
+
+.detail span{
+    display:block;
+    color:#65738a;
+    font-size:9px
+}
+
+.detail strong{
+    display:block;
+    margin-top:3px;
+    font-size:11px
+}
+
+.driver-order{
+    padding:14px;
+    border-radius:17px;
+    background:#0d1421;
+    border:1px solid #263247;
+    margin-bottom:10px
+}
+
+.driver-order-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px
+}
+
+.order-number{
+    font-size:12px;
+    font-weight:900
+}
+
+.order-badge{
+    padding:5px 8px;
+    border-radius:9px;
+    background:rgba(250,204,21,.09);
+    color:#facc15;
+    font-size:9px;
+    font-weight:800
+}
+
+.route{
+    display:grid;
+    gap:7px
+}
+
+.route-line{
+    display:flex;
+    gap:9px;
+    align-items:flex-start
+}
+
+.route-dot{
+    width:8px;
+    height:8px;
+    margin-top:4px;
+    border-radius:50%;
+    background:#facc15;
+    flex-shrink:0
+}
+
+.route-dot.end{background:#22c55e}
+
+.route-text{
+    font-size:11px;
+    line-height:1.35;
+    color:#d5dbe5
+}
+
+.route-line+.route-line{
+    padding-top:7px;
+    border-top:1px solid #1c2738
+}
+
+.driver-buttons{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:11px
+}
+
+.driver-buttons button{
+    height:42px;
+    border-radius:12px;
+    font-size:11px;
+    font-weight:850
+}
+
+.arrived{background:#facc15;color:#17120a}
+.start{background:#22c55e;color:#07130c}
+.complete{background:#2563eb;color:#fff}
+
+.hidden{display:none!important}
+
+.loader{
+    width:30px;
+    height:30px;
+    border:3px solid #283449;
+    border-top-color:#facc15;
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+    margin:8px auto 15px
+}
+
+@keyframes spin{
+    to{transform:rotate(360deg)}
+}
+
+.toast{
+    position:fixed;
+    left:50%;
+    bottom:22px;
+    transform:translate(-50%,20px);
+    width:calc(100% - 32px);
+    max-width:398px;
+    padding:13px 15px;
+    border-radius:14px;
+    background:#1a2332;
+    border:1px solid #344158;
+    box-shadow:0 14px 35px rgba(0,0,0,.35);
+    font-size:12px;
+    text-align:center;
+    opacity:0;
+    pointer-events:none;
+    transition:.25s;
+    z-index:999
+}
+
+.toast.show{
+    opacity:1;
+    transform:translate(-50%,0)
+}
+
+.toast.error{
+    border-color:rgba(239,68,68,.45)
+}
+
+.footer{
+    padding:20px 0 5px;
+    text-align:center;
+    color:#4e5a6d;
+    font-size:10px
+}
+
+@media(min-width:500px){
+    body{padding:20px 0}
+    .app{
+        min-height:calc(100vh - 40px);
+        border-radius:30px;
+        border:1px solid #1d2737
+    }
+}
+</style>
 </head>
 
 <body>
 
 <div class="app">
 
-    <!-- TOP -->
     <div class="topbar">
         <div class="brand">
             <div class="brand-icon">T</div>
-
             <div>
                 <div class="brand-title">Такси Речица</div>
                 <div class="brand-subtitle">Быстро • Удобно • Надежно</div>
@@ -753,7 +665,6 @@
 
         <div class="status-dot">Онлайн</div>
     </div>
-
 
     <!-- ================= PASSENGER ================= -->
 
@@ -766,65 +677,137 @@
 
             <div class="hero-text">
                 Укажите маршрут, время и дополнительные пожелания.
-                Заявка сразу отправится доступным водителям.
+                Заявка сразу отправится доступному водителю.
             </div>
 
             <div class="quick-buttons">
-                <button
-                    class="quick-btn primary"
-                    onclick="scrollToOrder()"
-                >
-                    Вызвать такси
+                <button class="quick-btn primary" onclick="scrollToOrder()">
+                    🚕 Вызвать такси
                 </button>
 
-                <button
-                    class="quick-btn secondary"
-                    onclick="showTariffInfo()"
-                >
-                    Тарифы
+                <button class="quick-btn secondary" onclick="showTariffInfo()">
+                    💰 Тарифы
                 </button>
             </div>
         </div>
 
 
+        <!-- ================= PROFILE ================= -->
+
+        <div id="profileCard" class="card">
+
+            <div class="profile-header">
+                <div class="card-title" style="margin:0">
+                    👤 Профиль
+                </div>
+
+                <div id="profileStatus" class="profile-status empty">
+                    Не заполнен
+                </div>
+            </div>
+
+            <div id="profileView" class="hidden">
+
+                <div class="profile-info">
+
+                    <div class="profile-row">
+                        <span>Имя</span>
+                        <strong id="profileNameText">—</strong>
+                    </div>
+
+                    <div class="profile-row">
+                        <span>Телефон</span>
+                        <strong id="profilePhoneText">—</strong>
+                    </div>
+
+                </div>
+
+                <button
+                    class="outline-btn"
+                    onclick="editPassengerProfile()"
+                >
+                    ✏️ Изменить профиль
+                </button>
+
+            </div>
+
+
+            <div id="profileForm">
+
+                <div class="field">
+                    <label class="field-label">ВАШЕ ИМЯ</label>
+
+                    <input
+                        id="passengerName"
+                        class="input"
+                        type="text"
+                        maxlength="100"
+                        placeholder="Введите имя"
+                    >
+                </div>
+
+                <div class="field">
+                    <label class="field-label">НОМЕР ТЕЛЕФОНА</label>
+
+                    <input
+                        id="passengerPhone"
+                        class="input"
+                        type="tel"
+                        maxlength="30"
+                        placeholder="+375 XX XXX-XX-XX"
+                    >
+                </div>
+
+                <button
+                    id="saveProfileButton"
+                    class="main-btn"
+                    onclick="savePassengerProfile()"
+                >
+                    💾 Сохранить профиль
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= ORDER ================= -->
+
         <div id="orderForm" class="card">
 
-            <div class="card-title">Маршрут</div>
+            <div class="card-title">
+                🚕 Заказ такси
+            </div>
 
             <div class="field">
                 <label class="field-label">ОТКУДА</label>
 
-                <div class="input-wrap">
-                    <span class="input-icon">●</span>
-
-                    <input
-                        id="addressA"
-                        class="input"
-                        type="text"
-                        placeholder="Введите адрес подачи"
-                    >
-                </div>
+                <input
+                    id="addressA"
+                    class="input"
+                    type="text"
+                    placeholder="Введите адрес подачи"
+                >
             </div>
 
 
             <div class="field">
                 <label class="field-label">КУДА</label>
 
-                <div class="input-wrap">
-                    <span class="input-icon">●</span>
-
-                    <input
-                        id="addressB"
-                        class="input"
-                        type="text"
-                        placeholder="Введите адрес назначения"
-                    >
-                </div>
+                <input
+                    id="addressB"
+                    class="input"
+                    type="text"
+                    placeholder="Введите адрес назначения"
+                >
             </div>
 
 
             <div class="field">
-                <label class="field-label">ВРЕМЯ ПОДАЧИ</label>
+
+                <label class="field-label">
+                    ВРЕМЯ ПОДАЧИ
+                </label>
 
                 <div class="mode-switch">
 
@@ -845,6 +828,7 @@
                     </button>
 
                 </div>
+
             </div>
 
 
@@ -869,10 +853,9 @@
             </div>
 
 
-            <div class="card-title" style="margin-top:18px;">
+            <div class="card-title" style="margin-top:18px">
                 Тариф
             </div>
-
 
             <div class="tariffs">
 
@@ -890,7 +873,7 @@
                     </div>
 
                     <div class="tariff-price">
-                        от 3 BYN
+                        Посадка 3 BYN
                     </div>
                 </button>
 
@@ -909,7 +892,7 @@
                     </div>
 
                     <div class="tariff-price">
-                        от 3 BYN
+                        Посадка 3 BYN
                     </div>
                 </button>
 
@@ -919,45 +902,33 @@
             <div class="checkbox-row">
 
                 <div class="checkbox-left">
-                    <div style="font-size:20px;">👶</div>
+
+                    <div style="font-size:20px">
+                        👶
+                    </div>
 
                     <div>
-                        <strong>Детское кресло</strong>
-                        <span>Нужно кресло для ребенка</span>
+                        <strong>
+                            Детское кресло
+                        </strong>
+
+                        <span>
+                            Нужно кресло для ребенка
+                        </span>
                     </div>
+
                 </div>
 
                 <label class="switch">
+
                     <input
                         id="childSeat"
                         type="checkbox"
                     >
 
                     <span class="slider"></span>
+
                 </label>
-
-            </div>
-
-
-            <div class="price-box">
-
-                <div class="price-line">
-
-                    <div>
-                        <div class="price-label">
-                            Ориентировочная стоимость
-                        </div>
-
-                        <div class="small-note">
-                            Посадка 3 BYN + расстояние
-                        </div>
-                    </div>
-
-                    <div class="price-value">
-                        3 BYN+
-                    </div>
-
-                </div>
 
             </div>
 
@@ -973,10 +944,11 @@
         </div>
 
 
-        <!-- WAITING -->
+        <!-- ================= WAITING ================= -->
+
         <div id="waitingCard" class="card hidden">
 
-            <div class="order-status">
+            <div class="status-box">
 
                 <div class="status-icon">
                     🚕
@@ -986,25 +958,20 @@
                     Ищем водителя
                 </div>
 
-                <div class="status-text">
-                    Ваша заявка отправлена.<br>
-                    Подождите, водитель скоро примет заказ.
+                <div
+                    id="waitingOrderText"
+                    class="status-text"
+                >
+                    Заявка отправлена.
                 </div>
 
                 <div class="loader"></div>
-
-                <div
-                    id="waitingOrderText"
-                    class="small-note"
-                >
-                    Заявка №—
-                </div>
 
                 <button
                     class="outline-btn"
                     onclick="cancelLocalOrder()"
                 >
-                    Вернуться
+                    Отменить
                 </button>
 
             </div>
@@ -1012,11 +979,12 @@
         </div>
 
 
-        <!-- DRIVER ACCEPTED -->
+        <!-- ================= ACCEPTED ================= -->
+
         <div id="acceptedCard" class="card hidden">
 
             <div class="card-title">
-                Водитель найден
+                🚕 Водитель найден
             </div>
 
             <div id="driverInfo"></div>
@@ -1031,10 +999,11 @@
         </div>
 
 
-        <!-- ARRIVED -->
+        <!-- ================= ARRIVED ================= -->
+
         <div id="arrivedCard" class="card hidden">
 
-            <div class="order-status">
+            <div class="status-box">
 
                 <div class="status-icon">
                     🚘
@@ -1053,10 +1022,11 @@
         </div>
 
 
-        <!-- TRIP -->
+        <!-- ================= TRIP ================= -->
+
         <div id="tripCard" class="card hidden">
 
-            <div class="order-status">
+            <div class="status-box">
 
                 <div class="status-icon">
                     🛣️
@@ -1101,12 +1071,17 @@
             </div>
 
             <div id="driverOrders">
-                <div class="order-status">
+
+                <div class="status-box">
+
                     <div class="loader"></div>
+
                     <div class="status-text">
                         Загружаем заказы...
                     </div>
+
                 </div>
+
             </div>
 
         </div>
@@ -1126,1210 +1101,983 @@
 
 <script>
 
-    const tg = window.Telegram?.WebApp;
+const tg = window.Telegram?.WebApp;
 
-    if (tg) {
-        tg.ready();
-        tg.expand();
+if (tg) {
 
-        try {
-            tg.setHeaderColor("#080c14");
-            tg.setBackgroundColor("#080c14");
-        } catch (e) {}
-    }
+    tg.ready();
+    tg.expand();
 
+    try {
+        tg.setHeaderColor("#080c14");
+        tg.setBackgroundColor("#080c14");
+    } catch(e) {}
 
-    /*
-    |--------------------------------------------------------------------------
-    | TELEGRAM USER
-    |--------------------------------------------------------------------------
-    */
-
-    const telegramUser =
-        tg?.initDataUnsafe?.user || null;
-
-    const telegramUserId =
-        telegramUser?.id
-            ? String(telegramUser.id)
-            : "";
+}
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | STATE
-    |--------------------------------------------------------------------------
-    */
+const telegramUser =
+    tg?.initDataUnsafe?.user || null;
 
-    let timeMode = "now";
-
-    let selectedTariff = "Эконом";
-
-    let currentOrderId =
-        localStorage.getItem("taxi_current_order_id") || "";
-
-    let currentDriverPhone = "";
-
-    let passengerPolling = null;
-
-    let driverPolling = null;
-
-    let isDriver = false;
+const telegramUserId =
+    telegramUser?.id
+        ? String(telegramUser.id)
+        : "";
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | DEFAULT DATE
-    |--------------------------------------------------------------------------
-    */
+let timeMode = "now";
 
-    function setDefaultDateTime() {
+let selectedTariff = "Эконом";
 
-        const now = new Date();
+let currentOrderId =
+    localStorage.getItem("taxi_current_order_id") || "";
 
-        const minskDate =
-            new Date(
-                now.toLocaleString(
-                    "en-US",
-                    {
-                        timeZone: "Europe/Minsk"
-                    }
-                )
-            );
+let currentDriverPhone = "";
 
-        const yyyy =
-            minskDate.getFullYear();
+let passengerPolling = null;
 
-        const mm =
-            String(
-                minskDate.getMonth() + 1
-            ).padStart(2, "0");
+let driverPolling = null;
 
-        const dd =
-            String(
-                minskDate.getDate()
-            ).padStart(2, "0");
+let passengerProfile = null;
 
-        document.getElementById("orderDate").value =
-            `${yyyy}-${mm}-${dd}`;
+let isDriver = false;
 
 
-        const hours =
-            String(
-                minskDate.getHours()
-            ).padStart(2, "0");
+/* =========================
+   TOAST
+========================= */
 
-        const minutes =
-            String(
-                minskDate.getMinutes() + 30
-            ).padStart(2, "0");
+let toastTimer = null;
 
-        document.getElementById("orderTime").value =
-            `${hours}:${minutes}`;
-    }
+function toast(message, error = false) {
 
+    const el =
+        document.getElementById("toast");
 
-    setDefaultDateTime();
+    el.textContent = message;
 
+    el.classList.toggle(
+        "error",
+        error
+    );
 
-    /*
-    |--------------------------------------------------------------------------
-    | TOAST
-    |--------------------------------------------------------------------------
-    */
+    el.classList.add("show");
 
-    let toastTimer = null;
+    clearTimeout(toastTimer);
 
-    function toast(message, error = false) {
+    toastTimer =
+        setTimeout(() => {
 
-        const el =
-            document.getElementById("toast");
+            el.classList.remove("show");
 
-        el.textContent = message;
+        }, 3500);
 
-        el.classList.toggle("error", error);
-
-        el.classList.add("show");
-
-        clearTimeout(toastTimer);
-
-        toastTimer =
-            setTimeout(() => {
-                el.classList.remove("show");
-            }, 3000);
-    }
+}
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | SCROLL
-    |--------------------------------------------------------------------------
-    */
+/* =========================
+   DEFAULT DATE
+========================= */
 
-    function scrollToOrder() {
+function setDefaultDateTime() {
 
-        document
-            .getElementById("orderForm")
-            .scrollIntoView({
-                behavior: "smooth"
-            });
-    }
+    const now = new Date();
+
+    const minsk =
+        new Date(
+            now.toLocaleString(
+                "en-US",
+                {
+                    timeZone:"Europe/Minsk"
+                }
+            )
+        );
+
+    const yyyy =
+        minsk.getFullYear();
+
+    const mm =
+        String(
+            minsk.getMonth()+1
+        ).padStart(2,"0");
+
+    const dd =
+        String(
+            minsk.getDate()
+        ).padStart(2,"0");
+
+    document.getElementById(
+        "orderDate"
+    ).value =
+        `${yyyy}-${mm}-${dd}`;
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | TARIFF
-    |--------------------------------------------------------------------------
-    */
+    const future =
+        new Date(
+            minsk.getTime()+30*60000
+        );
 
-    function selectTariff(button) {
+    const hh =
+        String(
+            future.getHours()
+        ).padStart(2,"0");
 
-        document
-            .querySelectorAll(".tariff")
-            .forEach(el => {
-                el.classList.remove("active");
-            });
+    const min =
+        String(
+            future.getMinutes()
+        ).padStart(2,"0");
 
-        button.classList.add("active");
+    document.getElementById(
+        "orderTime"
+    ).value =
+        `${hh}:${min}`;
 
-        selectedTariff =
-            button.dataset.tariff;
-    }
+}
+
+setDefaultDateTime();
 
 
-    function showTariffInfo() {
+/* =========================
+   PROFILE
+========================= */
+
+async function loadPassengerProfile() {
+
+    if (!telegramUserId) {
 
         toast(
-            "Посадка — 3 BYN, далее 1 км — 1 BYN."
+            "Откройте Mini App через Telegram.",
+            true
         );
+
+        return;
+
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | TIME MODE
-    |--------------------------------------------------------------------------
-    */
+    try {
 
-    function setTimeMode(mode) {
-
-        timeMode = mode;
-
-        document
-            .getElementById("nowBtn")
-            .classList.toggle(
-                "active",
-                mode === "now"
+        const response =
+            await fetch(
+                `/api/passenger-profile?telegramId=${encodeURIComponent(
+                    telegramUserId
+                )}`
             );
 
-        document
-            .getElementById("laterBtn")
-            .classList.toggle(
-                "active",
-                mode === "later"
-            );
 
-        document
-            .getElementById("laterFields")
-            .classList.toggle(
-                "hidden",
-                mode !== "later"
-            );
-    }
+        if (!response.ok) {
+
+            passengerProfile = null;
+
+            showEmptyProfile();
+
+            return;
+
+        }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | MINSK DATE → ISO
-    |--------------------------------------------------------------------------
-    |
-    | Важно:
-    | время заказа всегда считается временем Беларуси,
-    | даже если телефон пользователя находится в другой стране.
-    |
-    */
-
-    function minskLocalToISO(
-        dateValue,
-        timeValue
-    ) {
-
-        const parts =
-            dateValue
-                .split("-")
-                .map(Number);
-
-        const timeParts =
-            timeValue
-                .split(":")
-                .map(Number);
-
-        const year = parts[0];
-        const month = parts[1];
-        const day = parts[2];
-
-        const hour = timeParts[0];
-        const minute = timeParts[1];
+        const data =
+            await response.json();
 
 
-        const utcMs =
-            Date.UTC(
-                year,
-                month - 1,
-                day,
-                hour,
-                minute
-            ) -
-            (3 * 60 * 60 * 1000);
+        if (
+            data &&
+            data.name &&
+            data.phone
+        ) {
+
+            passengerProfile = data;
+
+            showSavedProfile();
+
+        } else {
+
+            passengerProfile = null;
+
+            showEmptyProfile();
+
+        }
 
 
-        return new Date(
-            utcMs
-        ).toISOString();
-    }
+    } catch(error) {
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | WEEKEND
-    |--------------------------------------------------------------------------
-    */
-
-    function isWeekendDate(dateValue) {
-
-        const date =
-            new Date(
-                `${dateValue}T12:00:00`
-            );
-
-        const day =
-            date.getDay();
-
-        return (
-            day === 0 ||
-            day === 5 ||
-            day === 6
+        console.error(
+            "PROFILE LOAD ERROR:",
+            error
         );
+
+        showEmptyProfile();
+
+    }
+
+}
+
+
+function showEmptyProfile() {
+
+    document
+        .getElementById("profileStatus")
+        .textContent =
+        "Не заполнен";
+
+    document
+        .getElementById("profileStatus")
+        .classList.add("empty");
+
+
+    document
+        .getElementById("profileView")
+        .classList.add("hidden");
+
+
+    document
+        .getElementById("profileForm")
+        .classList.remove("hidden");
+
+}
+
+
+function showSavedProfile() {
+
+    document
+        .getElementById("profileStatus")
+        .textContent =
+        "Заполнен";
+
+    document
+        .getElementById("profileStatus")
+        .classList.remove("empty");
+
+
+    document
+        .getElementById("profileNameText")
+        .textContent =
+        passengerProfile.name || "—";
+
+
+    document
+        .getElementById("profilePhoneText")
+        .textContent =
+        passengerProfile.phone || "—";
+
+
+    document
+        .getElementById("passengerName")
+        .value =
+        passengerProfile.name || "";
+
+
+    document
+        .getElementById("passengerPhone")
+        .value =
+        passengerProfile.phone || "";
+
+
+    document
+        .getElementById("profileForm")
+        .classList.add("hidden");
+
+
+    document
+        .getElementById("profileView")
+        .classList.remove("hidden");
+
+}
+
+
+function editPassengerProfile() {
+
+    document
+        .getElementById("profileForm")
+        .classList.remove("hidden");
+
+
+    document
+        .getElementById("profileView")
+        .classList.add("hidden");
+
+
+    document
+        .getElementById("passengerName")
+        .focus();
+
+}
+
+
+async function savePassengerProfile() {
+
+    if (!telegramUserId) {
+
+        toast(
+            "Откройте приложение через Telegram.",
+            true
+        );
+
+        return;
+
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | HUMAN DATE
-    |--------------------------------------------------------------------------
-    */
+    const name =
+        document
+            .getElementById("passengerName")
+            .value
+            .trim();
 
-    function formatScheduled(
-        dateValue,
-        timeValue
-    ) {
 
-        const parts =
-            dateValue.split("-");
+    const phone =
+        document
+            .getElementById("passengerPhone")
+            .value
+            .trim();
 
-        const formatted =
-            `${parts[2]}.${parts[1]}.${parts[0]}`;
 
-        return `${formatted} в ${timeValue}`;
+    if (!name) {
+
+        toast(
+            "Введите ваше имя.",
+            true
+        );
+
+        return;
+
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | SEND ORDER
-    |--------------------------------------------------------------------------
-    */
+    if (!phone) {
 
-    async function sendOrder() {
+        toast(
+            "Введите номер телефона.",
+            true
+        );
 
-        const addressA =
-            document
-                .getElementById("addressA")
-                .value
-                .trim();
+        return;
 
-        const addressB =
-            document
-                .getElementById("addressB")
-                .value
-                .trim();
-
-        const childSeat =
-            document
-                .getElementById("childSeat")
-                .checked;
+    }
 
 
-        if (!telegramUserId) {
+    const button =
+        document.getElementById(
+            "saveProfileButton"
+        );
 
-            toast(
-                "Откройте приложение через Telegram.",
-                true
-            );
+    button.disabled = true;
 
-            return;
-        }
-
-
-        if (!addressA) {
-
-            toast(
-                "Введите адрес подачи.",
-                true
-            );
-
-            return;
-        }
+    button.textContent =
+        "⏳ Сохраняем...";
 
 
-        if (!addressB) {
+    try {
 
-            toast(
-                "Введите адрес назначения.",
-                true
-            );
+        const response =
+            await fetch(
+                "/api/passenger-profile",
+                {
+                    method:"POST",
 
-            return;
-        }
+                    headers:{
+                        "Content-Type":
+                            "application/json"
+                    },
 
+                    body:JSON.stringify({
 
-        let scheduled =
-            "Ближайшее время";
-
-        let scheduledAt = null;
-
-        let isImmediate = true;
-
-        let isWeekend = false;
-
-
-        if (timeMode === "later") {
-
-            const dateValue =
-                document
-                    .getElementById("orderDate")
-                    .value;
-
-            const timeValue =
-                document
-                    .getElementById("orderTime")
-                    .value;
-
-
-            if (!dateValue || !timeValue) {
-
-                toast(
-                    "Выберите дату и время.",
-                    true
-                );
-
-                return;
-            }
-
-
-            scheduled =
-                formatScheduled(
-                    dateValue,
-                    timeValue
-                );
-
-
-            scheduledAt =
-                minskLocalToISO(
-                    dateValue,
-                    timeValue
-                );
-
-
-            isImmediate = false;
-
-            isWeekend =
-                isWeekendDate(
-                    dateValue
-                );
-        }
-
-
-        const button =
-            document.getElementById(
-                "orderButton"
-            );
-
-        button.disabled = true;
-
-        button.textContent =
-            "⏳ Отправляем заявку...";
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "/api/send-order",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
+                        telegramId:
                             telegramUserId,
 
-                            addressA,
+                        name:name,
 
-                            addressB,
+                        phone:phone
 
-                            tariff:
-                                selectedTariff,
-
-                            scheduled,
-
-                            scheduledAt,
-
-                            isImmediate,
-
-                            isWeekend,
-
-                            childSeat
-
-                        })
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.error ||
-                    "Не удалось отправить заявку."
-                );
-            }
-
-
-            currentOrderId =
-                String(
-                    data.orderId ||
-                    data.id ||
-                    ""
-                );
-
-
-            if (!currentOrderId) {
-
-                throw new Error(
-                    "Сервер не вернул номер заказа."
-                );
-            }
-
-
-            localStorage.setItem(
-                "taxi_current_order_id",
-                currentOrderId
+                    })
+                }
             );
 
 
-            showWaiting();
+        const data =
+            await response.json();
 
 
-            startPassengerPolling();
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Не удалось сохранить профиль."
+            );
+
+        }
 
 
-        } catch (error) {
+        passengerProfile = {
+            telegramId:
+                telegramUserId,
 
-            console.error(error);
+            name:
+                data.name || name,
+
+            phone:
+                data.phone || phone
+        };
+
+
+        showSavedProfile();
+
+        toast(
+            "✅ Профиль сохранён."
+        );
+
+
+    } catch(error) {
+
+        console.error(
+            "PROFILE SAVE ERROR:",
+            error
+        );
+
+        toast(
+            error.message ||
+            "Ошибка сохранения профиля.",
+            true
+        );
+
+    } finally {
+
+        button.disabled = false;
+
+        button.textContent =
+            "💾 Сохранить профиль";
+
+    }
+
+}
+
+
+/* =========================
+   ORDER
+========================= */
+
+function scrollToOrder() {
+
+    document
+        .getElementById("orderForm")
+        .scrollIntoView({
+            behavior:"smooth"
+        });
+
+}
+
+
+function selectTariff(button) {
+
+    document
+        .querySelectorAll(".tariff")
+        .forEach(
+            el =>
+                el.classList.remove(
+                    "active"
+                )
+        );
+
+    button.classList.add("active");
+
+    selectedTariff =
+        button.dataset.tariff;
+
+}
+
+
+function showTariffInfo() {
+
+    toast(
+        "Посадка — 3 BYN. Далее 1 км — 1 BYN."
+    );
+
+}
+
+
+function setTimeMode(mode) {
+
+    timeMode = mode;
+
+    document
+        .getElementById("nowBtn")
+        .classList.toggle(
+            "active",
+            mode === "now"
+        );
+
+    document
+        .getElementById("laterBtn")
+        .classList.toggle(
+            "active",
+            mode === "later"
+        );
+
+    document
+        .getElementById("laterFields")
+        .classList.toggle(
+            "hidden",
+            mode !== "later"
+        );
+
+}
+
+
+function minskLocalToISO(
+    dateValue,
+    timeValue
+) {
+
+    const parts =
+        dateValue
+            .split("-")
+            .map(Number);
+
+    const time =
+        timeValue
+            .split(":")
+            .map(Number);
+
+
+    const utcMs =
+        Date.UTC(
+            parts[0],
+            parts[1]-1,
+            parts[2],
+            time[0],
+            time[1]
+        ) -
+        3*60*60*1000;
+
+
+    return new Date(
+        utcMs
+    ).toISOString();
+
+}
+
+
+function isWeekendDate(dateValue) {
+
+    const date =
+        new Date(
+            `${dateValue}T12:00:00`
+        );
+
+    const day =
+        date.getDay();
+
+    return (
+        day === 0 ||
+        day === 5 ||
+        day === 6
+    );
+
+}
+
+
+function formatScheduled(
+    dateValue,
+    timeValue
+) {
+
+    const p =
+        dateValue.split("-");
+
+    return (
+        `${p[2]}.${p[1]}.${p[0]} в ${timeValue}`
+    );
+
+}
+
+
+async function sendOrder() {
+
+    if (!telegramUserId) {
+
+        toast(
+            "Откройте приложение через Telegram.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    /*
+       ОБЯЗАТЕЛЬНО ПРОВЕРЯЕМ ПРОФИЛЬ
+    */
+
+    if (
+        !passengerProfile ||
+        !passengerProfile.name ||
+        !passengerProfile.phone
+    ) {
+
+        toast(
+            "Сначала заполните профиль пассажира.",
+            true
+        );
+
+        document
+            .getElementById("profileCard")
+            .scrollIntoView({
+                behavior:"smooth"
+            });
+
+        return;
+
+    }
+
+
+    const addressA =
+        document
+            .getElementById("addressA")
+            .value
+            .trim();
+
+
+    const addressB =
+        document
+            .getElementById("addressB")
+            .value
+            .trim();
+
+
+    const childSeat =
+        document
+            .getElementById("childSeat")
+            .checked;
+
+
+    if (!addressA) {
+
+        toast(
+            "Введите адрес подачи.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if (!addressB) {
+
+        toast(
+            "Введите адрес назначения.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    let scheduled =
+        "Ближайшее время";
+
+    let scheduledAt = null;
+
+    let isImmediate = true;
+
+    let isWeekend = false;
+
+
+    if (timeMode === "later") {
+
+        const dateValue =
+            document
+                .getElementById("orderDate")
+                .value;
+
+        const timeValue =
+            document
+                .getElementById("orderTime")
+                .value;
+
+
+        if (
+            !dateValue ||
+            !timeValue
+        ) {
 
             toast(
-                error.message ||
-                "Ошибка отправки заказа.",
+                "Выберите дату и время.",
                 true
             );
 
-        } finally {
-
-            button.disabled = false;
-
-            button.textContent =
-                "🚕 Заказать такси";
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | SHOW WAITING
-    |--------------------------------------------------------------------------
-    */
-
-    function hidePassengerCards() {
-
-        document
-            .getElementById("orderForm")
-            .classList.add("hidden");
-
-        document
-            .getElementById("waitingCard")
-            .classList.add("hidden");
-
-        document
-            .getElementById("acceptedCard")
-            .classList.add("hidden");
-
-        document
-            .getElementById("arrivedCard")
-            .classList.add("hidden");
-
-        document
-            .getElementById("tripCard")
-            .classList.add("hidden");
-    }
-
-
-    function showWaiting() {
-
-        hidePassengerCards();
-
-        document
-            .getElementById("waitingCard")
-            .classList.remove("hidden");
-
-        document
-            .getElementById("waitingOrderText")
-            .textContent =
-            `Заявка №${currentOrderId}`;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | DRIVER INFO
-    |--------------------------------------------------------------------------
-    */
-
-    function showDriver(data) {
-
-        hidePassengerCards();
-
-        document
-            .getElementById("acceptedCard")
-            .classList.remove("hidden");
-
-
-        currentDriverPhone =
-            data.driverPhone || "";
-
-
-        const photo =
-            data.driverPhotoFileId || "";
-
-
-        document
-            .getElementById("driverInfo")
-            .innerHTML = `
-
-                <div class="driver-card">
-
-                    <div class="driver-top">
-
-                        ${
-                            photo
-                            ? `<img
-                                class="driver-avatar"
-                                src="${escapeHtml(photo)}"
-                                alt=""
-                              >`
-                            : `
-                                <div class="driver-avatar"
-                                     style="
-                                        display:flex;
-                                        align-items:center;
-                                        justify-content:center;
-                                        font-size:22px;
-                                     ">
-                                    🚕
-                                </div>
-                            `
-                        }
-
-                        <div>
-
-                            <div class="driver-name">
-                                ${escapeHtml(
-                                    data.driverName ||
-                                    "Водитель"
-                                )}
-                            </div>
-
-                            <div class="driver-car">
-                                ${escapeHtml(
-                                    data.driverCar ||
-                                    "Автомобиль"
-                                )}
-                            </div>
-
-                        </div>
-
-                        <div class="rating">
-                            ⭐ ${
-                                data.driverRating ??
-                                "—"
-                            }
-                        </div>
-
-                    </div>
-
-
-                    <div class="driver-details">
-
-                        <div class="detail">
-                            <span>Номер автомобиля</span>
-                            <strong>
-                                ${escapeHtml(
-                                    data.driverNumber ||
-                                    "—"
-                                )}
-                            </strong>
-                        </div>
-
-                        <div class="detail">
-                            <span>Телефон</span>
-                            <strong>
-                                ${escapeHtml(
-                                    data.driverPhone ||
-                                    "—"
-                                )}
-                            </strong>
-                        </div>
-
-                    </div>
-
-                </div>
-            `;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ORDER STATUS
-    |--------------------------------------------------------------------------
-    */
-
-    async function checkOrderStatus() {
-
-        if (!currentOrderId) {
             return;
+
         }
 
 
-        try {
-
-            const response =
-                await fetch(
-                    `/api/order-status?id=${encodeURIComponent(
-                        currentOrderId
-                    )}`
-                );
-
-
-            if (!response.ok) {
-                return;
-            }
-
-
-            const data =
-                await response.json();
-
-
-            if (!data) {
-                return;
-            }
-
-
-            const status =
-                data.status;
-
-
-            if (status === "searching") {
-
-                showWaiting();
-
-                return;
-            }
-
-
-            if (status === "accepted") {
-
-                showDriver(data);
-
-                return;
-            }
-
-
-            if (
-                status === "arrived"
-            ) {
-
-                hidePassengerCards();
-
-                document
-                    .getElementById("arrivedCard")
-                    .classList.remove("hidden");
-
-                return;
-            }
-
-
-            if (
-                status === "trip"
-            ) {
-
-                hidePassengerCards();
-
-                document
-                    .getElementById("tripCard")
-                    .classList.remove("hidden");
-
-                return;
-            }
-
-
-            if (
-                status === "completed"
-            ) {
-
-                stopPassengerPolling();
-
-                localStorage.removeItem(
-                    "taxi_current_order_id"
-                );
-
-                currentOrderId = "";
-
-                hidePassengerCards();
-
-                document
-                    .getElementById("orderForm")
-                    .classList.remove("hidden");
-
-                toast(
-                    "Поездка завершена."
-                );
-
-                return;
-            }
-
-
-            if (
-                status === "cancelled"
-            ) {
-
-                stopPassengerPolling();
-
-                localStorage.removeItem(
-                    "taxi_current_order_id"
-                );
-
-                currentOrderId = "";
-
-                hidePassengerCards();
-
-                document
-                    .getElementById("orderForm")
-                    .classList.remove("hidden");
-
-                toast(
-                    "Заказ отменён."
-                );
-            }
-
-
-        } catch (error) {
-
-            console.error(
-                "ORDER STATUS ERROR",
-                error
+        scheduled =
+            formatScheduled(
+                dateValue,
+                timeValue
             );
-        }
+
+
+        scheduledAt =
+            minskLocalToISO(
+                dateValue,
+                timeValue
+            );
+
+
+        isImmediate = false;
+
+        isWeekend =
+            isWeekendDate(
+                dateValue
+            );
+
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | PASSENGER POLLING
-    |--------------------------------------------------------------------------
-    */
-
-    function startPassengerPolling() {
-
-        stopPassengerPolling();
-
-        checkOrderStatus();
-
-        passengerPolling =
-            setInterval(
-                checkOrderStatus,
-                2500
-            );
-    }
-
-
-    function stopPassengerPolling() {
-
-        if (passengerPolling) {
-
-            clearInterval(
-                passengerPolling
-            );
-
-            passengerPolling = null;
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOCAL RESET
-    |--------------------------------------------------------------------------
-    */
-
-    function cancelLocalOrder() {
-
-        stopPassengerPolling();
-
-        localStorage.removeItem(
-            "taxi_current_order_id"
+    const button =
+        document.getElementById(
+            "orderButton"
         );
 
-        currentOrderId = "";
+    button.disabled = true;
 
-        hidePassengerCards();
-
-        document
-            .getElementById("orderForm")
-            .classList.remove("hidden");
-    }
+    button.textContent =
+        "⏳ Отправляем заявку...";
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | DRIVER DETECTION
-    |--------------------------------------------------------------------------
-    */
+    try {
 
-    async function detectDriver() {
+        const response =
+            await fetch(
+                "/api/send-order",
+                {
+                    method:"POST",
 
-        if (!telegramUserId) {
-            return;
-        }
+                    headers:{
+                        "Content-Type":
+                            "application/json"
+                    },
 
+                    body:JSON.stringify({
 
-        try {
+                        telegramUserId:
+                            telegramUserId,
 
-            const response =
-                await fetch(
-                    `/api/driver-orders?telegramId=${encodeURIComponent(
-                        telegramUserId
-                    )}`
-                );
+                        addressA:
+                            addressA,
 
+                        addressB:
+                            addressB,
 
-            if (
-                response.status === 401 ||
-                response.status === 403
-            ) {
+                        tariff:
+                            selectedTariff,
 
-                return;
-            }
+                        scheduled:
+                            scheduled,
 
+                        scheduledAt:
+                            scheduledAt,
 
-            if (!response.ok) {
-                return;
-            }
+                        isImmediate:
+                            isImmediate,
 
+                        isWeekend:
+                            isWeekend,
 
-            isDriver = true;
+                        childSeat:
+                            childSeat
 
-
-            document
-                .getElementById(
-                    "passengerScreen"
-                )
-                .classList.add("hidden");
-
-
-            document
-                .getElementById(
-                    "driverScreen"
-                )
-                .classList.remove("hidden");
-
-
-            loadDriverOrders();
-
-
-            driverPolling =
-                setInterval(
-                    loadDriverOrders,
-                    5000
-                );
-
-
-        } catch (error) {
-
-            console.log(
-                "Passenger mode"
-            );
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | DRIVER ORDERS
-    |--------------------------------------------------------------------------
-    */
-
-    async function loadDriverOrders() {
-
-        if (!telegramUserId) {
-            return;
-        }
-
-
-        const container =
-            document.getElementById(
-                "driverOrders"
-            );
-
-
-        try {
-
-            const response =
-                await fetch(
-                    `/api/driver-orders?telegramId=${encodeURIComponent(
-                        telegramUserId
-                    )}`
-                );
-
-
-            if (!response.ok) {
-
-                if (
-                    response.status === 401 ||
-                    response.status === 403
-                ) {
-
-                    isDriver = false;
-
-                    document
-                        .getElementById(
-                            "driverScreen"
-                        )
-                        .classList.add("hidden");
-
-                    document
-                        .getElementById(
-                            "passengerScreen"
-                        )
-                        .classList.remove("hidden");
+                    })
                 }
-
-                return;
-            }
+            );
 
 
-            const data =
-                await response.json();
+        const data =
+            await response.json();
 
 
-            const orders =
-                Array.isArray(data)
-                    ? data
-                    : (
-                        data.orders ||
-                        []
-                    );
+        if (!response.ok) {
 
+            throw new Error(
+                data.error ||
+                "Ошибка создания заказа."
+            );
 
-            if (!orders.length) {
-
-                container.innerHTML = `
-
-                    <div class="order-status">
-
-                        <div class="status-icon">
-                            ✓
-                        </div>
-
-                        <div class="status-title">
-                            Активных заказов нет
-                        </div>
-
-                        <div class="status-text">
-                            Когда появится новый заказ,
-                            он будет показан здесь.
-                        </div>
-
-                    </div>
-                `;
-
-                return;
-            }
-
-
-            container.innerHTML =
-                orders
-                    .map(
-                        renderDriverOrder
-                    )
-                    .join("");
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            container.innerHTML = `
-
-                <div class="status-text"
-                     style="text-align:center;">
-                    Не удалось загрузить заказы.
-                </div>
-            `;
         }
+
+
+        currentOrderId =
+            String(
+                data.orderId ||
+                data.id ||
+                ""
+            );
+
+
+        if (!currentOrderId) {
+
+            throw new Error(
+                "Сервер не вернул номер заказа."
+            );
+
+        }
+
+
+        localStorage.setItem(
+            "taxi_current_order_id",
+            currentOrderId
+        );
+
+
+        showWaiting();
+
+        startPassengerPolling();
+
+
+    } catch(error) {
+
+        console.error(
+            "ORDER ERROR:",
+            error
+        );
+
+        toast(
+            error.message ||
+            "Ошибка создания заказа.",
+            true
+        );
+
+    } finally {
+
+        button.disabled = false;
+
+        button.textContent =
+            "🚕 Заказать такси";
+
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | DRIVER ORDER HTML
-    |--------------------------------------------------------------------------
-    */
-
-    function renderDriverOrder(order) {
-
-        const status =
-            order.status || "accepted";
+}
 
 
-        let badge =
-            "Принят";
+/* =========================
+   PASSENGER STATUS
+========================= */
+
+function hidePassengerCards() {
+
+    document
+        .getElementById("orderForm")
+        .classList.add("hidden");
+
+    document
+        .getElementById("waitingCard")
+        .classList.add("hidden");
+
+    document
+        .getElementById("acceptedCard")
+        .classList.add("hidden");
+
+    document
+        .getElementById("arrivedCard")
+        .classList.add("hidden");
+
+    document
+        .getElementById("tripCard")
+        .classList.add("hidden");
+
+}
 
 
-        if (status === "arrived") {
-            badge = "На месте";
-        }
+function showWaiting() {
 
-        if (status === "trip") {
-            badge = "В поездке";
-        }
+    hidePassengerCards();
 
+    document
+        .getElementById("waitingCard")
+        .classList.remove("hidden");
 
-        let buttons = "";
+    document
+        .getElementById("waitingOrderText")
+        .textContent =
+        `Заявка №${currentOrderId}`;
 
-
-        if (status === "accepted") {
-
-            buttons = `
-
-                <button
-                    class="arrived"
-                    onclick="driverArrived('${escapeJs(
-                        order.id
-                    )}')"
-                >
-                    🚕 Я на месте
-                </button>
-
-            `;
-        }
+}
 
 
-        if (status === "arrived") {
+function showDriver(data) {
 
-            buttons = `
+    hidePassengerCards();
 
-                <button
-                    class="start"
-                    onclick="startTrip('${escapeJs(
-                        order.id
-                    )}')"
-                >
-                    ▶ Начать поездку
-                </button>
-
-            `;
-        }
+    document
+        .getElementById("acceptedCard")
+        .classList.remove("hidden");
 
 
-        if (status === "trip") {
-
-            buttons = `
-
-                <button
-                    class="complete"
-                    onclick="completeOrder('${escapeJs(
-                        order.id
-                    )}')"
-                >
-                    ✓ Завершить поездку
-                </button>
-
-            `;
-        }
+    currentDriverPhone =
+        data.driverPhone || "";
 
 
-        return `
-
-            <div class="driver-order">
-
-                <div class="driver-order-head">
-
-                    <div class="order-number">
-                        Заказ №${escapeHtml(
-                            String(order.id)
-                        )}
-                    </div>
-
-                    <div class="order-badge">
-                        ${badge}
-                    </div>
-
-                </div>
+    const photo =
+        data.driverPhotoFileId || "";
 
 
-                <div class="route">
+    document
+        .getElementById("driverInfo")
+        .innerHTML = `
 
-                    <div class="route-line">
+            <div class="driver-card">
 
-                        <div class="route-dot"></div>
+                <div class="driver-top">
 
-                        <div class="route-text">
+                    ${
+                        photo
+                        ?
+                        `
+                        <img
+                            class="driver-avatar"
+                            src="${escapeHtml(photo)}"
+                            alt=""
+                        >
+                        `
+                        :
+                        `
+                        <div
+                            class="driver-avatar"
+                            style="
+                                display:flex;
+                                align-items:center;
+                                justify-content:center;
+                                font-size:22px;
+                            "
+                        >
+                            🚕
+                        </div>
+                        `
+                    }
+
+                    <div>
+
+                        <div class="driver-name">
                             ${escapeHtml(
-                                order.addressA ||
-                                "Адрес подачи"
+                                data.driverName ||
+                                "Водитель"
+                            )}
+                        </div>
+
+                        <div class="driver-car">
+                            ${escapeHtml(
+                                data.driverCar ||
+                                "Автомобиль"
                             )}
                         </div>
 
                     </div>
 
-
-                    <div class="route-line">
-
-                        <div class="route-dot end"></div>
-
-                        <div class="route-text">
-                            ${escapeHtml(
-                                order.addressB ||
-                                "Адрес назначения"
-                            )}
-                        </div>
-
+                    <div class="rating">
+                        ⭐ ${data.driverRating ?? "—"}
                     </div>
 
                 </div>
@@ -2339,12 +2087,14 @@
 
                     <div class="detail">
 
-                        <span>Время</span>
+                        <span>
+                            Номер автомобиля
+                        </span>
 
                         <strong>
                             ${escapeHtml(
-                                order.scheduled ||
-                                "Сейчас"
+                                data.driverNumber ||
+                                "—"
                             )}
                         </strong>
 
@@ -2353,232 +2103,782 @@
 
                     <div class="detail">
 
-                        <span>Тариф</span>
+                        <span>
+                            Телефон
+                        </span>
 
                         <strong>
                             ${escapeHtml(
-                                order.tariff ||
-                                "Эконом"
+                                data.driverPhone ||
+                                "—"
                             )}
                         </strong>
 
                     </div>
 
-
-                    <div class="detail">
-
-                        <span>Детское кресло</span>
-
-                        <strong>
-                            ${
-                                order.childSeat
-                                ? "👶 Нужно"
-                                : "Не нужно"
-                            }
-                        </strong>
-
-                    </div>
-
-
-                    <div class="detail">
-
-                        <span>Клиент</span>
-
-                        <strong>
-                            ${escapeHtml(
-                                order.telegramUserId
-                                    ? "Telegram"
-                                    : "Клиент"
-                            )}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div class="driver-buttons">
-                    ${buttons}
                 </div>
 
             </div>
         `;
+
+}
+
+
+async function checkOrderStatus() {
+
+    if (!currentOrderId) {
+        return;
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | DRIVER ACTIONS
-    |--------------------------------------------------------------------------
-    */
+    try {
 
-    async function driverArrived(orderId) {
-
-        await driverAction(
-            "/api/driver-arrived",
-            orderId,
-            "Водитель отмечен как прибывший."
-        );
-    }
-
-
-    async function startTrip(orderId) {
-
-        await driverAction(
-            "/api/start-trip",
-            orderId,
-            "Поездка началась."
-        );
-    }
-
-
-    async function completeOrder(orderId) {
-
-        await driverAction(
-            "/api/complete-order",
-            orderId,
-            "Поездка завершена."
-        );
-    }
-
-
-    async function driverAction(
-        url,
-        orderId,
-        successMessage
-    ) {
-
-        try {
-
-            const response =
-                await fetch(
-                    url,
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
-                            telegramId:
-                                telegramUserId,
-
-                            orderId:
-                                orderId
-
-                        })
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.error ||
-                    "Не удалось изменить статус."
-                );
-            }
-
-
-            toast(
-                successMessage
+        const response =
+            await fetch(
+                `/api/order-status?id=${encodeURIComponent(
+                    currentOrderId
+                )}`
             );
 
 
-            loadDriverOrders();
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            toast(
-                error.message ||
-                "Ошибка.",
-                true
-            );
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | PHONE
-    |--------------------------------------------------------------------------
-    */
-
-    function openDriverPhone() {
-
-        if (!currentDriverPhone) {
-
-            toast(
-                "Телефон водителя недоступен.",
-                true
-            );
-
+        if (!response.ok) {
             return;
         }
 
 
-        window.location.href =
-            `tel:${currentDriverPhone}`;
+        const data =
+            await response.json();
+
+
+        if (!data) {
+            return;
+        }
+
+
+        if (
+            data.status === "searching"
+        ) {
+
+            showWaiting();
+
+            return;
+
+        }
+
+
+        if (
+            data.status === "accepted"
+        ) {
+
+            showDriver(data);
+
+            return;
+
+        }
+
+
+        if (
+            data.status === "arrived"
+        ) {
+
+            hidePassengerCards();
+
+            document
+                .getElementById("arrivedCard")
+                .classList.remove("hidden");
+
+            return;
+
+        }
+
+
+        if (
+            data.status === "trip"
+        ) {
+
+            hidePassengerCards();
+
+            document
+                .getElementById("tripCard")
+                .classList.remove("hidden");
+
+            return;
+
+        }
+
+
+        if (
+            data.status === "completed"
+        ) {
+
+            stopPassengerPolling();
+
+            localStorage.removeItem(
+                "taxi_current_order_id"
+            );
+
+            currentOrderId = "";
+
+            hidePassengerCards();
+
+            document
+                .getElementById("orderForm")
+                .classList.remove("hidden");
+
+            toast(
+                "Поездка завершена."
+            );
+
+        }
+
+    } catch(error) {
+
+        console.error(error);
+
+    }
+
+}
+
+
+function startPassengerPolling() {
+
+    stopPassengerPolling();
+
+    checkOrderStatus();
+
+    passengerPolling =
+        setInterval(
+            checkOrderStatus,
+            2500
+        );
+
+}
+
+
+function stopPassengerPolling() {
+
+    if (passengerPolling) {
+
+        clearInterval(
+            passengerPolling
+        );
+
+        passengerPolling = null;
+
+    }
+
+}
+
+
+function cancelLocalOrder() {
+
+    stopPassengerPolling();
+
+    localStorage.removeItem(
+        "taxi_current_order_id"
+    );
+
+    currentOrderId = "";
+
+    hidePassengerCards();
+
+    document
+        .getElementById("orderForm")
+        .classList.remove("hidden");
+
+}
+
+
+/* =========================
+   DRIVER
+========================= */
+
+async function detectDriver() {
+
+    if (!telegramUserId) {
+        return;
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | ESCAPE
-    |--------------------------------------------------------------------------
-    */
+    try {
 
-    function escapeHtml(value) {
+        const response =
+            await fetch(
+                `/api/driver-orders?telegramId=${encodeURIComponent(
+                    telegramUserId
+                )}`
+            );
 
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
+
+        if (
+            response.status === 401 ||
+            response.status === 403
+        ) {
+            return;
+        }
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        isDriver = true;
+
+
+        document
+            .getElementById("passengerScreen")
+            .classList.add("hidden");
+
+
+        document
+            .getElementById("driverScreen")
+            .classList.remove("hidden");
+
+
+        loadDriverOrders();
+
+
+        driverPolling =
+            setInterval(
+                loadDriverOrders,
+                5000
+            );
+
+
+    } catch(error) {
+
+        console.log(
+            "Passenger mode"
+        );
+
+    }
+
+}
+
+
+async function loadDriverOrders() {
+
+    if (!telegramUserId) {
+        return;
     }
 
 
-    function escapeJs(value) {
+    const container =
+        document.getElementById(
+            "driverOrders"
+        );
 
-        return String(value ?? "")
-            .replaceAll("\\", "\\\\")
-            .replaceAll("'", "\\'")
-            .replaceAll('"', '\\"');
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/driver-orders?telegramId=${encodeURIComponent(
+                    telegramUserId
+                )}`
+            );
+
+
+        if (!response.ok) {
+
+            if (
+                response.status === 401 ||
+                response.status === 403
+            ) {
+
+                isDriver = false;
+
+                document
+                    .getElementById(
+                        "driverScreen"
+                    )
+                    .classList.add(
+                        "hidden"
+                    );
+
+                document
+                    .getElementById(
+                        "passengerScreen"
+                    )
+                    .classList.remove(
+                        "hidden"
+                    );
+
+            }
+
+            return;
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        const orders =
+            Array.isArray(data)
+                ? data
+                : (
+                    data.orders || []
+                );
+
+
+        if (!orders.length) {
+
+            container.innerHTML = `
+
+                <div class="status-box">
+
+                    <div class="status-icon">
+                        ✓
+                    </div>
+
+                    <div class="status-title">
+                        Активных заказов нет
+                    </div>
+
+                    <div class="status-text">
+                        Когда появится новый заказ,
+                        он будет показан здесь.
+                    </div>
+
+                </div>
+
+            `;
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            orders
+                .map(renderDriverOrder)
+                .join("");
+
+
+    } catch(error) {
+
+        console.error(error);
+
+        container.innerHTML = `
+
+            <div class="status-text"
+                 style="text-align:center">
+
+                Не удалось загрузить заказы.
+
+            </div>
+
+        `;
+
+    }
+
+}
+
+
+function renderDriverOrder(order) {
+
+    const status =
+        order.status || "accepted";
+
+
+    let badge = "Принят";
+
+    let buttons = "";
+
+
+    if (
+        status === "arrived"
+    ) {
+        badge = "На месте";
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESTORE CURRENT ORDER
-    |--------------------------------------------------------------------------
-    */
+    if (
+        status === "trip"
+    ) {
+        badge = "В поездке";
+    }
+
+
+    if (
+        status === "accepted"
+    ) {
+
+        buttons = `
+
+            <button
+                class="arrived"
+                onclick="driverArrived('${escapeJs(
+                    order.id
+                )}')"
+            >
+                🚕 Я на месте
+            </button>
+
+        `;
+
+    }
+
+
+    if (
+        status === "arrived"
+    ) {
+
+        buttons = `
+
+            <button
+                class="start"
+                onclick="startTrip('${escapeJs(
+                    order.id
+                )}')"
+            >
+                ▶ Начать поездку
+            </button>
+
+        `;
+
+    }
+
+
+    if (
+        status === "trip"
+    ) {
+
+        buttons = `
+
+            <button
+                class="complete"
+                onclick="completeOrder('${escapeJs(
+                    order.id
+                )}')"
+            >
+                ✓ Завершить поездку
+            </button>
+
+        `;
+
+    }
+
+
+    return `
+
+        <div class="driver-order">
+
+            <div class="driver-order-head">
+
+                <div class="order-number">
+                    Заказ №${escapeHtml(
+                        String(order.id)
+                    )}
+                </div>
+
+                <div class="order-badge">
+                    ${badge}
+                </div>
+
+            </div>
+
+
+            <div class="route">
+
+                <div class="route-line">
+
+                    <div class="route-dot"></div>
+
+                    <div class="route-text">
+                        ${escapeHtml(
+                            order.addressA ||
+                            "Адрес подачи"
+                        )}
+                    </div>
+
+                </div>
+
+
+                <div class="route-line">
+
+                    <div class="route-dot end"></div>
+
+                    <div class="route-text">
+                        ${escapeHtml(
+                            order.addressB ||
+                            "Адрес назначения"
+                        )}
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="driver-details">
+
+                <div class="detail">
+
+                    <span>
+                        Время
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            order.scheduled ||
+                            "Сейчас"
+                        )}
+                    </strong>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <span>
+                        Тариф
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            order.tariff ||
+                            "Эконом"
+                        )}
+                    </strong>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <span>
+                        Детское кресло
+                    </span>
+
+                    <strong>
+                        ${
+                            order.childSeat
+                            ? "👶 Нужно"
+                            : "Не нужно"
+                        }
+                    </strong>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <span>
+                        Клиент
+                    </span>
+
+                    <strong>
+                        Telegram
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="driver-buttons">
+                ${buttons}
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+async function driverArrived(orderId) {
+
+    await driverAction(
+        "/api/driver-arrived",
+        orderId,
+        "Водитель отмечен как прибывший."
+    );
+
+}
+
+
+async function startTrip(orderId) {
+
+    await driverAction(
+        "/api/start-trip",
+        orderId,
+        "Поездка началась."
+    );
+
+}
+
+
+async function completeOrder(orderId) {
+
+    await driverAction(
+        "/api/complete-order",
+        orderId,
+        "Поездка завершена."
+    );
+
+}
+
+
+async function driverAction(
+    url,
+    orderId,
+    successMessage
+) {
+
+    try {
+
+        const response =
+            await fetch(
+                url,
+                {
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:JSON.stringify({
+
+                        telegramId:
+                            telegramUserId,
+
+                        orderId:
+                            orderId
+
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Не удалось изменить статус."
+            );
+
+        }
+
+
+        toast(
+            successMessage
+        );
+
+
+        loadDriverOrders();
+
+
+    } catch(error) {
+
+        console.error(error);
+
+        toast(
+            error.message ||
+            "Ошибка.",
+            true
+        );
+
+    }
+
+}
+
+
+/* =========================
+   PHONE
+========================= */
+
+function openDriverPhone() {
+
+    if (!currentDriverPhone) {
+
+        toast(
+            "Телефон водителя недоступен.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    window.location.href =
+        `tel:${currentDriverPhone}`;
+
+}
+
+
+/* =========================
+   ESCAPE
+========================= */
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+
+}
+
+
+function escapeJs(value) {
+
+    return String(value ?? "")
+        .replaceAll("\\","\\\\")
+        .replaceAll("'","\\'")
+        .replaceAll('"','\\"');
+
+}
+
+
+/* =========================
+   START
+========================= */
+
+async function startApp() {
+
+    if (!telegramUserId) {
+
+        toast(
+            "Приложение открыто не через Telegram.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    await loadPassengerProfile();
+
 
     if (currentOrderId) {
 
         showWaiting();
 
         startPassengerPolling();
+
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | START
-    |--------------------------------------------------------------------------
-    */
+    await detectDriver();
 
-    detectDriver();
+}
+
+
+startApp();
 
 </script>
 
