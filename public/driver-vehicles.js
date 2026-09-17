@@ -1,13 +1,9 @@
 (() => {
   const LOGO_BASE = 'https://cdn.jsdelivr.net/gh/vehiclespecs/brand-logos@main/';
-
   const BRANDS = [
     'Abarth','Acura','Aion','Alfa Romeo','Alpine','Aston Martin','Audi','BAIC','Bentley','BMW','BYD','Cadillac','Changan','Chery','Chevrolet','Citroen','Cupra','Dacia','Daewoo','Daihatsu','Dodge','DS','Ferrari','Fiat','Ford','Geely','Genesis','GMC','Great Wall','Haval','Honda','Hongqi','Hyundai','Infiniti','Isuzu','Jaguar','Jeep','Kia','Koenigsegg','Lada','Lamborghini','Land Rover','Lexus','Lincoln','Lotus','Lucid','Maserati','Mazda','McLaren','Mercedes-Benz','MG','Mini','Mitsubishi','Nissan','Opel','Peugeot','Polestar','Porsche','RAM','Renault','Rivian','Rolls-Royce','Saab','Seat','Skoda','Smart','Subaru','Suzuki','Tesla','Toyota','Volkswagen','Volvo','Voyah','XPeng','Zeekr'
   ];
-
-  const slug = name => name.toLowerCase()
-    .replace(/ё/g,'е').replace(/&/g,'and').replace(/\+/g,'plus')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const slug = name => name.toLowerCase().replace(/ё/g,'е').replace(/&/g,'and').replace(/\+/g,'plus').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 
   function addStyles(){
     if(document.getElementById('driverVehicleCatalogCss')) return;
@@ -28,13 +24,10 @@
     `;document.head.appendChild(s);
   }
 
-  function findDriverArea(){
-    return document.getElementById('driverProfilePanel') || document.querySelector('#driverScreen .dp-card') || document.querySelector('#driverScreen .driver-card');
-  }
-
   function render(){
-    const area=findDriverArea();
-    if(!area || document.getElementById('driverBrandCatalog')) return;
+    const area=document.getElementById('driverProfilePanel');
+    // Каталог существует только во время регистрации или редактирования.
+    if(!area || !document.getElementById('dpSave') || document.getElementById('driverBrandCatalog')) return;
 
     const wrap=document.createElement('div');wrap.id='driverBrandCatalog';wrap.className='driver-brand-wrap';
     wrap.innerHTML=`<div class="driver-brand-title">🚗 Марка автомобиля</div>
@@ -50,26 +43,23 @@
 
     function draw(filter=''){
       grid.innerHTML='';
-      const list=BRANDS.filter(x=>x.toLowerCase().includes(filter.toLowerCase()));
-      list.forEach(name=>{
-        const b=document.createElement('button');b.type='button';b.className='driver-brand';b.dataset.brand=name;
+      BRANDS.filter(x=>x.toLowerCase().includes(filter.toLowerCase())).forEach(name=>{
+        const b=document.createElement('button');b.type='button';b.className='driver-brand';
         const img=document.createElement('img');img.loading='lazy';img.src=LOGO_BASE+slug(name)+'-logo.svg';img.alt=name;
         img.onerror=()=>{img.src=LOGO_BASE+slug(name)+'-logo.png';img.onerror=()=>{img.style.display='none'}};
         const label=document.createElement('span');label.className='driver-brand-name';label.textContent=name;
         b.append(img,label);
         b.onclick=()=>{
           grid.querySelectorAll('.driver-brand').forEach(x=>x.classList.remove('active'));
-          b.classList.add('active');
-          selected.innerHTML='Выбрано: <b>'+name+'</b>';
+          b.classList.add('active');selected.innerHTML='Выбрано: <b>'+name+'</b>';
           window.taxiSelectedCarBrand=name;
-          const input=document.getElementById('dpBrand');
-          if(input) input.value=name;
+          const input=document.getElementById('dpBrand');if(input)input.value=name;
           document.dispatchEvent(new CustomEvent('taxi-driver-brand-change',{detail:{brand:name}}));
         };
         grid.appendChild(b);
       });
       const other=document.createElement('button');other.type='button';other.className='driver-brand-other';other.textContent='Другая марка';
-      other.onclick=()=>{const input=document.getElementById('dpBrand');if(input){input.focus();input.value='';}selected.textContent='Введите свою марку вручную';window.taxiSelectedCarBrand='';};
+      other.onclick=()=>{const input=document.getElementById('dpBrand');if(input){input.focus();input.value=''}selected.textContent='Введите свою марку вручную';window.taxiSelectedCarBrand=''};
       grid.appendChild(other);
     }
     search.oninput=()=>draw(search.value);draw();
@@ -77,5 +67,5 @@
 
   function boot(){addStyles();render();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-  new MutationObserver(()=>boot()).observe(document.body,{childList:true,subtree:true});
+  new MutationObserver(boot).observe(document.body,{childList:true,subtree:true});
 })();
