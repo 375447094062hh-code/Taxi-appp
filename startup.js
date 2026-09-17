@@ -30,6 +30,10 @@ function injectClientScripts() {
         if (!html.includes("/maps.js")) {
             scripts.push('<script src="/maps.js"></script>');
         }
+        if (!html.includes("/driver-vehicles.js")) {
+            scripts.push('<script src="/driver-vehicles.js"></script>');
+        }
+
         if (!scripts.length) return;
 
         const script = `\n${scripts.join("\n")}\n`;
@@ -38,7 +42,7 @@ function injectClientScripts() {
         if (html.includes(marker)) {
             html = html.replace(marker, script + marker);
             fs.writeFileSync(indexPath, html, "utf8");
-            console.log("Карты, геолокация и автоподсказки подключены.");
+            console.log("Карты, автоподсказки и каталог автомобилей подключены.");
         }
     } catch (error) {
         console.error("Ошибка подключения клиентских скриптов:", error.message);
@@ -187,7 +191,6 @@ function installExpressHooks() {
 
         app.use(originalExpress.json({ limit: "2mb" }));
 
-        // Публичный конфиг только для ключа карты. Сам ключ не хранится в коде GitHub.
         app.get("/api/maps-config", (req, res) => {
             res.json({
                 provider: "yandex",
@@ -195,7 +198,6 @@ function installExpressHooks() {
             });
         });
 
-        // Старый endpoint оставлен для совместимости, но фронтенд больше не отслеживает водителя.
         app.post("/api/driver-location", async (req, res) => {
             try {
                 if (!runtimePool) return res.status(500).json({ success: false, error: "PostgreSQL не подключён" });
