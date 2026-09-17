@@ -19,7 +19,6 @@ const runtimePool = DATABASE_URL
 function injectClientScripts() {
     try {
         const indexPath = path.join(__dirname, "public", "index.html");
-
         if (!fs.existsSync(indexPath)) return;
 
         let html = fs.readFileSync(indexPath, "utf8");
@@ -28,11 +27,9 @@ function injectClientScripts() {
         if (!html.includes("/address-autocomplete.js")) {
             scripts.push('<script src="/address-autocomplete.js"></script>');
         }
-
         if (!html.includes("/maps.js")) {
             scripts.push('<script src="/maps.js"></script>');
         }
-
         if (!scripts.length) return;
 
         const script = `\n${scripts.join("\n")}\n`;
@@ -164,6 +161,9 @@ function installExpressHooks() {
         if (app.__taxiMapsHooksInstalled) return app;
         app.__taxiMapsHooksInstalled = true;
 
+        // Body parser нужен до нашего GPS endpoint.
+        app.use(originalExpress.json({ limit: "2mb" }));
+
         app.post("/api/driver-location", async (req, res) => {
             try {
                 if (!runtimePool) {
@@ -176,9 +176,7 @@ function installExpressHooks() {
                 const telegramId = normalizeId(req.body?.telegramId);
                 const latitude = Number(req.body?.latitude);
                 const longitude = Number(req.body?.longitude);
-                const accuracy = req.body?.accuracy == null
-                    ? null
-                    : Number(req.body.accuracy);
+                const accuracy = req.body?.accuracy == null ? null : Number(req.body.accuracy);
 
                 if (!driverAllowed(telegramId)) {
                     return res.status(403).json({
@@ -229,17 +227,11 @@ function installExpressHooks() {
             res.json = function(data) {
                 const finish = async () => {
                     try {
-                        if (!runtimePool || !data) {
-                            return originalJson(data);
-                        }
+                        if (!runtimePool || !data) return originalJson(data);
 
                         const requestPath = req.path || "";
 
-                        if (
-                            requestPath === "/api/send-order" &&
-                            req.method === "POST" &&
-                            data.orderId
-                        ) {
+                        if (requestPath === "/api/send-order" && req.method === "POST" && data.orderId) {
                             const body = req.body || {};
                             const values = [
                                 body.pickupLat,
@@ -282,8 +274,7 @@ function installExpressHooks() {
                                     d.longitude AS driver_longitude,
                                     d.location_updated_at AS driver_location_updated_at
                                 FROM passenger_orders po
-                                LEFT JOIN drivers d
-                                  ON d.telegram_id = po.driver_telegram_id
+                                LEFT JOIN drivers d ON d.telegram_id = po.driver_telegram_id
                                 WHERE po.id = $1
                                 LIMIT 1
                                 `,
@@ -307,12 +298,7 @@ function installExpressHooks() {
                             if (ids.length) {
                                 const result = await runtimePool.query(
                                     `
-                                    SELECT
-                                        id,
-                                        pickup_lat,
-                                        pickup_lng,
-                                        destination_lat,
-                                        destination_lng
+                                    SELECT id, pickup_lat, pickup_lng, destination_lat, destination_lng
                                     FROM passenger_orders
                                     WHERE id = ANY($1::text[])
                                     `,
@@ -344,6 +330,7 @@ function installExpressHooks() {
                                 `,
                                 [String(data.id)]
                             );
+
                             if (result.rows.length) {
                                 const row = result.rows[0];
                                 data.pickupLatitude = row.pickup_lat;
