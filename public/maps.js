@@ -175,16 +175,30 @@
     S.locating=true;S.field='pickup';active();
     const b=document.getElementById('mapLocateBtn'),hint=document.getElementById('mapLocationHint');
     if(b)b.textContent='⏳ Определяем…';
-    if(hint)hint.textContent='Получаем ваше местоположение…';
+    if(hint)hint.textContent='Определяем ваше местоположение…';
+
+    // Сначала используем обычный GPS браузера — он уже работал в этом Mini App.
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(p=>{
+        S.locating=false;
+        const lat=p.coords.latitude,lng=p.coords.longitude;
+        setPoint('pickup',lat,lng);
+        reverse(lat,lng,'pickup');
+        if(b)b.textContent='✅ Местоположение определено';
+        if(hint)hint.textContent='Точка A установлена по GPS';
+      },err=>{
+        console.warn('Browser geolocation:',err);
+        // Если браузерный GPS не сработал — пробуем Telegram LocationManager.
+        if(locateWithTelegram())return;
+        S.locating=false;
+        locationError(err);
+      },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+      return;
+    }
+
     if(locateWithTelegram())return;
-    if(!navigator.geolocation){S.locating=false;locationError({code:2});return;}
-    navigator.geolocation.getCurrentPosition(p=>{
-      S.locating=false;
-      const lat=p.coords.latitude,lng=p.coords.longitude;
-      setPoint('pickup',lat,lng);reverse(lat,lng,'pickup');
-      if(b)b.textContent='✅ Местоположение определено';
-      if(hint)hint.textContent='Точка A установлена по GPS';
-    },err=>{S.locating=false;locationError(err)},{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    S.locating=false;
+    locationError({code:2});
   }
 
   function bind(){
