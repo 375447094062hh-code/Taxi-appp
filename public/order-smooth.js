@@ -6,7 +6,7 @@
     const id = window.currentOrderId;
     if (!id) return;
     try {
-      const response = await fetch(`/api/order-status?id=${encodeURIComponent(id)}`, {cache:'no-store'});
+      const response = await fetch(`/api/order-status?id=${encodeURIComponent(id)}&t=${Date.now()}`, {cache:'no-store'});
       if (!response.ok) return;
       const data = await response.json();
       if (!data) return;
