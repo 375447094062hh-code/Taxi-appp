@@ -7,10 +7,260 @@ app.use(express.static('public'));
 
 let currentOrder = null;
 
-// ================================
-// СОЗДАНИЕ НОВОГО ЗАКАЗА
-// ================================
-app.post('/api/send-order', (req, res) => {
+// Telegram
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+
+// ID водителя сохраняем в памяти
+let driverChatId = null;
+
+
+// =====================================================
+// ОТПРАВКА ЗАПРОСА В TELEGRAM
+// =====================================================
+async function telegram(method, data) {
+    if (!TELEGRAM_BOT_TOKEN) {
+        console.error('TELEGRAM_BOT_TOKEN не найден в Render');
+        return null;
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }
+        );
+
+        const result = await response.json();
+
+        if (!result.ok) {
+            console.error('Ошибка Telegram:', result);
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('Ошибка соединения с Telegram:', error);
+        return null;
+    }
+}
+
+
+// =====================================================
+// УСТАНОВКА WEBHOOK
+// =====================================================
+async function setupTelegramWebhook() {
+    if (!TELEGRAM_BOT_TOKEN) {
+        console.log('Telegram token не установлен');
+        return;
+    }
+
+    if (!RENDER_URL) {
+        console.log('RENDER_EXTERNAL_URL пока недоступен');
+        return;
+    }
+
+    const webhookUrl = `${RENDER_URL}/telegram/webhook`;
+
+    const result = await telegram('setWebhook', {
+        url: webhookUrl
+    });
+
+    console.log('Telegram webhook:', result);
+}
+
+
+// =====================================================
+// TELEGRAM WEBHOOK
+// =====================================================
+app.post('/telegram/webhook', async (req, res) => {
+    try {
+        const update = req.body;
+
+        // ---------------------------------------------
+        // НОВОЕ СООБЩЕНИЕ
+        // ---------------------------------------------
+        if (update.message) {
+            const message = update.message;
+            const chatId = message.chat.id;
+            const text = message.text || '';
+
+            console.log(
+                'Telegram сообщение:',
+                chatId,
+                text
+            );
+
+            // Водитель регистрируется
+            if (text === '/driver') {
+                driverChatId = chatId;
+
+                await telegram('sendMessage', {
+                    chat_id: chatId,
+                    text:
+                        '✅ Вы зарегистрированы как водитель.\n\n' +
+                        'Теперь новые заказы будут приходить сюда.\n\n' +
+                        '🚕 Ожидаем новые заказы...'
+                });
+
+                console.log(
+                    'Водитель зарегистрирован:',
+                    driverChatId
+                );
+            }
+
+            // Обычный /start
+            else if (text === '/start') {
+                await telegram('sendMessage', {
+                    chat_id: chatId,
+                    text:
+                        '🚕 Добро пожаловать в Такси Речица!\n\n' +
+                        'Если вы водитель, отправьте команду:\n' +
+                        '/driver'
+                });
+            }
+        }
+
+
+        // ---------------------------------------------
+        // НАЖАТИЕ КНОПКИ ВОДИТЕЛЕМ
+        // ---------------------------------------------
+        if (update.callback_query) {
+            const callback = update.callback_query;
+
+            const callbackData = callback.data;
+            const chatId = callback.message.chat.id;
+
+            console.log(
+                'Нажата кнопка:',
+                callbackData
+            );
+
+            // Принять заказ
+            if (callbackData === 'accept_order') {
+                if (!currentOrder) {
+                    await telegram('answerCallbackQuery', {
+                        callback_query_id: callback.id,
+                        text: 'Заказ уже недоступен'
+                    });
+
+                    return res.sendStatus(200);
+                }
+
+                if (currentOrder.status !== 'searching') {
+                    await telegram('answerCallbackQuery', {
+                        callback_query_id: callback.id,
+                        text: 'Этот заказ уже принят'
+                    });
+
+                    return res.sendStatus(200);
+                }
+
+                currentOrder.status = 'accepted';
+
+                currentOrder.driverName =
+                    'Александр Иванов';
+
+                currentOrder.driverCar =
+                    'Toyota Corolla';
+
+                currentOrder.driverNumber =
+                    '3-TAP-1234';
+
+                currentOrder.acceptedAt = Date.now();
+
+                console.log(
+                    'ВОДИТЕЛЬ ПРИНЯЛ ЗАКАЗ:',
+                    currentOrder
+                );
+
+
+                // Убираем кнопки у водителя
+                await telegram('editMessageReplyMarkup', {
+                    chat_id: chatId,
+                    message_id: callback.message.message_id,
+                    reply_markup: {
+                        inline_keyboard: []
+                    }
+                });
+
+
+                // Ответ на нажатие
+                await telegram('answerCallbackQuery', {
+                    callback_query_id: callback.id,
+                    text: '✅ Заказ принят!'
+                });
+
+
+                // Сообщение водителю
+                await telegram('sendMessage', {
+                    chat_id: chatId,
+                    text:
+                        '✅ ЗАКАЗ ПРИНЯТ\n\n' +
+                        `🚕 Заказ #${currentOrder.id}\n\n` +
+                        `📍 Откуда:\n${currentOrder.addressA || '-'}\n\n` +
+                        `📍 Куда:\n${currentOrder.addressB || '-'}\n\n` +
+                        '🚗 Toyota Corolla\n' +
+                        '👤 Александр Иванов\n\n' +
+                        'Пассажир получил уведомление.'
+                });
+
+
+                // Сообщение пассажиру
+                if (currentOrder.passengerChatId) {
+                    await telegram('sendMessage', {
+                        chat_id: currentOrder.passengerChatId,
+                        text:
+                            '✅ ВОДИТЕЛЬ ПРИНЯЛ ВАШ ЗАКАЗ\n\n' +
+                            '🚕 Toyota Corolla\n' +
+                            '👤 Александр Иванов\n' +
+                            '🔢 3-TAP-1234\n\n' +
+                            '🚗 Водитель едет к вам.'
+                    });
+                }
+            }
+
+
+            // Отклонить заказ
+            if (callbackData === 'reject_order') {
+                await telegram('answerCallbackQuery', {
+                    callback_query_id: callback.id,
+                    text: 'Заказ отклонён'
+                });
+
+                await telegram('editMessageText', {
+                    chat_id: chatId,
+                    message_id: callback.message.message_id,
+                    text:
+                        '❌ Заказ отклонён водителем.'
+                });
+
+                currentOrder = null;
+            }
+        }
+
+        res.sendStatus(200);
+
+    } catch (error) {
+        console.error(
+            'Ошибка Telegram webhook:',
+            error
+        );
+
+        res.sendStatus(200);
+    }
+});
+
+
+// =====================================================
+// СОЗДАНИЕ ЗАКАЗА
+// =====================================================
+app.post('/api/send-order', async (req, res) => {
     try {
         const order = req.body || {};
 
@@ -25,13 +275,60 @@ app.post('/api/send-order', (req, res) => {
         console.log(currentOrder);
         console.log('=================================');
 
+
+        // Если водитель зарегистрирован
+        if (driverChatId) {
+            await telegram('sendMessage', {
+                chat_id: driverChatId,
+                text:
+                    '🚕 НОВЫЙ ЗАКАЗ\n\n' +
+                    `🔢 Заказ #${currentOrder.id}\n\n` +
+                    `📍 ОТКУДА:\n${currentOrder.addressA || '-'}\n\n` +
+                    `📍 КУДА:\n${currentOrder.addressB || '-'}\n\n` +
+                    `💰 Тариф: ${currentOrder.tariff || '-'}\n` +
+                    `🕐 Время: ${currentOrder.scheduled || 'Сейчас'}\n\n` +
+                    `${currentOrder.childSeat ? '👶 Детское кресло\n' : ''}` +
+                    `${currentOrder.isWeekend ? '📅 Выходной день\n' : ''}` +
+                    '\nПримите заказ:',
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: '✅ ПРИНЯТЬ ЗАКАЗ',
+                                callback_data: 'accept_order'
+                            }
+                        ],
+                        [
+                            {
+                                text: '❌ ОТКЛОНИТЬ',
+                                callback_data: 'reject_order'
+                            }
+                        ]
+                    ]
+                }
+            });
+
+            console.log(
+                'Заказ отправлен водителю:',
+                driverChatId
+            );
+        } else {
+            console.log(
+                'Водитель ещё не зарегистрирован в Telegram'
+            );
+        }
+
+
         res.json({
             success: true,
             order: currentOrder
         });
 
     } catch (error) {
-        console.error('Ошибка создания заказа:', error);
+        console.error(
+            'Ошибка создания заказа:',
+            error
+        );
 
         res.status(500).json({
             success: false,
@@ -41,34 +338,38 @@ app.post('/api/send-order', (req, res) => {
 });
 
 
-// ================================
+// =====================================================
 // ПОЛУЧИТЬ ТЕКУЩИЙ ЗАКАЗ
-// ================================
+// =====================================================
 app.get('/api/get-order', (req, res) => {
-    try {
-        if (!currentOrder) {
-            return res.json({
-                status: 'none'
-            });
-        }
-
-        res.json(currentOrder);
-
-    } catch (error) {
-        console.error('Ошибка получения заказа:', error);
-
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка получения заказа'
+    if (!currentOrder) {
+        return res.json({
+            status: 'none'
         });
     }
+
+    res.json(currentOrder);
 });
 
 
-// ================================
-// ВОДИТЕЛЬ ПРИНИМАЕТ ЗАКАЗ
-// ================================
-app.post('/api/accept-order', (req, res) => {
+// =====================================================
+// СТАТУС ЗАКАЗА
+// =====================================================
+app.get('/api/order-status', (req, res) => {
+    if (!currentOrder) {
+        return res.json({
+            status: 'none'
+        });
+    }
+
+    res.json(currentOrder);
+});
+
+
+// =====================================================
+// ПРЯМОЕ ПРИНЯТИЕ ЗАКАЗА ИЗ MINI APP
+// =====================================================
+app.post('/api/accept-order', async (req, res) => {
     try {
         if (!currentOrder) {
             return res.status(404).json({
@@ -77,23 +378,8 @@ app.post('/api/accept-order', (req, res) => {
             });
         }
 
-        // Проверяем ID заказа
-        if (
-            req.body &&
-            req.body.orderId &&
-            currentOrder.id &&
-            String(req.body.orderId) !== String(currentOrder.id)
-        ) {
-            return res.status(400).json({
-                success: false,
-                error: 'Этот заказ уже неактивен'
-            });
-        }
-
-        // Меняем статус
         currentOrder.status = 'accepted';
 
-        // Данные водителя
         currentOrder.driverName =
             req.body.driverName || 'Александр Иванов';
 
@@ -105,10 +391,19 @@ app.post('/api/accept-order', (req, res) => {
 
         currentOrder.acceptedAt = Date.now();
 
-        console.log('=================================');
-        console.log('ВОДИТЕЛЬ ПРИНЯЛ ЗАКАЗ');
-        console.log(currentOrder);
-        console.log('=================================');
+
+        if (currentOrder.passengerChatId) {
+            await telegram('sendMessage', {
+                chat_id: currentOrder.passengerChatId,
+                text:
+                    '✅ ВОДИТЕЛЬ ПРИНЯЛ ВАШ ЗАКАЗ\n\n' +
+                    `🚕 ${currentOrder.driverCar}\n` +
+                    `👤 ${currentOrder.driverName}\n` +
+                    `🔢 ${currentOrder.driverNumber}\n\n` +
+                    '🚗 Водитель едет к вам.'
+            });
+        }
+
 
         res.json({
             success: true,
@@ -116,7 +411,10 @@ app.post('/api/accept-order', (req, res) => {
         });
 
     } catch (error) {
-        console.error('Ошибка принятия заказа:', error);
+        console.error(
+            'Ошибка принятия заказа:',
+            error
+        );
 
         res.status(500).json({
             success: false,
@@ -126,144 +424,90 @@ app.post('/api/accept-order', (req, res) => {
 });
 
 
-// ================================
-// СТАТУС ЗАКАЗА ДЛЯ ПАССАЖИРА
-// ================================
-app.get('/api/order-status', (req, res) => {
-    try {
-        if (!currentOrder) {
-            return res.json({
-                status: 'none'
-            });
-        }
-
-        res.json(currentOrder);
-
-    } catch (error) {
-        console.error('Ошибка проверки статуса:', error);
-
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка проверки статуса'
-        });
-    }
-});
-
-
-// ================================
+// =====================================================
 // ВОДИТЕЛЬ ПРИЕХАЛ
-// ================================
+// =====================================================
 app.post('/api/driver-arrived', (req, res) => {
-    try {
-        if (!currentOrder) {
-            return res.status(404).json({
-                success: false,
-                error: 'Активный заказ не найден'
-            });
-        }
-
-        currentOrder.status = 'arrived';
-        currentOrder.arrivedAt = Date.now();
-
-        console.log('ВОДИТЕЛЬ ПРИЕХАЛ:', currentOrder);
-
-        res.json({
-            success: true,
-            order: currentOrder
-        });
-
-    } catch (error) {
-        console.error('Ошибка статуса прибытия:', error);
-
-        res.status(500).json({
+    if (!currentOrder) {
+        return res.status(404).json({
             success: false,
-            error: 'Ошибка изменения статуса'
+            error: 'Активный заказ не найден'
         });
     }
+
+    currentOrder.status = 'arrived';
+    currentOrder.arrivedAt = Date.now();
+
+    res.json({
+        success: true,
+        order: currentOrder
+    });
 });
 
 
-// ================================
+// =====================================================
 // НАЧАЛО ПОЕЗДКИ
-// ================================
+// =====================================================
 app.post('/api/start-trip', (req, res) => {
-    try {
-        if (!currentOrder) {
-            return res.status(404).json({
-                success: false,
-                error: 'Активный заказ не найден'
-            });
-        }
-
-        currentOrder.status = 'trip';
-        currentOrder.tripStartedAt = Date.now();
-
-        console.log('ПОЕЗДКА НАЧАЛАСЬ:', currentOrder);
-
-        res.json({
-            success: true,
-            order: currentOrder
-        });
-
-    } catch (error) {
-        console.error('Ошибка начала поездки:', error);
-
-        res.status(500).json({
+    if (!currentOrder) {
+        return res.status(404).json({
             success: false,
-            error: 'Ошибка начала поездки'
+            error: 'Активный заказ не найден'
         });
     }
+
+    currentOrder.status = 'trip';
+    currentOrder.tripStartedAt = Date.now();
+
+    res.json({
+        success: true,
+        order: currentOrder
+    });
 });
 
 
-// ================================
-// ЗАВЕРШЕНИЕ ПОЕЗДКИ
-// ================================
+// =====================================================
+// ЗАВЕРШЕНИЕ
+// =====================================================
 app.post('/api/complete-order', (req, res) => {
-    try {
-        if (!currentOrder) {
-            return res.status(404).json({
-                success: false,
-                error: 'Активный заказ не найден'
-            });
-        }
-
-        currentOrder.status = 'completed';
-        currentOrder.completedAt = Date.now();
-
-        console.log('ЗАКАЗ ЗАВЕРШЁН:', currentOrder);
-
-        res.json({
-            success: true,
-            order: currentOrder
-        });
-
-    } catch (error) {
-        console.error('Ошибка завершения заказа:', error);
-
-        res.status(500).json({
+    if (!currentOrder) {
+        return res.status(404).json({
             success: false,
-            error: 'Ошибка завершения заказа'
+            error: 'Активный заказ не найден'
         });
     }
+
+    currentOrder.status = 'completed';
+    currentOrder.completedAt = Date.now();
+
+    res.json({
+        success: true,
+        order: currentOrder
+    });
 });
 
 
-// ================================
-// ГЛАВНАЯ СТРАНИЦА
-// ================================
+// =====================================================
+// ГЛАВНАЯ
+// =====================================================
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
+    res.sendFile(
+        __dirname + '/public/index.html'
+    );
 });
 
 
-// ================================
-// ЗАПУСК СЕРВЕРА
-// ================================
+// =====================================================
+// ЗАПУСК
+// =====================================================
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log('=================================');
-    console.log(`Такси Речица запущено на порту ${PORT}`);
+    console.log(
+        `Такси Речица запущено на порту ${PORT}`
+    );
     console.log('=================================');
+
+    await setupTelegramWebhook();
 });
