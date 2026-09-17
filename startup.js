@@ -1,6 +1,35 @@
 const { Pool } = require("pg");
+const fs = require("fs");
+const path = require("path");
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
+
+function injectAddressAutocomplete() {
+    try {
+        const indexPath = path.join(__dirname, "public", "index.html");
+
+        if (!fs.existsSync(indexPath)) {
+            return;
+        }
+
+        let html = fs.readFileSync(indexPath, "utf8");
+
+        if (html.includes("/address-autocomplete.js")) {
+            return;
+        }
+
+        const script = '\n<script src="/address-autocomplete.js"></script>\n';
+        const marker = "</body>";
+
+        if (html.includes(marker)) {
+            html = html.replace(marker, script + marker);
+            fs.writeFileSync(indexPath, html, "utf8");
+            console.log("Автоподсказки адресов подключены.");
+        }
+    } catch (error) {
+        console.error("Ошибка подключения автоподсказок адресов:", error.message);
+    }
+}
 
 async function migrate() {
     if (!DATABASE_URL) {
@@ -86,6 +115,8 @@ async function migrate() {
         await pool.end();
     }
 }
+
+injectAddressAutocomplete();
 
 migrate()
     .then(() => {
