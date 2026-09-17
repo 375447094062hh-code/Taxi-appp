@@ -2150,6 +2150,42 @@ app.get(
 
 
 // ============================================================
+// USER ROLE API
+// ============================================================
+
+app.get(
+    "/api/user-role",
+    async (req, res) => {
+        try {
+            const telegramId = normalizeTelegramId(req.query.telegramId);
+            if (!telegramId) {
+                return res.status(400).json({ success: false, error: "Не указан Telegram ID." });
+            }
+
+            if (isDriverTelegramId(telegramId)) {
+                const driver = await getDriver(telegramId);
+                return res.json({
+                    success: true,
+                    role: "driver",
+                    driver: driver || null
+                });
+            }
+
+            return res.json({
+                success: true,
+                role: "passenger"
+            });
+        } catch (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+);
+
+
+// ============================================================
 // DRIVER PROFILE API
 // ============================================================
 
