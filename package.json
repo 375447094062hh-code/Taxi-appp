@@ -1,9 +1,9 @@
 {
   "name": "rechitsa-taxi-app",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "startup.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node startup.js"
   },
   "dependencies": {
     "express": "^4.19.2",
