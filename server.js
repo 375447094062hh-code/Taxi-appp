@@ -1596,6 +1596,9 @@ function formatDbOrder(row) {
         id:
             row.id,
 
+        orderNumber:
+            String(row.id || "").replace(/-/g, "").slice(-6).toUpperCase(),
+
         telegramUserId:
             row.telegram_user_id,
 
