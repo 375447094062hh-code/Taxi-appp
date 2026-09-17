@@ -6,18 +6,36 @@
     const id = window.currentOrderId;
     if (!id) return;
     try {
-      const response = await fetch(`/api/order-status?id=${encodeURIComponent(id)}&t=${Date.now()}`, {cache:'no-store'});
+      const response = await fetch(`/api/order-status?id=${encodeURIComponent(id)}&t=${Date.now()}`, {cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
       if (!response.ok) return;
       const data = await response.json();
       if (!data) return;
       const status = String(data.status || '');
-      if (!status || status === lastStatus) return;
+      if (!status) return;
       lastStatus = status;
-      if (status === 'searching') { window.showWaiting?.(); return; }
+      if (status === 'searching') { window.showWaiting?.(data); return; }
       if (status === 'accepted') { window.showDriver?.(data); return; }
-      if (status === 'arrived') { window.hidePassengerCards?.(); document.getElementById('arrivedCard')?.classList.remove('hidden'); return; }
-      if (status === 'trip') { window.hidePassengerCards?.(); document.getElementById('tripCard')?.classList.remove('hidden'); return; }
-      if (status === 'completed') { window.stopPassengerPolling?.(); localStorage.removeItem('taxi_current_order_id'); window.currentOrderId=''; window.hidePassengerCards?.(); document.getElementById('orderForm')?.classList.remove('hidden'); window.toast?.('Поездка завершена.'); }
+      if (status === 'arrived') {
+        window.hidePassengerCards?.();
+        document.getElementById('arrivedCard')?.classList.remove('hidden');
+        const t=document.querySelector('#arrivedCard .status-text');
+        if(t) t.textContent='Водитель уже на месте. Можно выходить.';
+        return;
+      }
+      if (status === 'trip') {
+        window.hidePassengerCards?.();
+        document.getElementById('tripCard')?.classList.remove('hidden');
+        return;
+      }
+      if (status === 'completed') {
+        window.stopPassengerPolling?.();
+        localStorage.removeItem('taxi_current_order_id');
+        window.currentOrderId='';
+        window.hidePassengerCards?.();
+        document.getElementById('orderForm')?.classList.remove('hidden');
+        window.toast?.('Поездка завершена.');
+        return;
+      }
     } catch (e) { console.log('Stable order polling:', e.message); }
   }
 
