@@ -727,7 +727,7 @@ async function checkDriverAvailability(
                 allowed: false,
 
                 reason:
-                    `Водитель занят будущим заказом #${order.id}. ` +
+                    `Водитель занят будущим заказом #${shortOrderNumber(order.id)}. ` +
                     `Новые заказы запрещены за ${FUTURE_ORDER_BLOCK_MINUTES} минут до подачи.`,
 
                 blockingOrder: order
@@ -853,7 +853,7 @@ function orderText(order) {
     return (
         "🚕 НОВЫЙ ЗАКАЗ\n\n" +
 
-        `🆔 Заказ: #${order.id}\n` +
+        `🆔 Заказ: #${shortOrderNumber(order.id)}\n` +
 
         `📍 Откуда: ${order.addressA || "-"}\n` +
 
@@ -1589,6 +1589,10 @@ app.get(
 // FORMAT DB ORDER
 // ============================================================
 
+function shortOrderNumber(id) {
+    return String(id || "").replace(/-/g, "").slice(-6).toUpperCase();
+}
+
 function formatDbOrder(row) {
 
     return {
@@ -1597,7 +1601,7 @@ function formatDbOrder(row) {
             row.id,
 
         orderNumber:
-            String(row.id || "").replace(/-/g, "").slice(-6).toUpperCase(),
+            shortOrderNumber(row.id),
 
         telegramUserId:
             row.telegram_user_id,
@@ -3583,7 +3587,7 @@ async function processTelegramUpdate(
 
                     "✅ ЗАКАЗ ПРИНЯТ!\n\n" +
 
-                    `Заказ #${result.order.id}\n\n` +
+                    `Заказ #${shortOrderNumber(result.order.id)}\n\n` +
 
                     "Откройте Mini App для управления поездкой."
                 );
@@ -3621,7 +3625,7 @@ async function processTelegramUpdate(
             await sendTelegramMessage(
                 chatId,
 
-                `❌ Заказ #${orderId} отклонён.`
+                `❌ Заказ #${shortOrderNumber(orderId)} отклонён.`
             );
 
 
