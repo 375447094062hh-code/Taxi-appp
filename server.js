@@ -92,35 +92,14 @@ function normalizeTelegramId(value) {
 
 function isDriverTelegramId(telegramId) {
     const id = normalizeTelegramId(telegramId);
-
-    if (!id) {
-        return false;
-    }
-
-    if (DRIVER_CHAT_IDS.length > 0) {
-        return DRIVER_CHAT_IDS.includes(id);
-    }
-
-    return driverChats.has(Number(id)) ||
-        driverChats.has(id);
+    return !!id && DRIVER_CHAT_IDS.includes(id);
 }
 
-// Водитель может быть разрешён либо через DRIVER_CHAT_IDS,
-// либо зарегистрирован в таблице drivers PostgreSQL.
+// Единый источник авторизации водителя: Render → DRIVER_CHAT_IDS.
+// Наличие строки в PostgreSQL само по себе НЕ даёт роль водителя.
 async function hasDriverAccess(telegramId) {
     const id = normalizeTelegramId(telegramId);
-    if (!id) return false;
-
-    if (isDriverTelegramId(id)) {
-        return true;
-    }
-
-    try {
-        return Boolean(await getDriver(id));
-    } catch (error) {
-        console.error("Driver access check error:", error.message);
-        return false;
-    }
+    return !!id && DRIVER_CHAT_IDS.includes(id);
 }
 
 function getDriverChat(telegramId) {
@@ -2182,18 +2161,15 @@ app.get(
                 return res.status(400).json({ success: false, error: "Не указан Telegram ID." });
             }
 
-            // Сначала проверяем PostgreSQL. Это надёжнее, чем
-            // полагаться только на DRIVER_CHAT_IDS в Render.
-            const driver = await getDriver(telegramId);
+            const envDriver = DRIVER_CHAT_IDS.includes(telegramId);
 
-            const envDriver = isDriverTelegramId(telegramId);
-
-            if (driver || envDriver) {
+            if (envDriver) {
+                const driver = await getDriver(telegramId);
                 return res.json({
                     success: true,
                     role: "driver",
                     driver: driver || null,
-                    envDriver,
+                    envDriver: true,
                     telegramId
                 });
             }
@@ -2201,6 +2177,7 @@ app.get(
             return res.json({
                 success: true,
                 role: "passenger",
+                driver: null,
                 envDriver: false,
                 telegramId
             });
@@ -3024,6 +3001,14 @@ async function processTelegramUpdate(
         // --------------------------------------------
 
         if (text === "/driver") {
+            if (!isDriverTelegramId(user.id)) {
+                await sendTelegramMessage(
+                    chatId,
+                    "⛔ Нет доступа водителя. Этот Telegram ID не добавлен в Render → Environment → DRIVER_CHAT_IDS."
+                );
+                return;
+            }
+
             if (!pool) {
                 await sendTelegramMessage(
                     chatId,
@@ -3092,10 +3077,7 @@ async function processTelegramUpdate(
         ) {
 
             const allowed =
-                DRIVER_CHAT_IDS.length === 0 ||
-                DRIVER_CHAT_IDS.includes(
-                    String(user.id)
-                );
+                DRIVER_CHAT_IDS.includes(String(user.id));
 
 
             if (!allowed) {
@@ -3173,10 +3155,7 @@ async function processTelegramUpdate(
         ) {
 
             const allowed =
-                DRIVER_CHAT_IDS.length === 0 ||
-                DRIVER_CHAT_IDS.includes(
-                    String(user.id)
-                );
+                DRIVER_CHAT_IDS.includes(String(user.id));
 
 
             if (!allowed) {
@@ -3209,10 +3188,7 @@ async function processTelegramUpdate(
         ) {
 
             const allowed =
-                DRIVER_CHAT_IDS.length === 0 ||
-                DRIVER_CHAT_IDS.includes(
-                    String(user.id)
-                );
+                DRIVER_CHAT_IDS.includes(String(user.id));
 
 
             if (!allowed) {
