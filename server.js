@@ -255,7 +255,7 @@ app.post("/api/orders", async (req,res)=>{
 
 app.get("/api/orders/current", async (req,res)=>{
   try {
-    const r=await db(`SELECT o.*, d.rating AS driver_rating
+    const r=await db(`SELECT o.*, COALESCE(o.driver_phone,d.phone) AS driver_phone, d.rating AS driver_rating
       FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id
       WHERE o.passenger_telegram_id=$1 AND o.status=ANY($2::text[])
       ORDER BY o.created_at DESC LIMIT 1`,[clean(req.query.telegramId),ACTIVE_STATUSES]);
@@ -316,6 +316,15 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
     const allowed={arrived:["accepted"],trip:["arrived"],completed:["trip"]};
     if(!allowed[next]) return res.status(400).json({success:false,error:"Недопустимый статус."});
     const col={arrived:"arrived_at",trip:"trip_started_at",completed:"completed_at"}[next];
+    if(next==="trip"||next==="completed"){
+      await db(`UPDATE orders SET
+        waiting_minutes=waiting_minutes+
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int-waiting_minutes) END,
+        waiting_fee=waiting_fee+
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric*0.50-waiting_fee) END,
+        waiting_started_at=NULL
+        WHERE id=$1 AND driver_telegram_id=$2`,[orderId,driverId]);
+    }
     const r=await db(`UPDATE orders SET status=$1,${col}=NOW() WHERE id=$2 AND driver_telegram_id=$3 AND status=ANY($4::text[]) RETURNING *`,
       [next,orderId,driverId,allowed[next]]);
     if(!r.rows[0]) return res.status(409).json({success:false,error:"Статус уже изменён."});
@@ -329,11 +338,25 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
   try {
     const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId);
     if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
-    const r=await db(`UPDATE orders SET waiting_minutes=waiting_minutes+1,waiting_fee=waiting_fee+0.50,waiting_started_at=COALESCE(waiting_started_at,NOW())
-      WHERE id=$1 AND driver_telegram_id=$2 AND status IN ('arrived','trip') RETURNING *`,[orderId,driverId]);
-    if(!r.rows[0]) return res.status(409).json({success:false,error:"Ожидание сейчас недоступно."});
-    await notifyPassenger(r.rows[0],`⏱ Ожидание: ${r.rows[0].waiting_minutes} мин • +${Number(r.rows[0].waiting_fee).toFixed(2)} BYN`);
-    res.json({success:true,order:r.rows[0]});
+    const current=(await db("SELECT * FROM orders WHERE id=$1 AND driver_telegram_id=$2 AND status IN ('arrived','trip')",[orderId,driverId])).rows[0];
+    if(!current) return res.status(409).json({success:false,error:"Ожидание сейчас недоступно."});
+
+    if(!current.waiting_started_at){
+      const r=await db("UPDATE orders SET waiting_started_at=NOW() WHERE id=$1 AND driver_telegram_id=$2 RETURNING *",[orderId,driverId]);
+      return res.json({success:true,action:"started",order:r.rows[0]});
+    }
+
+    const r=await db(`UPDATE orders
+      SET waiting_minutes=waiting_minutes+
+          GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int-waiting_minutes),
+          waiting_fee=waiting_fee+
+          GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric*0.50-waiting_fee),
+          waiting_started_at=NULL
+      WHERE id=$1 AND driver_telegram_id=$2
+      RETURNING *`,[orderId,driverId]);
+    const charged=Number(r.rows[0].waiting_minutes)-Number(current.waiting_minutes||0);
+    if(charged>0) await notifyPassenger(r.rows[0],`⏱ Ожидание завершено: ${r.rows[0].waiting_minutes} мин • +${Number(r.rows[0].waiting_fee).toFixed(2)} BYN`);
+    res.json({success:true,action:"stopped",order:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
@@ -365,7 +388,7 @@ app.post("/api/passenger-feedback", async (req,res)=>{
 app.get("/api/order-status", async (req,res)=>{
   try {
     const uid=clean(req.query.telegramId), oid=clean(req.query.id);
-    const r=await db(`SELECT o.*,d.rating AS driver_rating FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id WHERE o.id=$1 AND (o.passenger_telegram_id=$2 OR o.driver_telegram_id=$2)`,[oid,uid]);
+    const r=await db(`SELECT o.*,COALESCE(o.driver_phone,d.phone) AS driver_phone,d.rating AS driver_rating FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id WHERE o.id=$1 AND (o.passenger_telegram_id=$2 OR o.driver_telegram_id=$2)`,[oid,uid]);
     if(!r.rows[0]) return res.status(404).json({success:false,error:"Заказ не найден."});
     res.json(r.rows[0]);
   } catch(e){res.status(500).json({success:false,error:e.message});}
