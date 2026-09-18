@@ -5,613 +5,226 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Такси Речица</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-:root{--bg:#06111d;--navy:#081a2b;--card:#0c2134;--card2:#102a40;--line:#23425b;--text:#f8fbff;--muted:#8ea7bb;--accent:#ffd21a;--accent2:#ffdf4d;--green:#2bd982;--red:#ff5964}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}.app{width:min(100%,430px);min-height:100vh;margin:auto;padding:10px 12px 28px;background:linear-gradient(180deg,#071727 0%,#06111d 55%,#071522 100%)}.hidden{display:none!important}
-.top{height:42px;display:flex;align-items:center;justify-content:space-between;margin:0 3px 8px}.brand{font-size:19px;font-weight:900;letter-spacing:-.4px}.brand span{color:var(--accent)}.role{font-size:10px;font-weight:800;color:#d6e3ee;background:#0d2236;border:1px solid #31506a;padding:7px 10px;border-radius:999px}
-.hero{position:relative;overflow:hidden;padding:24px 18px 22px;border:1px solid #31506a;border-radius:25px;background:radial-gradient(circle at 80% 20%,#1d4664 0,#102b43 38%,#091a2b 75%);box-shadow:0 18px 45px #0007;margin-bottom:12px;min-height:174px}.hero:after{content:"";position:absolute;right:-26px;bottom:-34px;width:210px;height:105px;border-radius:50% 50% 0 0;background:linear-gradient(180deg,#f2bd28,#d88e14);transform:rotate(-7deg);opacity:.95}.hero:before{content:"🚕";position:absolute;right:36px;bottom:23px;font-size:58px;z-index:1;filter:drop-shadow(0 10px 8px #0007)}.hero h1{position:relative;z-index:2;margin:0 0 5px;font-size:29px;letter-spacing:-.8px}.hero p{position:relative;z-index:2;margin:0;color:#b9cbd9;font-size:13px}.card{background:linear-gradient(145deg,#0d253a,#091b2d);border:1px solid var(--line);border-radius:20px;padding:14px;margin:10px 0;box-shadow:0 10px 28px #0003}.title{font-weight:900;font-size:17px;margin-bottom:10px}.btn{width:100%;border:0;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:900;cursor:pointer;margin-top:8px;background:linear-gradient(180deg,var(--accent2),var(--accent));color:#111;box-shadow:0 8px 20px #ffd21a26}.btn.secondary{background:#0c2032;border:1px solid #31506a;color:var(--text);box-shadow:none}.btn.green{background:var(--green);color:#06160e}.btn.danger{background:var(--red);color:#fff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.grid .btn{margin:0}
-label{display:block;color:#9db3c5;font-size:11px;font-weight:700;margin:11px 0 5px}input,select{width:100%;background:#081827;color:var(--text);border:1px solid #2a4961;border-radius:13px;padding:13px;font-size:15px;outline:none}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #ffd21a18}.info{font-size:12px;line-height:1.5;color:var(--muted)}.price{font-size:29px;font-weight:950;color:var(--accent);margin:10px 0}.status{padding:12px;border-radius:14px;background:#081827;border:1px solid var(--line);margin-top:9px}.ok{color:var(--green)}.bad{color:var(--red)}.order{border:1px solid #294860;background:#081a2b;border-radius:15px;padding:13px;margin:9px 0}.order b{display:block;margin-bottom:5px}.small{font-size:11px;color:#9ab0c1;line-height:1.5}.coords{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0}.coords>div{background:#0b2236;border:1px solid #2a4961;border-radius:11px;padding:9px;font-size:10px;color:#a7bbc9;word-break:break-word}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:11px}.check input{width:18px;height:18px}
-.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#102a40;border:1px solid #41627a;padding:11px 15px;border-radius:13px;z-index:20;max-width:90%;font-size:12px;box-shadow:0 12px 35px #0009}
-.stepbar{display:flex;align-items:center;gap:6px;margin:7px 2px 11px}.stepbar i{height:4px;flex:1;border-radius:8px;background:#1c3448}.stepbar i.active{background:var(--accent)}.backline{display:flex;align-items:center;gap:10px;margin:3px 2px 10px;font-size:15px;font-weight:850}.backline button{width:36px;height:36px;border-radius:11px;border:1px solid #2a4961;background:#0c2032;color:#fff;font-size:18px}.locationCard{border:1px solid #31506a;background:#0a1c2d;border-radius:15px;padding:11px;margin-top:10px}.locationCard strong{display:block;font-size:12px;margin-bottom:4px}.locationCard span{font-size:11px;color:#9fb5c5}.choiceRow{display:flex;gap:8px}.choice{flex:1;padding:12px 8px;border:1px solid #2a4961;background:#0a1b2c;border-radius:13px;text-align:center;font-size:12px;font-weight:800}.choice.active{border-color:var(--accent);background:#ffd21a12;color:#fff}.carChoice{display:flex;align-items:center;gap:12px;border:1px solid #2a4961;background:#0a1b2c;border-radius:16px;padding:12px}.carChoice.active{border:2px solid var(--accent);padding:11px}.carIcon{font-size:42px}.carMeta{flex:1}.carMeta b{font-size:14px}.carMeta span{display:block;color:#93aabd;font-size:10px;margin-top:3px}.carPrice{font-size:17px;font-weight:900;color:var(--accent)}.routeMini{border:1px solid #31506a;border-radius:14px;overflow:hidden;background:#081827}.routeMini .map{height:245px}.mapWrap{margin-top:10px;border:1px solid #31506a;border-radius:17px;overflow:hidden;background:#081827}.map{height:285px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}.mapHint{padding:9px 11px;font-size:11px;color:var(--muted);border-top:1px solid #23425b}.suggestions{background:#081827;border:1px solid #2a4961;border-radius:12px;overflow:hidden;margin-top:6px}.suggestion{padding:11px 12px;border-bottom:1px solid #203b50;font-size:12px;cursor:pointer}.suggestion:last-child{border-bottom:0}.leaflet-container{font:inherit;background:#dbe5ea}.leaflet-control-zoom a{background:#0c2032;color:#fff;border-color:#31506a}.leaflet-control-attribution{background:#0b2032cc!important;color:#9ab0c1!important}.leaflet-control-attribution a{color:#d5e3ed!important}
-.homeAction{margin-top:10px}.homeAction .btn{height:54px;font-size:16px}.menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.menuItem{border:1px solid #2a4961;background:#0a1b2c;border-radius:14px;padding:12px 10px;text-align:left;color:#e8f1f7;font-size:12px;font-weight:800}.menuItem span{display:block;font-size:19px;margin-bottom:5px}.miniNote{display:flex;gap:8px;align-items:center;margin-top:10px;padding:10px 11px;border-radius:12px;background:#091a2a;color:#91a8ba;font-size:10px}
-.flowKicker{font-size:10px;font-weight:900;color:var(--accent);letter-spacing:1.2px;margin-bottom:6px}.flowTitle{font-size:25px;font-weight:950;letter-spacing:-.6px;margin-bottom:6px}.flowText{font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:12px}.flowActions{display:grid;grid-template-columns:1fr 1.35fr;gap:8px;margin-top:10px}.flowActions .btn{margin:0}.flowInfo{margin-top:12px;padding:11px 12px;border-radius:13px;background:#091a2a;border:1px solid #23425b;color:#91a8ba;font-size:11px;line-height:1.5}.paymentCard{display:flex;align-items:center;gap:12px;border:1px solid #2a4961;background:#0a1b2c;border-radius:16px;padding:15px;margin:16px 0}.paymentCard.active{border:2px solid var(--accent);padding:14px}.paymentIcon{font-size:34px}.paymentCard b{display:block;font-size:15px}.paymentCard small{display:block;color:#91a8ba;margin-top:3px}.paymentCheck{margin-left:auto;color:var(--accent);font-size:22px}.reviewCard{background:#081827;border:1px solid #294860;border-radius:16px;padding:4px 13px;margin-top:15px}.reviewRow{display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid #1e3548;font-size:11px}.reviewRow:last-child{border-bottom:0}.reviewRow span{color:#91a8ba}.reviewRow b{text-align:right;max-width:58%}.reviewRow.total{font-size:15px}.reviewRow.total b{font-size:22px;color:var(--accent)}</style>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+:root{--bg:#06111d;--card:#0d2235;--card2:#102a40;--line:#294860;--text:#f7fbff;--muted:#91a8ba;--yellow:#ffd21a;--green:#29d980;--red:#ff5964;--blue:#4da3ff}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}body{min-height:100vh}.app{width:min(100%,440px);min-height:100vh;margin:auto;padding:10px 12px 35px;background:linear-gradient(180deg,#071827,#06111d 60%,#071522)}.hidden{display:none!important}.top{height:42px;display:flex;justify-content:space-between;align-items:center}.brand{font-size:19px;font-weight:950}.brand span{color:var(--yellow)}.badge{font-size:10px;font-weight:900;border:1px solid #31506a;background:#0c2032;padding:7px 10px;border-radius:999px}.hero{padding:22px 18px;border:1px solid #31506a;border-radius:24px;background:radial-gradient(circle at 80% 20%,#214a68,#102b43 45%,#091a2b 80%);box-shadow:0 18px 45px #0007;margin:8px 0 12px}.hero h1{margin:0 0 4px;font-size:28px}.hero p{margin:0;color:#b8cbd9;font-size:12px}.card{background:linear-gradient(145deg,#0d253a,#091b2d);border:1px solid var(--line);border-radius:20px;padding:14px;margin:10px 0;box-shadow:0 10px 28px #0003}.title{font-size:17px;font-weight:950;margin-bottom:10px}.sub{font-size:11px;color:var(--muted);line-height:1.5}.btn{width:100%;border:0;border-radius:14px;padding:14px 15px;margin-top:8px;font-size:14px;font-weight:900;background:linear-gradient(180deg,#ffdf4d,var(--yellow));color:#15130a;cursor:pointer}.btn.secondary{background:#0a1b2c;border:1px solid #31506a;color:#fff;box-shadow:none}.btn.green{background:var(--green);color:#06160e}.btn.red{background:var(--red);color:#fff}.btn.blue{background:var(--blue);color:#06111d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid .btn{margin:0}.menu{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.menu button{padding:14px 12px;text-align:left;background:#0a1b2c;border:1px solid #294860;color:#fff;border-radius:15px;font-weight:850}.menu b{display:block;font-size:20px;margin-bottom:5px}.sectionHead{display:flex;justify-content:space-between;align-items:center}.sectionHead button{background:none;border:0;color:var(--yellow);font-weight:900}.field{margin:10px 0}label{display:block;font-size:10px;color:#9db3c5;font-weight:850;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}input,textarea,select{width:100%;background:#081827;color:#fff;border:1px solid #2a4961;border-radius:13px;padding:13px;font-size:14px;outline:none}textarea{min-height:90px;resize:vertical}input:focus,textarea:focus{border-color:var(--yellow)}.routeBox{border:1px solid #31506a;border-radius:17px;background:#081827;padding:11px}.routeLine{display:flex;gap:10px;align-items:center}.routeLine+.routeLine{margin-top:8px}.dot{width:12px;height:12px;border-radius:50%;background:var(--yellow);flex:none}.dot.b{background:var(--green)}.routeLine input{border:0;background:#0b2032}.map{height:260px;border-radius:16px;overflow:hidden;margin-top:10px}.leaflet-container{font:inherit}.suggestions{background:#081827;border:1px solid #294860;border-radius:12px;overflow:hidden;margin-top:5px}.suggestion{padding:10px;border-bottom:1px solid #203b50;font-size:11px}.choice{display:flex;gap:8px}.choice button{flex:1;padding:12px;border-radius:13px;background:#091a2a;color:#fff;border:1px solid #294860;font-weight:900}.choice button.active{border-color:var(--yellow);background:#ffd21a12}.tariff{border:1px solid #294860;border-radius:15px;padding:13px;background:#091a2a;margin:8px 0}.tariff.active{border-color:var(--yellow)}.tariff b{display:block}.tariff span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.price{font-size:27px;color:var(--yellow);font-weight:950;margin:12px 0}.order{border:1px solid #294860;background:#081a2b;border-radius:16px;padding:13px;margin:8px 0}.orderHead{display:flex;justify-content:space-between;gap:8px}.statusPill{padding:6px 9px;border-radius:999px;background:#122d43;font-size:9px;font-weight:900;white-space:nowrap}.statusPill.green{color:var(--green)}.statusPill.yellow{color:var(--yellow)}.routeText{font-weight:850;font-size:13px;line-height:1.45}.small{font-size:11px;color:var(--muted);line-height:1.55}.statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:#081827;border:1px solid #294860;border-radius:15px;padding:12px}.stat strong{display:block;font-size:22px;color:var(--yellow)}.stat span{font-size:10px;color:var(--muted)}.call{display:block;text-align:center;text-decoration:none;margin-top:8px;padding:12px;border-radius:13px;background:#0b7dff;color:#fff;font-weight:900}.historyItem{padding:11px 0;border-bottom:1px solid #203b50}.historyItem:last-child{border-bottom:0}.stars{color:var(--yellow);letter-spacing:2px}.check{display:flex;gap:8px;align-items:center;color:#fff;font-size:12px}.check input{width:18px;height:18px}.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#102a40;border:1px solid #41627a;padding:11px 15px;border-radius:13px;z-index:9999;max-width:92%;font-size:12px;box-shadow:0 12px 35px #0009}.back{display:flex;align-items:center;gap:8px;margin-bottom:10px}.back button{width:36px;height:36px;border-radius:11px;border:1px solid #294860;background:#0a1b2c;color:#fff;font-size:20px}.driverAction{margin-top:10px}.wait{background:#351f0a;border:1px solid #9c6618;padding:11px;border-radius:14px;margin-top:8px}.wait strong{color:var(--yellow)}.ratingBox{display:flex;gap:4px;font-size:25px;margin:10px 0}.ratingBox button{background:none;border:0;color:#40536a;font-size:28px}.ratingBox button.active{color:var(--yellow)}
+</style>
 </head>
 <body>
 <div class="app">
-  <div class="top">
-    <div class="brand">Такси <span>Речица</span></div>
-    <div id="roleBadge" class="role">Проверка…</div>
-  </div>
+<div class="top"><div class="brand">Такси <span>Речица</span></div><div id="roleBadge" class="badge">Загрузка…</div></div>
 
-  <main id="passenger" class="hidden">
-    <section class="hero">
-      <h1>Такси <span style="color:var(--accent)">Речица</span></h1>
-      <p>Быстро • Удобно • Надёжно</p>
-    </section>
+<main id="passenger" class="hidden">
+<section class="hero"><h1>Такси Речица</h1><p>Быстро • Удобно • Надёжно</p></section>
 
-    <section id="passengerProfile" class="card">
-      <div class="title">👤 Профиль</div>
-      <div id="passengerProfileText" class="info">Имя и телефон сохраняются для следующих поездок.</div>
-      <button class="btn secondary" onclick="showPassengerProfile()">Настроить профиль</button>
-    </section>
-
-    <section id="passengerHome" class="card">
-      <div class="title">Куда поедем?</div>
-      <div class="homeAction"><button class="btn" onclick="showOrder()">🚕 Вызвать такси</button></div>
-      <div class="menuRow">
-        <button class="menuItem" onclick="showCurrentOrder()"><span>📦</span>Мой заказ</button>
-        <button class="menuItem" onclick="showPassengerProfile()"><span>👤</span>Профиль</button>
-      </div>
-      <div class="miniNote">💳 Оплата сейчас — наличными водителю</div>
-      <div class="miniNote">💰 Посадка 3 BYN + 1 BYN за каждый километр</div>
-    </section>
-
-    <section id="passengerForm" class="card hidden">
-      <div class="backline"><button type="button" onclick="backPassenger()">‹</button><span id="passengerStepTitle">Точка отправления</span></div>
-      <div class="stepbar" id="passengerStepbar"><i class="active"></i><i></i><i></i><i></i><i></i><i></i></div>
-
-      <div class="flowScreen" id="flow1">
-        <div class="flowKicker">ШАГ 1 ИЗ 6</div>
-        <div class="flowTitle">Откуда вас забрать?</div>
-        <div class="flowText">Поставьте точку на карте или определите своё местоположение.</div>
-        <label>Точка отправления</label>
-        <input id="pickup" placeholder="Например: ул. Советская, 10">
-        <div class="mapWrap"><div id="passengerMap" class="map"></div>
-          <button class="btn secondary locBtn" type="button" onclick="locatePassenger()">📍 Определить моё местоположение</button>
-          <div id="mapHint" class="mapHint">Нажмите на карту или определите своё местоположение.</div>
-        </div>
-        <button class="btn" type="button" onclick="goFlow(2)">Далее</button>
-      </div>
-
-      <div class="flowScreen hidden" id="flow2">
-        <div class="flowKicker">ШАГ 2 ИЗ 6</div>
-        <div class="flowTitle">Куда едем?</div>
-        <div class="flowText">Выберите адрес назначения — маршрут и стоимость рассчитаются автоматически.</div>
-        <label>Точка назначения</label>
-        <input id="destination" placeholder="Введите адрес назначения" oninput="destinationTyping()">
-        <div id="destinationSuggestions" class="suggestions hidden"></div>
-        <div class="mapWrap routeMini"><div id="routeMap" class="map"></div>
-          <div id="routeHint" class="mapHint">Выберите точку назначения на карте или введите адрес.</div>
-        </div>
-        <div class="flowActions"><button class="btn secondary" type="button" onclick="goFlow(1)">Назад</button><button class="btn" type="button" onclick="goFlow(3)">Далее</button></div>
-      </div>
-
-      <div class="flowScreen hidden" id="flow3">
-        <div class="flowKicker">ШАГ 3 ИЗ 6</div>
-        <div class="flowTitle">Когда поедем?</div>
-        <div class="flowText">Можно вызвать автомобиль прямо сейчас или запланировать поездку.</div>
-        <div class="choiceRow">
-          <button id="nowBtn" class="choice active" type="button" onclick="setOrderNow()">⚡<br>Сейчас</button>
-          <button id="laterBtn" class="choice" type="button" onclick="setOrderLater()">🕐<br>На дату</button>
-        </div>
-        <div id="scheduleBox" class="hidden">
-          <label>Дата и время</label><input id="scheduledAt" type="datetime-local">
-        </div>
-        <div class="flowInfo">Время «Сейчас» означает поиск водителя сразу после подтверждения заказа.</div>
-        <div class="flowActions"><button class="btn secondary" type="button" onclick="goFlow(2)">Назад</button><button class="btn" type="button" onclick="goFlow(4)">Далее</button></div>
-      </div>
-
-      <div class="flowScreen hidden" id="flow4">
-        <div class="flowKicker">ШАГ 4 ИЗ 6</div>
-        <div class="flowTitle">Выберите автомобиль</div>
-        <div class="flowText">Поездка выполняется на вашем личном автомобиле.</div>
-        <div class="carChoice active">
-          <div class="carIcon">🚕</div>
-          <div class="carMeta"><b>Стандарт</b><span>4 места • багаж</span><span>Личный автомобиль</span></div>
-          <div class="carPrice" id="carPrice">3 BYN</div>
-        </div>
-        <select id="tariff" class="hidden"><option>Стандарт</option></select>
-        <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
-        <div class="price" id="flowPrice">3.00 BYN</div>
-        <div id="orderSummary" class="info">Стоимость обновится после построения маршрута.</div>
-        <div class="flowActions"><button class="btn secondary" type="button" onclick="goFlow(3)">Назад</button><button class="btn" type="button" onclick="goFlow(5)">Далее</button></div>
-      </div>
-
-      <div class="flowScreen hidden" id="flow5">
-        <div class="flowKicker">ШАГ 5 ИЗ 6</div>
-        <div class="flowTitle">Оплата</div>
-        <div class="flowText">Оплата производится наличными водителю после поездки.</div>
-        <div class="paymentCard active"><span class="paymentIcon">💵</span><div><b>Наличные</b><small>Оплата водителю</small></div><span class="paymentCheck">✓</span></div>
-        <div class="flowInfo">Без онлайн-оплаты и банковской карты. Сумма заказа фиксируется перед поиском водителя.</div>
-        <div class="flowActions"><button class="btn secondary" type="button" onclick="goFlow(4)">Назад</button><button class="btn" type="button" onclick="goFlow(6)">Далее</button></div>
-      </div>
-
-      <div class="flowScreen hidden" id="flow6">
-        <div class="flowKicker">ШАГ 6 ИЗ 6</div>
-        <div class="flowTitle">Проверьте заказ</div>
-        <div class="reviewCard">
-          <div class="reviewRow"><span>📍 Откуда</span><b id="reviewPickup">—</b></div>
-          <div class="reviewRow"><span>🏁 Куда</span><b id="reviewDestination">—</b></div>
-          <div class="reviewRow"><span>🕐 Время</span><b id="reviewTime">Сейчас</b></div>
-          <div class="reviewRow"><span>🚕 Автомобиль</span><b>Стандарт</b></div>
-          <div class="reviewRow"><span>💵 Оплата</span><b>Наличными</b></div>
-          <div class="reviewRow total"><span>Итого</span><b id="reviewAmount">3.00 BYN</b></div>
-        </div>
-        <label class="check"><input id="reviewConfirm" type="checkbox"> Я проверил адреса и время поездки</label>
-        <div class="flowActions"><button class="btn secondary" type="button" onclick="goFlow(5)">Назад</button><button class="btn" type="button" onclick="createOrder()">🚕 Заказать такси</button></div>
-      </div>
-    </section>
-
-    <section id="passengerCurrent" class="card hidden">
-      <div class="backline"><button type="button" onclick="backPassenger()">‹</button><span>Ваш заказ</span></div>
-      <div class="stepbar"><i class="active"></i><i class="active"></i><i class="active"></i><i></i></div>
-      <div id="currentOrder"></div>
-      <div class="miniNote">📍 Водитель увидит координаты точки А и точки Б.</div>
-      <button class="btn secondary" onclick="backPassenger()">Назад</button>
-    </section>
-
-    <section id="passengerProfileForm" class="card hidden">
-      <div class="backline"><button type="button" onclick="backPassenger()">‹</button><span>Профиль</span></div>
-      <div class="stepbar"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i></div>
-      <label>Имя</label><input id="passengerName" placeholder="Ваше имя">
-      <label>Телефон</label><input id="passengerPhone" placeholder="+375...">
-      <button class="btn" onclick="savePassengerProfile()">Сохранить</button>
-      <button class="btn secondary" onclick="backPassenger()">Назад</button>
-    </section>
-  </main>
-
-  <main id="driver" class="hidden">
-    <section class="hero">
-      <h1>Режим водителя</h1>
-      <p>Заказы только для вашего такси</p>
-    </section>
-
-    <section id="driverProfile" class="card">
-      <div class="title">Профиль водителя</div>
-      <div id="driverProfileText" class="info">Загрузка…</div>
-      <button class="btn secondary" onclick="showDriverProfile()">Профиль</button>
-    </section>
-
-    <section id="driverActive" class="card hidden">
-      <div class="title">🚕 Текущий заказ</div>
-      <div id="driverActiveOrder"></div>
-    </section>
-
-    <section id="driverOrders" class="card">
-      <div class="title">Доступные заказы</div>
-      <div id="ordersList" class="info">Загрузка…</div>
-      <button class="btn secondary" onclick="loadDriverOrders()">Обновить</button>
-    </section>
-
-    <section id="driverProfileForm" class="card hidden">
-      <div class="title">Анкета водителя</div>
-      <label>Имя</label><input id="driverName" placeholder="Ваше имя">
-      <label>Телефон</label><input id="driverPhone" placeholder="+375...">
-      <label>Автомобиль</label><input id="driverCar" placeholder="Например: Volkswagen Passat">
-      <label>Госномер</label><input id="driverPlate" placeholder="0000 AB-1">
-      <label class="check"><input id="driverChildSeat" type="checkbox"> Есть детское кресло</label>
-      <button class="btn green" onclick="saveDriverProfile()">Сохранить</button>
-      <button class="btn secondary" onclick="backDriver()">Назад</button>
-    </section>
-  </main>
+<section id="pHome" class="card">
+<div class="title">Куда поедем?</div>
+<button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>
+<div class="menu">
+<button onclick="openCurrent()"><b>🚕</b>Текущая поездка</button>
+<button onclick="openHistory('passenger')"><b>📋</b>Мои поездки</button>
+<button onclick="openTariffs()"><b>💰</b>Тарифы</button>
+<button onclick="openPassengerSettings()"><b>⚙️</b>Настройки</button>
 </div>
+</section>
 
+<section id="pOrder" class="card hidden">
+<div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Новый заказ</div></div>
+<div class="sub">Точка А и точка Б теперь находятся в одном маршруте — ничего переключать не нужно.</div>
+<div class="routeBox">
+<div class="routeLine"><span class="dot"></span><input id="pPickup" placeholder="Точка А — откуда"></div>
+<div id="pickupSug" class="suggestions hidden"></div>
+<div class="routeLine"><span class="dot b"></span><input id="pDestination" placeholder="Точка Б — куда"></div>
+<div id="destSug" class="suggestions hidden"></div>
+</div>
+<div id="orderMap" class="map"></div>
+<button class="btn secondary" onclick="locatePickup()">📍 Моё местоположение — точка А</button>
+<div class="field"><label>Когда</label><div class="choice"><button id="nowChoice" class="active" onclick="setWhen('now')">⚡ Сейчас</button><button id="laterChoice" onclick="setWhen('later')">🕐 На дату</button></div></div>
+<div id="scheduleWrap" class="field hidden"><label>Дата и время</label><input id="scheduledAt" type="datetime-local"></div>
+<div class="field"><label>Тариф</label>
+<div class="tariff active"><b>🚕 Стандарт</b><span>Посадка 3 BYN + 1 BYN за каждый километр</span></div>
+</div>
+<label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
+<div id="routeInfo" class="sub" style="margin-top:9px">Выберите точки А и Б на карте или введите адреса.</div>
+<div class="price" id="orderPrice">3.00 BYN</div>
+<button class="btn" onclick="createPassengerOrder()">🚕 Заказать такси</button>
+</section>
+
+<section id="pCurrent" class="card hidden"><div id="currentBox"></div></section>
+<section id="pHistory" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Мои поездки</div></div><div id="pHistoryList"></div></section>
+<section id="pTariffs" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Тарифы</div></div><div class="tariff active"><b>🚕 Стандарт</b><span>Посадка — 3 BYN</span><span>Каждый километр — 1 BYN</span><span>Детское кресло — без отдельной наценки</span></div><div class="sub">Ожидание: 0,50 BYN за 1 минуту ожидания.</div></section>
+<section id="pSettings" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Настройки</div></div><button class="btn secondary" onclick="editPassengerProfile()">👤 Редактировать профиль</button></section>
+<section id="pProfile" class="card hidden"><div class="back"><button onclick="showP('pSettings')">‹</button><div class="title" style="margin:0">Профиль пассажира</div></div><div class="field"><label>Имя</label><input id="pName"></div><div class="field"><label>Телефон</label><input id="pPhone" placeholder="+375..."></div><button class="btn" onclick="savePassenger()">Сохранить профиль</button></section>
+</main>
+
+<main id="driver" class="hidden">
+<section class="hero"><h1>Режим водителя</h1><p>Заказы, текущая поездка и статистика в одном месте</p></section>
+<section id="dHome" class="card">
+<div class="title">Панель водителя</div>
+<div id="dProfileSummary" class="sub">Загрузка…</div>
+<div class="menu">
+<button onclick="openDriverCurrent()"><b>🚕</b>Текущая поездка</button>
+<button onclick="loadDriverOrders(true)"><b>📦</b>Новые заказы</button>
+<button onclick="openHistory('driver')"><b>📋</b>История поездок</button>
+<button onclick="openStats()"><b>📊</b>Статистика за месяц</button>
+<button onclick="openDriverSettings()"><b>⚙️</b>Настройки</button>
+</div>
+</section>
+<section id="dOrders" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Новые заказы</div></div><div id="dOrdersList"></div></section>
+<section id="dCurrent" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div><div id="dCurrentBox"></div></section>
+<section id="dHistory" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">История поездок</div></div><div id="dHistoryList"></div></section>
+<section id="dStats" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Статистика</div></div><div class="field"><label>Месяц</label><input id="statsMonth" type="month"></div><div id="statsBox"></div></section>
+<section id="dSettings" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Настройки водителя</div></div><button class="btn secondary" onclick="editDriverProfile()">👤 Профиль водителя</button></section>
+<section id="dProfile" class="card hidden"><div class="back"><button onclick="showD('dSettings')">‹</button><div class="title" style="margin:0">Профиль водителя</div></div><div class="field"><label>Имя</label><input id="dName"></div><div class="field"><label>Телефон</label><input id="dPhone"></div><div class="field"><label>Автомобиль</label><input id="dCar"></div><div class="field"><label>Госномер</label><input id="dPlate"></div><label class="check"><input id="dChild" type="checkbox"> Есть детское кресло</label><button class="btn green" onclick="saveDriver()">Сохранить</button></section>
+</main>
+</div>
 <div id="toast" class="toast hidden"></div>
 
 <script>
-const tg=window.Telegram?.WebApp;
-tg?.ready?.();
-tg?.expand?.();
+const tg=window.Telegram?.WebApp; tg?.ready?.(); tg?.expand?.();
+const uid=String(tg?.initDataUnsafe?.user?.id||""); let role="",pProfile=null,dProfile=null;
+let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null;
 
-const telegramId=String(tg?.initDataUnsafe?.user?.id||"");
-let role="";
-let passengerProfile=null;
-let driverProfile=null;
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
+async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
+function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showD(id){["dHome","dOrders","dCurrent","dHistory","dStats","dSettings","dProfile"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 
-function $(x){return document.getElementById(x)}
-function toast(text,bad=false){$("toast").textContent=text;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
-async function api(url,options={}){const r=await fetch(url,{...options,cache:"no-store",headers:{"Content-Type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Ошибка сервера");return d}
-
-function showOnly(section){
-  ["passengerHome","passengerForm","passengerCurrent","passengerProfileForm","driverOrders","driverProfileForm"].forEach(x=>$(x)?.classList.add("hidden"));
-  $(section)?.classList.remove("hidden");
-}
-
-async function start(){
-  if(!telegramId){$("roleBadge").textContent="Откройте через Telegram";$("passenger").classList.remove("hidden");showOnly("passengerHome");return}
-  try{
-    const data=await api("/api/user-role?telegramId="+encodeURIComponent(telegramId));
-    role=data.role;
-    $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
-    if(role==="driver"){
-      $("driver").classList.remove("hidden");
-      await loadDriverProfile();
-      await loadDriverActive();
-      await loadDriverOrders();
-      clearInterval(window.driverOrdersTimer);
-      window.driverOrdersTimer=setInterval(()=>loadDriverOrders(),5000);
-    } else {
-      $("passenger").classList.remove("hidden");
-      await loadPassengerProfile();
-      showOnly("passengerHome");
-    }
-  }catch(e){toast(e.message,true);$("roleBadge").textContent="Ошибка";$("passenger").classList.remove("hidden")}
+async function boot(){
+ if(!uid){$("roleBadge").textContent="Откройте через Telegram";$("passenger").classList.remove("hidden");showP("pHome");return}
+ try{
+  const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
+  $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
+  if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); await loadDriverCurrent(); loadDriverOrders(false); }
+  else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
+  clearInterval(poller); poller=setInterval(role==="driver"?loadDriverCurrent:()=>loadCurrent(false),3000);
+ }catch(e){toast(e.message,true)}
 }
 
-async function loadPassengerProfile(){
-  try{
-    const d=await api("/api/passenger-profile?telegramId="+encodeURIComponent(telegramId));
-    passengerProfile=d.profile;
-    $("passengerProfileText").textContent=passengerProfile?passengerProfile.name+" • "+passengerProfile.phone:"Профиль ещё не заполнен.";
-  }catch(e){$("passengerProfileText").textContent=e.message}
-}
-function showPassengerProfile(){
-  showOnly("passengerProfileForm");
-  $("passengerName").value=passengerProfile?.name||"";
-  $("passengerPhone").value=passengerProfile?.phone||"";
-}
-async function savePassengerProfile(){
-  try{
-    const d=await api("/api/passenger-profile",{method:"POST",body:JSON.stringify({telegramId,name:$("passengerName").value,phone:$("passengerPhone").value})});
-    passengerProfile=d.profile;toast("Профиль сохранён");await loadPassengerProfile();backPassenger();
-  }catch(e){toast(e.message,true)}
-}
-let passengerMap=null;
-let routeMap=null;
-let pickupMarker=null;
-let destinationMarker=null;
-let routeLayer=null;
-let destinationTimer=null;
-let pickupPoint=null;
-let destinationPoint=null;
-let orderTimeMode="now";
-let flowStep=1;
-function updateFlowHeader(){
-  const titles={1:"Точка отправления",2:"Точка назначения",3:"Дата и время",4:"Автомобиль",5:"Оплата",6:"Проверка заказа"};
-  $("passengerStepTitle").textContent=titles[flowStep]||"Заказ";
-  document.querySelectorAll("#passengerStepbar i").forEach((el,i)=>el.classList.toggle("active",i<flowStep));
-  document.querySelectorAll(".flowScreen").forEach((el,i)=>el.classList.toggle("hidden",i!==flowStep-1));
-  if(flowStep===4){
-    const amount=Number(window.currentAmount||3);
-    $("flowPrice").textContent=amount.toFixed(2)+" BYN";
-    $("carPrice").textContent=amount.toFixed(2)+" BYN";
-  }
-  if(flowStep===6){
-    $("reviewPickup").textContent=$("pickup").value||"—";
-    $("reviewDestination").textContent=$("destination").value||"—";
-    $("reviewTime").textContent=orderTimeMode==="later"&&$("scheduledAt").value?new Date($("scheduledAt").value).toLocaleString("ru-RU"):"Сейчас";
-    $("reviewAmount").textContent=Number(window.currentAmount||3).toFixed(2)+" BYN";
-  }
-}
-function goFlow(step){
-  if(step===2 && (!pickupPoint || !$("pickup").value)){toast("Сначала выберите точку отправления",true);return}
-  if(step===3 && (!destinationPoint || !$("destination").value)){toast("Сначала выберите точку назначения",true);return}
-  if(step===4 && orderTimeMode==="later" && !$("scheduledAt").value){toast("Выберите дату и время",true);return}
-  flowStep=Math.max(1,Math.min(6,step)); updateFlowHeader();
-  if(flowStep===2){setTimeout(()=>routeMap?.invalidateSize(),80)}
-  if(flowStep===1){setTimeout(()=>passengerMap?.invalidateSize(),80)}
-}
-function resetPassengerFlow(){
-  flowStep=1; pickupPoint=null; destinationPoint=null; window.currentDistanceKm=0; window.currentAmount=3;
-  if(pickupMarker){pickupMarker.remove();pickupMarker=null}
-  if(destinationMarker){destinationMarker.remove();destinationMarker=null}
-  if(routeLayer){routeLayer.remove();routeLayer=null}
-  $("pickup").value="";$("destination").value="";$("scheduledAt").value="";$("childSeat").checked=false;$("reviewConfirm").checked=false;
-  setOrderNow();updateFlowHeader();
-}
+async function loadPassengerProfile(){try{pProfile=(await api("/api/passenger-profile?telegramId="+encodeURIComponent(uid))).profile; }catch(e){toast(e.message,true)}}
+function editPassengerProfile(){showP("pProfile");$("pName").value=pProfile?.name||"";$("pPhone").value=pProfile?.phone||""}
+async function savePassenger(){try{pProfile=(await api("/api/passenger-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("pName").value,phone:$("pPhone").value})})).profile;toast("Профиль сохранён");showP("pSettings")}catch(e){toast(e.message,true)}}
 
-
-function initPassengerMap(){
-  if(passengerMap || !window.L) return;
-  passengerMap=L.map("passengerMap",{zoomControl:true}).setView([52.414,30.391],13);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(passengerMap);
-  passengerMap.on("click",e=>setPickupPoint(e.latlng.lat,e.latlng.lng,true));
+function openPassengerOrder(){
+ if(!pProfile){toast("Сначала заполните профиль",true);editPassengerProfile();return}
+ showP("pOrder"); setTimeout(()=>initMap(),100);
 }
+function openTariffs(){showP("pTariffs")}
+function openPassengerSettings(){showP("pSettings")}
 
-function initRouteMap(){
-  if(routeMap || !window.L) return;
-  routeMap=L.map("routeMap",{zoomControl:true}).setView([52.414,30.391],13);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(routeMap);
-  routeMap.on("click",e=>setDestinationPoint(e.latlng.lat,e.latlng.lng,true));
+function initMap(){
+ if(map||!window.L)return;
+ map=L.map("orderMap").setView([52.414,30.391],13);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+ map.on("click",e=>{
+   if(!pickupPoint)setPickup(e.latlng.lat,e.latlng.lng);
+   else setDestination(e.latlng.lat,e.latlng.lng);
+ });
 }
-
-async function geocodeAddress(q){
-  const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=by&q="+encodeURIComponent(q));
-  if(!r.ok) throw new Error("Не удалось найти адрес");
-  return r.json();
+async function reverse(lat,lng){const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="+lat+"&lon="+lng+"&zoom=18");const d=await r.json();return d.display_name||lat.toFixed(6)+", "+lng.toFixed(6)}
+async function searchAddress(q){const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=by&q="+encodeURIComponent(q));return r.json()}
+function suggestions(input,box,setter){
+ clearTimeout(input._timer);const q=input.value.trim();if(q.length<3){box.classList.add("hidden");return}
+ input._timer=setTimeout(async()=>{try{const items=await searchAddress(q);box.innerHTML=items.map((x,i)=>'<div class="suggestion" data-i="'+i+'">'+esc(x.display_name)+'</div>').join("");box._items=items;box.classList.toggle("hidden",!items.length);box.querySelectorAll(".suggestion").forEach(el=>el.onclick=()=>{const x=box._items[Number(el.dataset.i)];box.classList.add("hidden");setter(Number(x.lat),Number(x.lon),x.display_name)})}catch(_){ }},400)
 }
+$("pPickup").addEventListener("input",()=>suggestions($("pPickup"),$("pickupSug"),setPickup));
+$("pDestination").addEventListener("input",()=>suggestions($("pDestination"),$("destSug"),setDestination));
 
-function destinationTyping(){
-  clearTimeout(destinationTimer);
-  const q=$("destination").value.trim();
-  if(q.length<3){$("destinationSuggestions").classList.add("hidden");return}
-  destinationTimer=setTimeout(async()=>{
-    try{
-      const items=await geocodeAddress(q);
-      const box=$("destinationSuggestions");
-      if(!items.length){box.classList.add("hidden");return}
-      box.innerHTML=items.map((x,i)=>'<div class="suggestion" onclick="chooseDestination('+i+')">'+escapeHtml(x.display_name)+'</div>').join("");
-      box._items=items;
-      box.classList.remove("hidden");
-    }catch(e){}
-  },450);
+async function setPickup(lat,lng,address){
+ initMap();pickupPoint={lat,lng};if(pMarker)pMarker.remove();pMarker=L.marker([lat,lng]).addTo(map).bindPopup("📍 Точка А").openPopup();$("pPickup").value=address||await reverse(lat,lng);map.setView([lat,lng],16);if(destPoint)buildRoute()
 }
-
-function chooseDestination(i){
-  const box=$("destinationSuggestions");
-  const x=box._items?.[i];
-  if(!x)return;
-  box.classList.add("hidden");
-  setDestinationPoint(Number(x.lat),Number(x.lon),false,x.display_name);
+async function setDestination(lat,lng,address){
+ initMap();destPoint={lat,lng};if(dMarker)dMarker.remove();dMarker=L.marker([lat,lng]).addTo(map).bindPopup("🏁 Точка Б").openPopup();$("pDestination").value=address||await reverse(lat,lng);if(pickupPoint)buildRoute()
 }
-
-async function setDestinationPoint(lat,lng,fromMap=false,address=null){
-  initRouteMap();
-  destinationPoint={lat,lng};
-  if(destinationMarker)destinationMarker.remove();
-  destinationMarker=L.marker([lat,lng]).addTo(routeMap).bindPopup("🏁 Куда").openPopup();
-  routeMap.setView([lat,lng],16);
-  if(address){$("destination").value=address}
-  else{
-    try{$("destination").value=await reverseGeocode(lat,lng)}catch(e){$("destination").value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`}
-  }
-  $("routeHint").textContent=fromMap?"Точка назначения выбрана на карте.":"Строим маршрут…";
-  if(pickupPoint) await buildRoute();
-}
-
 async function buildRoute(){
-  if(!pickupPoint||!destinationPoint)return;
-  try{
-    const url="https://router.project-osrm.org/route/v1/driving/"+
-      `${pickupPoint.lng},${pickupPoint.lat};${destinationPoint.lng},${destinationPoint.lat}`+
-      "?overview=full&geometries=geojson";
-    const r=await fetch(url);
-    const d=await r.json();
-    if(!r.ok||!d.routes?.length)throw new Error("Маршрут не найден");
-    const route=d.routes[0];
-    const km=route.distance/1000;
-    window.currentDistanceKm=km;
-    window.currentAmount=3+Math.ceil(km);
-    if(routeLayer)routeLayer.remove();
-    routeLayer=L.geoJSON(route.geometry,{style:{weight:5}}).addTo(routeMap);
-    const group=L.featureGroup([pickupMarker,destinationMarker,routeLayer]);
-    routeMap.fitBounds(group.getBounds(),{padding:[25,25]});
-    $("routeHint").innerHTML=`📏 ${km.toFixed(1)} км • 💰 <b>${window.currentAmount.toFixed(2)} BYN</b><br>3 BYN посадка + 1 BYN/км`;
-    $("orderSummary").innerHTML=`Маршрут готов: ${km.toFixed(1)} км. Посадка 3 BYN + расстояние ${Math.ceil(km)} BYN.`;
-    if($("flowPrice")) $("flowPrice").textContent=window.currentAmount.toFixed(2)+" BYN";
-    if($("carPrice")) $("carPrice").textContent=window.currentAmount.toFixed(2)+" BYN";
-  }catch(e){
-    $("routeHint").textContent="Не удалось построить маршрут. Проверьте адреса.";
-  }
+ if(!pickupPoint||!destPoint)return;
+ try{
+  const u="https://router.project-osrm.org/route/v1/driving/"+pickupPoint.lng+","+pickupPoint.lat+";"+destPoint.lng+","+destPoint.lat+"?overview=full&geometries=geojson";
+  const d=await (await fetch(u)).json();if(!d.routes?.length)throw Error();
+  const r=d.routes[0],km=r.distance/1000,amount=3+Math.ceil(km);
+  if(routeLayer)routeLayer.remove();routeLayer=L.geoJSON(r.geometry,{style:{weight:5}}).addTo(map);
+  map.fitBounds(L.featureGroup([pMarker,dMarker,routeLayer]).getBounds(),{padding:[20,20]});
+  $("routeInfo").innerHTML="📏 "+km.toFixed(1)+" км • посадка 3 BYN + "+Math.ceil(km)+" BYN";
+  $("orderPrice").textContent=amount.toFixed(2)+" BYN"; window.distanceKm=km;
+ }catch(_){$("routeInfo").textContent="Маршрут пока не построен. Проверьте точки А и Б."}
+}
+function locatePickup(){if(!navigator.geolocation)return toast("Геолокация недоступна",true);navigator.geolocation.getCurrentPosition(p=>setPickup(p.coords.latitude,p.coords.longitude),()=>toast("Разрешите геолокацию",true),{enableHighAccuracy:true,timeout:15000})}
+function setWhen(mode){whenMode=mode;$("nowChoice").classList.toggle("active",mode==="now");$("laterChoice").classList.toggle("active",mode==="later");$("scheduleWrap").classList.toggle("hidden",mode!=="later");if(mode==="later"&&!$("scheduledAt").value){const d=new Date(Date.now()+3600000);d.setSeconds(0,0);$("scheduledAt").value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}}
+
+async function createPassengerOrder(){
+ if(!pProfile)return editPassengerProfile();
+ if(!pickupPoint||!destPoint)return toast("Выберите точки А и Б",true);
+ let scheduledAt=null;if(whenMode==="later"){const d=new Date($("scheduledAt").value);if(!d||d<=new Date())return toast("Выберите будущее время",true);scheduledAt=d.toISOString()}
+ try{
+  const d=await api("/api/orders",{method:"POST",body:JSON.stringify({telegramId:uid,pickup:$("pPickup").value,destination:$("pDestination").value,tariff:"Стандарт",childSeat:$("childSeat").checked,scheduledAt,distanceKm:window.distanceKm||0,pickupLat:pickupPoint.lat,pickupLng:pickupPoint.lng,destinationLat:destPoint.lat,destinationLng:destPoint.lng})});
+  toast("Заказ создан");renderPassengerOrder(d.order);showP("pCurrent");
+ }catch(e){toast(e.message,true)}
 }
 
-async function reverseGeocode(lat,lng){
-  const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lng)+"&zoom=18&addressdetails=1",{
-    headers:{"Accept":"application/json"}
-  });
-  if(!r.ok) throw new Error("Не удалось определить адрес");
-  const d=await r.json();
-  return d.display_name||`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+const statusNames={searching:["🔎","Ищем водителя","yellow"],accepted:["✅","Водитель подтвердил заказ","green"],arrived:["📍","Водитель на месте","green"],trip:["🚕","Поездка в пути","green"],completed:["🏁","Поездка завершена","green"],cancelled:["❌","Заказ отменён","yellow"]};
+function callLink(phone,label){return phone?'<a class="call" href="tel:'+esc(phone)+'">📞 '+label+'</a>':""}
+function renderPassengerOrder(o){
+ if(!o){$("currentBox").innerHTML='<div class="title">Нет активной поездки</div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>';return}
+ const st=statusNames[o.status]||["","Статус","yellow"], total=Number(o.amount)+Number(o.waiting_fee||0);
+ let extra="";
+ if(o.driver_name)extra='<div class="order"><b>🚗 Водитель</b><div class="routeText">'+esc(o.driver_name)+'</div><div class="small">'+esc(o.driver_car||"")+' • '+esc(o.driver_plate||"")+'<br>⭐ '+Number(o.driver_rating||5).toFixed(2)+'</div>'+callLink(o.driver_phone,"Позвонить водителю")+'</div>';
+ $("currentBox").innerHTML='<div class="back"><button onclick="showP(\'pHome\')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div>'+
+ '<div class="order"><div class="orderHead"><div class="routeText">'+esc(o.pickup)+'<br>↓<br>'+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:10px">💰 '+total.toFixed(2)+' BYN'+(Number(o.waiting_fee)>0?' • ожидание '+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div></div>'+extra+
+ '<div id="livePassengerMap" class="map"></div>'+
+ '<button class="btn secondary" onclick="openCurrent()">🔄 Обновить статус</button>'+
+ (o.status==="searching"||o.status==="accepted"?'<button class="btn red" onclick="cancelPassenger(\''+esc(o.id)+'\')">Отменить заказ</button>':"");
+ if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderLiveMap(o),50);
 }
+function renderLiveMap(o){
+ const el=$("livePassengerMap");if(!el)return;el.innerHTML="";
+ const m=L.map(el).setView([Number(o.pickup_lat),Number(o.pickup_lng)],13);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(m);
+ const a=L.marker([o.pickup_lat,o.pickup_lng]).addTo(m).bindPopup("📍 Точка А"),b=L.marker([o.destination_lat,o.destination_lng]).addTo(m).bindPopup("🏁 Точка Б");
+ m.fitBounds(L.featureGroup([a,b]).getBounds(),{padding:[25,25]});
+}
+async function loadCurrent(open=true){try{const d=await api("/api/orders/current?telegramId="+encodeURIComponent(uid));if(d.order){renderPassengerOrder(d.order);if(open)showP("pCurrent")}else if(open)showP("pCurrent")}catch(e){if(open)toast(e.message,true)}}
+function openCurrent(){loadCurrent(true)}
+async function cancelPassenger(id){try{await api("/api/orders/"+encodeURIComponent(id)+"/cancel",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ отменён");loadCurrent(true)}catch(e){toast(e.message,true)}}
 
-async function setPickupPoint(lat,lng,fromMap=false){
-  initPassengerMap();
-  pickupPoint={lat,lng};
-  if(pickupMarker) pickupMarker.remove();
-  pickupMarker=L.marker([lat,lng]).addTo(passengerMap).bindPopup("📍 Откуда").openPopup();
-  passengerMap.setView([lat,lng],16);
-  try{
-    $("pickup").value=await reverseGeocode(lat,lng);
-    $("mapHint").textContent=fromMap?"Точка подачи выбрана на карте.":"Ваше местоположение определено.";
-  }catch(e){
-    $("pickup").value=`${lat.toFixed(6)},${lng.toFixed(6)}`;
-    $("mapHint").textContent="Точка определена, но адрес получить не удалось.";
-  }
-  if(destinationPoint) buildRoute();
+async function openHistory(who){
+ if(who==="passenger"){showP("pHistory");const d=await api("/api/orders/history?telegramId="+encodeURIComponent(uid));$("pHistoryList").innerHTML=d.orders.length?d.orders.map(historyCard).join(""):'<div class="sub">Завершённых поездок пока нет.</div>'}
+ else{showD("dHistory");const d=await api("/api/orders/history?telegramId="+encodeURIComponent(uid));$("dHistoryList").innerHTML=d.orders.length?d.orders.map(historyCard).join(""):'<div class="sub">Завершённых поездок пока нет.</div>'}
 }
+function historyCard(o){return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+new Date(o.completed_at||o.created_at).toLocaleString("ru-RU")+'<br>💰 '+(Number(o.amount)+Number(o.waiting_fee||0)).toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин':'')+'</div></div>'}
 
-function locatePassenger(){
-  if(!navigator.geolocation){
-    toast("Геолокация не поддерживается вашим устройством.",true);
-    return;
-  }
-  $("mapHint").textContent="Определяем ваше местоположение…";
-  navigator.geolocation.getCurrentPosition(
-    p=>setPickupPoint(p.coords.latitude,p.coords.longitude,false),
-    e=>{
-      const messages={1:"Разрешите доступ к геолокации в браузере/Telegram.",2:"Не удалось определить местоположение.",3:"Истекло время ожидания геолокации."};
-      $("mapHint").textContent=messages[e.code]||"Не удалось определить местоположение.";
-      toast(messages[e.code]||"Ошибка геолокации",true);
-    },
-    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
-  );
-}
+async function loadDriverProfile(){try{dProfile=(await api("/api/driver-profile?telegramId="+encodeURIComponent(uid))).profile;renderDriverProfile()}catch(e){toast(e.message,true)}}
+function renderDriverProfile(){$("dProfileSummary").innerHTML=dProfile?'<b>'+esc(dProfile.name)+'</b><br>'+esc(dProfile.car)+' • '+esc(dProfile.plate)+'<br>⭐ '+Number(dProfile.rating||5).toFixed(2)+' ('+(dProfile.rating_count||0)+' оценок)':'<span style="color:var(--red)">Профиль водителя не заполнен.</span>'}
+function editDriverProfile(){showD("dProfile");$("dName").value=dProfile?.name||"";$("dPhone").value=dProfile?.phone||"";$("dCar").value=dProfile?.car||"";$("dPlate").value=dProfile?.plate||"";$("dChild").checked=!!dProfile?.has_child_seat}
+function openDriverSettings(){showD("dSettings")}
+async function saveDriver(){try{dProfile=(await api("/api/driver-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("dName").value,phone:$("dPhone").value,car:$("dCar").value,plate:$("dPlate").value,hasChildSeat:$("dChild").checked})})).profile;toast("Профиль водителя сохранён");renderDriverProfile();showD("dSettings")}catch(e){toast(e.message,true)}}
 
-function setOrderNow(){
-  orderTimeMode="now";
-  $("scheduleBox").classList.add("hidden");
-  $("nowBtn").classList.remove("secondary");
-  $("laterBtn").classList.add("secondary");
+async function loadDriverOrders(open=true){try{const d=await api("/api/driver-orders?telegramId="+encodeURIComponent(uid));$("dOrdersList").innerHTML=d.orders.length?d.orders.map(o=>'<div class="order"><div class="routeText">📍 '+esc(o.pickup)+'<br>🏁 '+esc(o.destination)+'</div><div class="small">💰 '+Number(o.amount).toFixed(2)+' BYN<br>'+(o.scheduled_at?new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас")+(o.child_seat?"<br>👶 Детское кресло":"")+'</div><button class="btn green" onclick="acceptDriver(\''+esc(o.id)+'\')">✅ Принять заказ</button></div>').join(""):'<div class="sub">Новых заказов сейчас нет.</div>';if(open)showD("dOrders")}catch(e){toast(e.message,true)}}
+async function acceptDriver(id){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/accept",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ принят");renderDriverCurrent(d.order);showD("dCurrent")}catch(e){toast(e.message,true)}}
+async function loadDriverCurrent(){try{const d=await api("/api/driver-current?telegramId="+encodeURIComponent(uid));if(d.order){renderDriverCurrent(d.order);if($("dCurrent")&&!$("dCurrent").classList.contains("hidden"))showD("dCurrent")}}catch(e){}}
+function openDriverCurrent(){loadDriverCurrent();showD("dCurrent")}
+function renderDriverCurrent(o){
+ if(!o){$("dCurrentBox").innerHTML='<div class="sub">Активной поездки нет.</div>';return}
+ const st=statusNames[o.status]||["","Статус","yellow"],total=Number(o.amount)+Number(o.waiting_fee||0);
+ let actions="";
+ if(o.status==="accepted")actions='<button class="btn green" onclick="driverStatus(\''+o.id+'\',\'arrived\')">📍 Я на месте</button>';
+ if(o.status==="arrived")actions='<button class="btn blue" onclick="driverStatus(\''+o.id+'\',\'trip\')">🚕 Начать поездку</button>';
+ if(o.status==="trip")actions='<button class="btn red" onclick="driverStatus(\''+o.id+'\',\'completed\')">🏁 Завершить поездку</button>';
+ $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+actions+
+ '<div class="wait"><strong>⏱ Ожидание</strong><br><span class="small">1 минута = 0,50 BYN</span><button class="btn secondary" onclick="addWaiting(\''+o.id+'\')">+ 1 минута • 0,50 BYN</button></div></div>'+
+ '<div class="sub">Статус автоматически обновляется у пассажира каждые несколько секунд.</div>';
 }
-function setOrderLater(){
-  orderTimeMode="later";
-  $("scheduleBox").classList.remove("hidden");
-  $("nowBtn").classList.add("secondary");
-  $("laterBtn").classList.remove("secondary");
-  const input=$("scheduledAt");
-  if(!input.value){
-    const d=new Date(Date.now()+60*60*1000);
-    d.setSeconds(0,0);
-    input.value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  }
-}
+async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
+async function addWaiting(id){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/waiting",{method:"POST",body:JSON.stringify({telegramId:uid})});renderDriverCurrent(d.order);toast("Добавлено 0,50 BYN за 1 минуту ожидания")}catch(e){toast(e.message,true)}}
 
-function showOrder(){
-  showOnly("passengerForm");
-  resetPassengerFlow();
-  setTimeout(()=>{
-    initPassengerMap();
-    initRouteMap();
-    passengerMap?.invalidateSize();
-    routeMap?.invalidateSize();
-  },80);
-  if(!passengerProfile){toast("Сначала заполните профиль",true);showPassengerProfile()}
-}
-function backPassenger(){showOnly("passengerHome")}
-async function createOrder(){
-  if(!passengerProfile){toast("Сначала заполните профиль",true);return}
-  try{
-    let scheduled=null;
-    if(orderTimeMode==="later"){
-      if(!$("scheduledAt").value){toast("Выберите дату и время",true);return}
-      const dt=new Date($("scheduledAt").value);
-      if(Number.isNaN(dt.getTime()) || dt.getTime()<=Date.now()){toast("Дата и время должны быть в будущем",true);return}
-      scheduled=dt.toISOString();
-    }
-    if(!$("pickup").value || !pickupPoint){toast("Сначала определите точку подачи",true);return}
-    if(!$("destination").value || !destinationPoint){toast("Выберите точку назначения",true);return}
-    if($("reviewConfirm") && !$("reviewConfirm").checked){toast("Подтвердите данные заказа",true);return}
-    const d=await api("/api/orders",{method:"POST",body:JSON.stringify({
-      telegramId,
-      pickup:$("pickup").value,
-      destination:$("destination").value,
-      tariff:$("tariff").value,
-      childSeat:$("childSeat").checked,
-      scheduledAt:scheduled,
-      distanceKm:window.currentDistanceKm||0,
-      pickupLat:pickupPoint.lat,
-      pickupLng:pickupPoint.lng,
-      destinationLat:destinationPoint.lat,
-      destinationLng:destinationPoint.lng
-    })});
-    toast("Заказ создан");
-    showCurrentOrderData(d.order);
-    showOnly("passengerCurrent");
-  }catch(e){toast(e.message,true)}
-}
-function showCurrentOrder(){loadCurrentOrder()}
-async function loadCurrentOrder(){
-  try{const d=await api("/api/orders/current?telegramId="+encodeURIComponent(telegramId));showCurrentOrderData(d.order);showOnly("passengerCurrent")}catch(e){toast(e.message,true)}
-}
-function showCurrentOrderData(o){
-  if(!o){$("currentOrder").innerHTML='<div class="info">Активных заказов нет.</div>';return}
-  $("currentOrder").innerHTML=`
-    <div class="order"><b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
-    <div class="small">Статус: ${escapeHtml(o.status)}<br>Сумма: ${Number(o.amount).toFixed(2)} BYN</div>
-    ${o.driver_name?'<div class="small ok" style="margin-top:8px">Водитель: '+escapeHtml(o.driver_name)+'<br>'+escapeHtml(o.driver_car||"")+' '+escapeHtml(o.driver_plate||"")+'</div>':""}</div>`;
-}
-async function loadDriverProfile(){
-  try{
-    const d=await api("/api/driver-profile?telegramId="+encodeURIComponent(telegramId));
-    driverProfile=d.profile;
-    $("driverProfileText").innerHTML=driverProfile
-      ? `<b>${escapeHtml(driverProfile.name)}</b><br>${escapeHtml(driverProfile.car)} • ${escapeHtml(driverProfile.plate)}<br>⭐ ${Number(driverProfile.rating||5).toFixed(2)} • Детское кресло: ${driverProfile.has_child_seat?"да":"нет"}`
-      : '<span class="bad">Профиль не заполнен.</span>';
-  }catch(e){$("driverProfileText").textContent=e.message}
-}
-function showDriverProfile(){
-  showOnly("driverProfileForm");
-  $("driverName").value=driverProfile?.name||"";
-  $("driverPhone").value=driverProfile?.phone||"";
-  $("driverCar").value=driverProfile?.car||"";
-  $("driverPlate").value=driverProfile?.plate||"";
-  $("driverChildSeat").checked=!!driverProfile?.has_child_seat;
-}
-function backDriver(){showOnly("driverOrders")}
-async function saveDriverProfile(){
-  try{
-    const d=await api("/api/driver-profile",{method:"POST",body:JSON.stringify({
-      telegramId,name:$("driverName").value,phone:$("driverPhone").value,car:$("driverCar").value,plate:$("driverPlate").value,hasChildSeat:$("driverChildSeat").checked
-    })});
-    driverProfile=d.profile;toast("Профиль водителя сохранён");await loadDriverProfile();backDriver();
-  }catch(e){toast(e.message,true)}
-}
-async function loadDriverOrders(){
-  try{
-    const d=await api("/api/driver-orders?telegramId="+encodeURIComponent(telegramId));
-    if(!d.orders.length){$("ordersList").innerHTML="Свободных заказов сейчас нет.";return}
-    $("ordersList").innerHTML=d.orders.map(o=>`
-      <div class="order">
-        <b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
-        <div class="small">${o.scheduled_at?"🕐 "+new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас"}<br>💰 ${Number(o.amount).toFixed(2)} BYN ${o.distance_km!=null?"• 📏 "+Number(o.distance_km).toFixed(1)+" км":""} ${o.child_seat?"• 👶 кресло":""}</div>
-        <button class="btn green" onclick="acceptOrder('${o.id}')">Принять заказ</button>
-      </div>`).join("");
-  }catch(e){$("ordersList").innerHTML='<span class="bad">'+escapeHtml(e.message)+'</span>'}
-}
-function yandexRouteUrl(lat,lng){
-  return "https://yandex.ru/maps/?rtext=~"+encodeURIComponent(Number(lat).toFixed(6))+","+encodeURIComponent(Number(lng).toFixed(6))+"&rtt=auto";
-}
-function yandexPointUrl(lat,lng){
-  return "https://yandex.ru/maps/?ll="+encodeURIComponent(Number(lng).toFixed(6)+","+Number(lat).toFixed(6))+"&z=17&pt="+encodeURIComponent(Number(lng).toFixed(6)+","+Number(lat).toFixed(6))+",pm2rdm";
-}
-function openDriverPoint(kind){
-  const o=window.driverActiveOrder;
-  if(!o)return;
-  const lat=kind==="pickup"?o.pickup_lat:o.destination_lat;
-  const lng=kind==="pickup"?o.pickup_lng:o.destination_lng;
-  if(lat==null||lng==null){toast("У этого заказа нет координат точки.",true);return}
-  window.open(yandexRouteUrl(lat,lng),"_blank");
-}
-function renderDriverActive(){
-  const box=$("driverActive");
-  const o=window.driverActiveOrder;
-  if(!o){box.classList.add("hidden");$("driverActiveOrder").innerHTML="";return}
-  box.classList.remove("hidden");
-  const pickupCoords=o.pickup_lat!=null&&o.pickup_lng!=null
-    ? Number(o.pickup_lat).toFixed(6)+", "+Number(o.pickup_lng).toFixed(6)
-    : "нет координат";
-  const destCoords=o.destination_lat!=null&&o.destination_lng!=null
-    ? Number(o.destination_lat).toFixed(6)+", "+Number(o.destination_lng).toFixed(6)
-    : "нет координат";
-  let action="";
-  if(o.status==="accepted"){
-    action=`
-      <button class="btn" onclick="openDriverPoint('pickup')">📍 Точка А — открыть Яндекс Карты</button>
-      <button class="btn green" onclick="changeDriverStatus('arrived')">🚕 Я прибыл на точку А</button>`;
-  }else if(o.status==="arrived"){
-    action=`
-      <button class="btn" onclick="openDriverPoint('destination')">🏁 Точка Б — открыть Яндекс Карты</button>
-      <button class="btn green" onclick="changeDriverStatus('trip')">🚕 Начать поездку</button>`;
-  }else if(o.status==="trip"){
-    action=`
-      <button class="btn" onclick="openDriverPoint('destination')">🏁 Открыть точку Б в Яндекс Картах</button>
-      <button class="btn danger" onclick="changeDriverStatus('completed')">✅ Завершить заказ</button>`;
-  }
-  $("driverActiveOrder").innerHTML=`
-    <div class="order">
-      <b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
-      <div class="small">Статус: ${escapeHtml(o.status)}<br>💰 ${Number(o.amount).toFixed(2)} BYN</div>
-      <div class="coords">
-        <div><b>📍 Точка А</b><br>${escapeHtml(pickupCoords)}</div>
-        <div><b>🏁 Точка Б</b><br>${escapeHtml(destCoords)}</div>
-      </div>
-      ${action}
-    </div>`;
-}
-async function loadDriverActive(){
-  try{
-    const d=await api("/api/driver-current?telegramId="+encodeURIComponent(telegramId));
-    window.driverActiveOrder=d.order||null;
-    renderDriverActive();
-  }catch(e){toast(e.message,true)}
-}
-async function changeDriverStatus(status){
-  const o=window.driverActiveOrder;
-  if(!o)return;
-  try{
-    const d=await api("/api/orders/"+encodeURIComponent(o.id)+"/status",{method:"POST",body:JSON.stringify({telegramId,status})});
-    window.driverActiveOrder=d.order||null;
-    renderDriverActive();
-    await loadDriverOrders();
-    toast(status==="arrived"?"Вы отметили прибытие.":"Статус заказа обновлён.");
-  }catch(e){toast(e.message,true)}
-}
-async function acceptOrder(orderId){
-  try{
-    const d=await api("/api/orders/"+encodeURIComponent(orderId)+"/accept",{method:"POST",body:JSON.stringify({telegramId})});
-    window.driverActiveOrder=d.order||null;
-    renderDriverActive();
-    toast("Заказ принят");
-    await loadDriverOrders();
-  }catch(e){toast(e.message,true)}
-}
-function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+async function openStats(){showD("dStats");$("statsMonth").value=new Date().toISOString().slice(0,7);await loadStats()}
+$("statsMonth").addEventListener("change",loadStats);
+async function loadStats(){if(!$("statsMonth").value)return;try{const d=await api("/api/driver-stats?telegramId="+encodeURIComponent(uid)+"&month="+encodeURIComponent($("statsMonth").value));const s=d.stats||{};$("statsBox").innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(s.orders||0)+'</strong><span>Завершённых заказов</span></div><div class="stat"><strong>'+Number(s.earnings||0).toFixed(2)+' BYN</strong><span>Заработано</span></div><div class="stat"><strong>'+Number(s.waiting_minutes||0)+'</strong><span>Минут ожидания</span></div><div class="stat"><strong>⭐ '+Number(dProfile?.rating||5).toFixed(2)+'</strong><span>Текущий рейтинг</span></div></div>'}catch(e){toast(e.message,true)}}
 
-start();
+boot();
 </script>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
