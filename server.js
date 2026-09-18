@@ -33,8 +33,7 @@ const DATABASE_URL = process.env.DATABASE_URL || "";
 
 const DRIVER_CHAT_IDS = Array.from(new Set(
     (process.env.DRIVER_CHAT_IDS || "")
-        .split(/[,
-;]+/)
+        .split(/[,\n;]+/)
         .map(x => String(x).trim().replace(/^["'\s]+|["'\s]+$/g, ""))
         .filter(Boolean)
 ));
