@@ -160,7 +160,7 @@ async function createPassengerOrder(){
  let scheduledAt=null;if(whenMode==="later"){const d=new Date($("scheduledAt").value);if(!d||d<=new Date())return toast("Выберите будущее время",true);scheduledAt=d.toISOString()}
  try{
   const d=await api("/api/orders",{method:"POST",body:JSON.stringify({telegramId:uid,pickup:$("pPickup").value,destination:$("pDestination").value,tariff:"Стандарт",childSeat:$("childSeat").checked,scheduledAt,distanceKm:window.distanceKm||0,pickupLat:pickupPoint.lat,pickupLng:pickupPoint.lng,destinationLat:destPoint.lat,destinationLng:destPoint.lng})});
-  toast("Заказ создан");renderPassengerOrder(d.order);showP("pCurrent");
+  toast("Заказ создан");localStorage.setItem("taxiLastOrderId",String(d.order.id));renderPassengerOrder(d.order);showP("pCurrent");
  }catch(e){toast(e.message,true)}
 }
 
@@ -185,7 +185,7 @@ function renderLiveMap(o){
  const a=L.marker([o.pickup_lat,o.pickup_lng]).addTo(m).bindPopup("📍 Точка А"),b=L.marker([o.destination_lat,o.destination_lng]).addTo(m).bindPopup("🏁 Точка Б");
  m.fitBounds(L.featureGroup([a,b]).getBounds(),{padding:[25,25]});
 }
-async function loadCurrent(open=true){try{const d=await api("/api/orders/current?telegramId="+encodeURIComponent(uid));if(d.order){renderPassengerOrder(d.order);if(open)showP("pCurrent")}else if(open)showP("pCurrent")}catch(e){if(open)toast(e.message,true)}}
+async function loadCurrent(open=true){try{const d=await api("/api/orders/current?telegramId="+encodeURIComponent(uid));if(d.order){localStorage.setItem("taxiLastOrderId",String(d.order.id));renderPassengerOrder(d.order);if(open)showP("pCurrent");return}const last=localStorage.getItem("taxiLastOrderId");if(last){try{const done=await api("/api/order-status?id="+encodeURIComponent(last)+"&telegramId="+encodeURIComponent(uid));if(done?.id){renderPassengerOrder(done);if(open)showP("pCurrent");return}}catch(_){}}if(open)showP("pCurrent")}catch(e){if(open)toast(e.message,true)}}
 function openCurrent(){loadCurrent(true)}
 async function cancelPassenger(id){try{await api("/api/orders/"+encodeURIComponent(id)+"/cancel",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ отменён");loadCurrent(true)}catch(e){toast(e.message,true)}}
 
@@ -222,6 +222,23 @@ async function addWaiting(id){try{const d=await api("/api/orders/"+encodeURIComp
 async function openStats(){showD("dStats");$("statsMonth").value=new Date().toISOString().slice(0,7);await loadStats()}
 $("statsMonth").addEventListener("change",loadStats);
 async function loadStats(){if(!$("statsMonth").value)return;try{const d=await api("/api/driver-stats?telegramId="+encodeURIComponent(uid)+"&month="+encodeURIComponent($("statsMonth").value));const s=d.stats||{};$("statsBox").innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(s.orders||0)+'</strong><span>Завершённых заказов</span></div><div class="stat"><strong>'+Number(s.earnings||0).toFixed(2)+' BYN</strong><span>Заработано</span></div><div class="stat"><strong>'+Number(s.waiting_minutes||0)+'</strong><span>Минут ожидания</span></div><div class="stat"><strong>⭐ '+Number(dProfile?.rating||5).toFixed(2)+'</strong><span>Текущий рейтинг</span></div></div>'}catch(e){toast(e.message,true)}}
+
+
+const originalRenderPassengerOrder=renderPassengerOrder;
+renderPassengerOrder=function(o){
+  originalRenderPassengerOrder(o);
+  if(o?.status==="completed" && $("currentBox")){
+    const liked=["Чистота в салоне","Комфорт","Приятный запах","Спокойная езда","Вежливость водителя","Автомобиль в хорошем состоянии"];
+    $("currentBox").insertAdjacentHTML("beforeend",'<div class="card" style="margin:10px 0 0"><div class="title">⭐ Оцените поездку</div><div class="sub">Оставьте оценку и отметьте, что понравилось в машине.</div><div id="rateStars" class="ratingBox">'+[1,2,3,4,5].map(n=>'<button onclick="setRate('+n+')">★</button>').join("")+'</div><div class="grid">'+liked.map(x=>'<button class="btn secondary likeOpt" data-value="'+esc(x)+'" onclick="this.classList.toggle(\'blue\')">'+x+'</button>').join("")+'</div><textarea id="rateComment" style="margin-top:9px" maxlength="1000" placeholder="Комментарий"></textarea><button class="btn" onclick="sendRate(\''+esc(o.id)+'\')">Отправить оценку</button></div>');
+    window.__rate=0;
+  }
+};
+window.setRate=function(n){window.__rate=n;document.querySelectorAll("#rateStars button").forEach((b,i)=>b.classList.toggle("active",i<n))};
+window.sendRate=async function(orderId){
+  if(!window.__rate)return toast("Выберите оценку от 1 до 5",true);
+  const good=[...document.querySelectorAll(".likeOpt.blue")].map(x=>x.dataset.value||x.textContent.trim());
+  try{await api("/api/passenger-feedback",{method:"POST",body:JSON.stringify({telegramId:uid,orderId,rating:window.__rate,good,bad:[],comment:$("rateComment")?.value.trim()||""})});toast("Спасибо за оценку!");localStorage.removeItem("taxiLastOrderId")}catch(e){toast(e.message,true)}
+};
 
 boot();
 </script>
