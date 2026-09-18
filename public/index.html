@@ -275,14 +275,40 @@ function startDriverLocationWatch(m){
 function stopDriverLocationWatch(){if(driverGeoWatch!=null){navigator.geolocation.clearWatch(driverGeoWatch);driverGeoWatch=null}if(driverLocationMarker&&driverLiveMap){driverLocationMarker.remove()}driverLocationMarker=null}
 function openYandexRoute(o,target){
  const isB=target==="destination"||o.status==="trip";
- const lat=isB?Number(o.destination_lat):Number(o.pickup_lat),lng=isB?Number(o.destination_lng):Number(o.pickup_lng);
+ const lat=isB?Number(o.destination_lat):Number(o.pickup_lat);
+ const lng=isB?Number(o.destination_lng):Number(o.pickup_lng);
  if(!Number.isFinite(lat)||!Number.isFinite(lng))return toast("Координаты точки не загружены",true);
+
+ // Яндекс Навигатор: маршрут от текущего местоположения водителя до точки заказа.
+ const yandexNavi="yandexnavi://build_route_on_map?lat_to="+encodeURIComponent(lat)+"&lon_to="+encodeURIComponent(lng);
+ // Android intent — запасной способ запуска именно приложения Яндекс Навигатор.
+ const androidIntent="intent://build_route_on_map?lat_to="+encodeURIComponent(lat)+"&lon_to="+encodeURIComponent(lng)+"#Intent;scheme=yandexnavi;package=com.yandex.yandexnavi;end";
+ // HTTPS fallback всегда содержит координаты точки.
  const web="https://yandex.ru/maps/?mode=routes&rtext=~"+lat+","+lng+"&rtt=auto";
- const app="yandexmaps://maps.yandex.ru/?rtext=~"+lat+","+lng+"&rtt=auto";
- try{
-  window.location.href=app;
-  setTimeout(()=>{try{if(tg?.openLink)tg.openLink(web);else window.location.href=web}catch(_){window.location.href=web}},900);
- }catch(_){if(tg?.openLink)tg.openLink(web);else window.open(web,"_blank")}
+
+ let opened=false;
+ const launch=(url)=>{
+  try{
+   window.location.href=url;
+   opened=true;
+   return true;
+  }catch(_){return false}
+ };
+
+ // Сначала пробуем официальную схему Навигатора, затем Android intent.
+ launch(yandexNavi);
+ setTimeout(()=>{
+  if(document.visibilityState==="visible") launch(androidIntent);
+ },700);
+ // Если приложение не открылось, Telegram открывает HTTPS-маршрут.
+ setTimeout(()=>{
+  if(document.visibilityState==="visible"){
+   try{
+    if(tg?.openLink)tg.openLink(web);
+    else window.location.href=web;
+   }catch(_){window.location.href=web}
+  }
+ },1500);
 }
 function openNavigation(o){openYandexRoute(o,o?.status==="trip"?"destination":"pickup")}
 
