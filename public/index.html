@@ -177,14 +177,14 @@ function renderPassengerOrder(o){
  if(o.driver_name)extra='<div class="order"><b>🚗 Водитель</b><div class="routeText">'+esc(o.driver_name)+'</div><div class="small">'+esc(o.driver_car||"")+' • '+esc(o.driver_plate||"")+'<br>⭐ '+Number(o.driver_rating||5).toFixed(2)+'</div>'+callLink(o.driver_phone,"Позвонить водителю")+'</div>';
  $("currentBox").innerHTML='<div class="back"><button onclick="showP(\'pHome\')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div>'+
  '<div class="order"><div class="orderHead"><div class="routeText">'+esc(o.pickup)+'<br>↓<br>'+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:10px">💰 '+total.toFixed(2)+' BYN'+(Number(o.waiting_fee)>0?' • ожидание '+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div></div>'+extra+
- '<div id="livePassengerMap" class="map"></div>'+
+ (o.status!=="searching"&&o.status!=="completed"?'<div id="livePassengerMap" class="map"></div>':"")+
  '<button class="btn secondary" onclick="openCurrent()">🔄 Обновить статус</button>'+
  (o.status==="searching"||o.status==="accepted"?'<button class="btn red" onclick="cancelPassenger(\''+esc(o.id)+'\')">Отменить заказ</button>':"");
- if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderLiveMap(o),50);
+ if(o.status!=="searching"&&o.status!=="completed"&&o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderLiveMap(o),50);
 }
 function renderLiveMap(o){
- const el=$("livePassengerMap");if(!el)return;el.innerHTML="";
- const m=L.map(el).setView([Number(o.pickup_lat),Number(o.pickup_lng)],13);
+ const el=$("livePassengerMap");if(!el||!window.L)return;
+ const m=L.map(el).setView([Number(o.pickup_lat),Number(o.pickup_lng)],13);livePassengerMap=m;
  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(m);
  const a=L.marker([o.pickup_lat,o.pickup_lng]).addTo(m).bindPopup("📍 Точка А"),b=L.marker([o.destination_lat,o.destination_lng]).addTo(m).bindPopup("🏁 Точка Б");
  m.fitBounds(L.featureGroup([a,b]).getBounds(),{padding:[25,25]});
