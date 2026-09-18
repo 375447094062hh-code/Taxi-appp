@@ -22,7 +22,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 
-.mapWrap{margin-top:12px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#0b111a}.map{height:300px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}.mapHint{padding:9px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}
+.mapWrap{margin-top:12px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#0b111a}.map{height:300px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}.mapHint{padding:9px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}.suggestions{background:#0c121c;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:6px}.suggestion{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer}.suggestion:last-child{border-bottom:0}
 
 <style>
 .leaflet-container{font:inherit;background:#0b111a}.leaflet-control-zoom a{background:#111722;color:#fff;border-color:#263246}.leaflet-control-attribution{background:#111722cc!important;color:#8d9aae!important}.leaflet-control-attribution a{color:#cbd5e1!important}
@@ -62,7 +62,13 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
         <button class="btn secondary locBtn" type="button" onclick="locatePassenger()">📍 Определить моё местоположение</button>
         <div id="mapHint" class="mapHint">Нажмите на карту или определите своё местоположение.</div>
       </div>
-      <label>Куда</label><input id="destination" placeholder="Например: ул. Строителей, 15">
+      <label>Куда</label>
+      <input id="destination" placeholder="Например: ул. Строителей, 15" oninput="destinationTyping()">
+      <div id="destinationSuggestions" class="suggestions hidden"></div>
+      <div class="mapWrap" style="margin-top:12px">
+        <div id="routeMap" class="map"></div>
+        <div id="routeHint" class="mapHint">Выберите точку назначения на карте или введите адрес.</div>
+      </div>
       <label>Тариф</label><select id="tariff"><option>Стандарт</option></select>
       <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
       <label>Дата и время</label><input id="scheduledAt" type="datetime-local">
@@ -169,21 +175,94 @@ async function savePassengerProfile(){
   }catch(e){toast(e.message,true)}
 }
 let passengerMap=null;
+let routeMap=null;
 let pickupMarker=null;
 let destinationMarker=null;
 let routeLayer=null;
+let destinationTimer=null;
+let pickupPoint=null;
+let destinationPoint=null;
 
 function initPassengerMap(){
   if(passengerMap || !window.L) return;
   passengerMap=L.map("passengerMap",{zoomControl:true}).setView([52.414,30.391],13);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    maxZoom:19,
-    attribution:"© OpenStreetMap contributors"
-  }).addTo(passengerMap);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(passengerMap);
+  passengerMap.on("click",e=>setPickupPoint(e.latlng.lat,e.latlng.lng,true));
+}
 
-  passengerMap.on("click",e=>{
-    setPickupPoint(e.latlng.lat,e.latlng.lng,true);
-  });
+function initRouteMap(){
+  if(routeMap || !window.L) return;
+  routeMap=L.map("routeMap",{zoomControl:true}).setView([52.414,30.391],13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(routeMap);
+  routeMap.on("click",e=>setDestinationPoint(e.latlng.lat,e.latlng.lng,true));
+}
+
+async function geocodeAddress(q){
+  const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=by&q="+encodeURIComponent(q));
+  if(!r.ok) throw new Error("Не удалось найти адрес");
+  return r.json();
+}
+
+function destinationTyping(){
+  clearTimeout(destinationTimer);
+  const q=$("destination").value.trim();
+  if(q.length<3){$("destinationSuggestions").classList.add("hidden");return}
+  destinationTimer=setTimeout(async()=>{
+    try{
+      const items=await geocodeAddress(q);
+      const box=$("destinationSuggestions");
+      if(!items.length){box.classList.add("hidden");return}
+      box.innerHTML=items.map((x,i)=>'<div class="suggestion" onclick="chooseDestination('+i+')">'+escapeHtml(x.display_name)+'</div>').join("");
+      box._items=items;
+      box.classList.remove("hidden");
+    }catch(e){}
+  },450);
+}
+
+function chooseDestination(i){
+  const box=$("destinationSuggestions");
+  const x=box._items?.[i];
+  if(!x)return;
+  box.classList.add("hidden");
+  setDestinationPoint(Number(x.lat),Number(x.lon),false,x.display_name);
+}
+
+async function setDestinationPoint(lat,lng,fromMap=false,address=null){
+  initRouteMap();
+  destinationPoint={lat,lng};
+  if(destinationMarker)destinationMarker.remove();
+  destinationMarker=L.marker([lat,lng]).addTo(routeMap).bindPopup("🏁 Куда").openPopup();
+  routeMap.setView([lat,lng],16);
+  if(address){$("destination").value=address}
+  else{
+    try{$("destination").value=await reverseGeocode(lat,lng)}catch(e){$("destination").value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`}
+  }
+  $("routeHint").textContent=fromMap?"Точка назначения выбрана на карте.":"Строим маршрут…";
+  if(pickupPoint) await buildRoute();
+}
+
+async function buildRoute(){
+  if(!pickupPoint||!destinationPoint)return;
+  try{
+    const url="https://router.project-osrm.org/route/v1/driving/"+
+      `${pickupPoint.lng},${pickupPoint.lat};${destinationPoint.lng},${destinationPoint.lat}`+
+      "?overview=full&geometries=geojson";
+    const r=await fetch(url);
+    const d=await r.json();
+    if(!r.ok||!d.routes?.length)throw new Error("Маршрут не найден");
+    const route=d.routes[0];
+    const km=route.distance/1000;
+    window.currentDistanceKm=km;
+    window.currentAmount=3+Math.ceil(km);
+    if(routeLayer)routeLayer.remove();
+    routeLayer=L.geoJSON(route.geometry,{style:{weight:5}}).addTo(routeMap);
+    const group=L.featureGroup([pickupMarker,destinationMarker,routeLayer]);
+    routeMap.fitBounds(group.getBounds(),{padding:[25,25]});
+    $("routeHint").innerHTML=`📏 ${km.toFixed(1)} км • 💰 <b>${window.currentAmount.toFixed(2)} BYN</b><br>3 BYN посадка + 1 BYN/км`;
+    document.querySelector("#passengerForm .price").textContent=window.currentAmount.toFixed(2)+" BYN";
+  }catch(e){
+    $("routeHint").textContent="Не удалось построить маршрут. Проверьте адреса.";
+  }
 }
 
 async function reverseGeocode(lat,lng){
@@ -197,6 +276,7 @@ async function reverseGeocode(lat,lng){
 
 async function setPickupPoint(lat,lng,fromMap=false){
   initPassengerMap();
+  pickupPoint={lat,lng};
   if(pickupMarker) pickupMarker.remove();
   pickupMarker=L.marker([lat,lng]).addTo(passengerMap).bindPopup("📍 Откуда").openPopup();
   passengerMap.setView([lat,lng],16);
@@ -204,9 +284,10 @@ async function setPickupPoint(lat,lng,fromMap=false){
     $("pickup").value=await reverseGeocode(lat,lng);
     $("mapHint").textContent=fromMap?"Точка подачи выбрана на карте.":"Ваше местоположение определено.";
   }catch(e){
-    $("pickup").value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    $("pickup").value=`${lat.toFixed(6)},${lng.toFixed(6)}`;
     $("mapHint").textContent="Точка определена, но адрес получить не удалось.";
   }
+  if(destinationPoint) buildRoute();
 }
 
 function locatePassenger(){
@@ -230,7 +311,9 @@ function showOrder(){
   showOnly("passengerForm");
   setTimeout(()=>{
     initPassengerMap();
+    initRouteMap();
     passengerMap?.invalidateSize();
+    routeMap?.invalidateSize();
   },80);
   if(!passengerProfile){toast("Сначала заполните профиль",true);showPassengerProfile()}
 }
@@ -245,7 +328,8 @@ async function createOrder(){
       destination:$("destination").value,
       tariff:$("tariff").value,
       childSeat:$("childSeat").checked,
-      scheduledAt:scheduled
+      scheduledAt:scheduled,
+      distanceKm:window.currentDistanceKm||0
     })});
     toast("Заказ создан");
     showCurrentOrderData(d.order);
