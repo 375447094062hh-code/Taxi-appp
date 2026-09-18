@@ -3014,6 +3014,53 @@ async function processTelegramUpdate(
 
 
         // --------------------------------------------
+        // /driver — регистрация водителя без хардкода Telegram ID
+        // --------------------------------------------
+
+        if (text === "/driver") {
+            if (!pool) {
+                await sendTelegramMessage(
+                    chatId,
+                    "❌ База данных не подключена."
+                );
+                return;
+            }
+
+            try {
+                await pool.query(
+                    `INSERT INTO drivers (telegram_id, name)
+                     VALUES ($1, $2)
+                     ON CONFLICT (telegram_id) DO NOTHING`,
+                    [
+                        String(user.id),
+                        user.first_name || "Водитель"
+                    ]
+                );
+
+                driverChats.set(
+                    chatId,
+                    {
+                        chatId,
+                        telegramId: user.id,
+                        firstName: user.first_name || "Водитель",
+                        username: user.username || ""
+                    }
+                );
+
+                await startDriverProfile(chatId, false);
+            } catch (error) {
+                console.error("driver registration:", error);
+                await sendTelegramMessage(
+                    chatId,
+                    "❌ Не удалось начать регистрацию водителя: " + error.message
+                );
+            }
+
+            return;
+        }
+
+
+        // --------------------------------------------
         // /start
         // --------------------------------------------
 
@@ -3316,8 +3363,9 @@ async function processTelegramUpdate(
 
         if (
             message.photo &&
-            isDriverTelegramId(
-                user.id
+            (
+                isDriverTelegramId(user.id) ||
+                driverStates.has(normalizeTelegramId(user.id))
             )
         ) {
 
