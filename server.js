@@ -149,7 +149,7 @@ async function notifyDrivers(order) {
       order.scheduled_at ? `🕐 ${new Date(order.scheduled_at).toLocaleString("ru-RU")}` : "⚡ Сейчас",
       order.child_seat ? "👶 Нужно детское кресло" : "",
       "",
-      "Откройте Mini App и примите заказ."
+      "Откройте Mini App — заказ уже будет на главной странице водителя."
     ].filter(Boolean).join("\n");
     await sendTelegram(d.telegram_id, text, appUrl ? {
       reply_markup:{inline_keyboard:[[{text:"🚕 Открыть заказы",web_app:{url:appUrl}}]]}
@@ -322,9 +322,9 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
     if(next==="trip"||next==="completed"){
       await db(`UPDATE orders SET
         waiting_minutes=waiting_minutes+
-          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int) END,
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int) END,
         waiting_fee=waiting_fee+
-          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50 END,
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50 END,
         waiting_started_at=NULL
         WHERE id=$1 AND driver_telegram_id=$2`,[orderId,driverId]);
     }
@@ -341,8 +341,9 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
   try {
     const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId);
     if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
-    const current=(await db("SELECT * FROM orders WHERE id=$1 AND driver_telegram_id=$2 AND status IN ('arrived','trip')",[orderId,driverId])).rows[0];
+    const current=(await db("SELECT * FROM orders WHERE id=$1 AND driver_telegram_id=$2 AND status IN ('accepted','arrived','trip')",[orderId,driverId])).rows[0];
     if(!current) return res.status(409).json({success:false,error:"Ожидание сейчас недоступно."});
+    if(current.scheduled_at) return res.status(409).json({success:false,error:"Ожидание доступно только для заказа «Сейчас»."});
 
     if(!current.waiting_started_at){
       const r=await db("UPDATE orders SET waiting_started_at=NOW() WHERE id=$1 AND driver_telegram_id=$2 RETURNING *",[orderId,driverId]);
@@ -351,14 +352,14 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
 
     const r=await db(`UPDATE orders
       SET waiting_minutes=waiting_minutes+
-          GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int),
+          GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int),
           waiting_fee=waiting_fee+
-          GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50,
+          GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50,
           waiting_started_at=NULL
       WHERE id=$1 AND driver_telegram_id=$2
       RETURNING *`,[orderId,driverId]);
     const charged=Number(r.rows[0].waiting_minutes)-Number(current.waiting_minutes||0);
-    if(charged>0) await notifyPassenger(r.rows[0],`⏱ Ожидание завершено: ${r.rows[0].waiting_minutes} мин • +${Number(r.rows[0].waiting_fee).toFixed(2)} BYN`);
+    if(charged>0) await notifyPassenger(r.rows[0],`⏱ Ожидание: начислено ${charged} мин • +${(charged*0.50).toFixed(2)} BYN. Всего ${r.rows[0].waiting_minutes} мин • ${Number(r.rows[0].waiting_fee).toFixed(2)} BYN`);
     res.json({success:true,action:"stopped",order:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
