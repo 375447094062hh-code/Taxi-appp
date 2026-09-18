@@ -2272,8 +2272,70 @@ app.get(
 
 
 // ============================================================
+// DRIVER PROFILE UPDATE
+// ============================================================
+
+app.post(
+    "/api/driver-profile",
+    async (req, res) => {
+        try {
+            const telegramId = normalizeTelegramId(req.body?.telegramId);
+
+            if (!(await hasDriverAccess(telegramId))) {
+                return res.status(403).json({
+                    success: false,
+                    error: "Нет доступа."
+                });
+            }
+
+            const current = await getDriver(telegramId);
+
+            if (!current) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Профиль водителя не найден."
+                });
+            }
+
+            const driver = await saveDriver(
+                telegramId,
+                String(req.body?.name || "").trim(),
+                String(req.body?.car || "").trim(),
+                String(req.body?.plate || "").trim(),
+                String(req.body?.phone || "").trim(),
+                current.photoFileId || "",
+                Boolean(req.body?.hasChildSeat)
+            );
+
+            return res.json({
+                success: true,
+                driver: {
+                    telegramId: driver.telegram_id,
+                    name: driver.name,
+                    car: driver.car,
+                    plate: driver.plate,
+                    phone: driver.phone,
+                    photoFileId: driver.photo_file_id,
+                    rating: driver.rating,
+                    hasChildSeat: driver.has_child_seat
+                }
+            });
+        } catch (error) {
+            console.error("driver-profile update:", error);
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+);
+
+
+// ============================================================
 // DRIVER ARRIVED
 // ============================================================
+
+
 
 app.post(
     "/api/driver-arrived",
