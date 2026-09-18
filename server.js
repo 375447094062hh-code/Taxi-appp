@@ -33,8 +33,9 @@ const DATABASE_URL = process.env.DATABASE_URL || "";
 
 const DRIVER_CHAT_IDS = Array.from(new Set(
     (process.env.DRIVER_CHAT_IDS || "")
-        .split(",")
-        .map(x => x.trim())
+        .split(/[,
+;]+/)
+        .map(x => String(x).trim().replace(/^["'\s]+|["'\s]+$/g, ""))
         .filter(Boolean)
 ));
 
@@ -2186,17 +2187,23 @@ app.get(
             // полагаться только на DRIVER_CHAT_IDS в Render.
             const driver = await getDriver(telegramId);
 
-            if (driver || isDriverTelegramId(telegramId)) {
+            const envDriver = isDriverTelegramId(telegramId);
+
+            if (driver || envDriver) {
                 return res.json({
                     success: true,
                     role: "driver",
-                    driver: driver || null
+                    driver: driver || null,
+                    envDriver,
+                    telegramId
                 });
             }
 
             return res.json({
                 success: true,
-                role: "passenger"
+                role: "passenger",
+                envDriver: false,
+                telegramId
             });
         } catch (error) {
             return res.status(500).json({
@@ -3056,6 +3063,21 @@ async function processTelegramUpdate(
                 );
             }
 
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /driverid — показать Telegram ID аккаунта
+        // --------------------------------------------
+
+        if (text === "/driverid") {
+            await sendTelegramMessage(
+                chatId,
+                "🆔 Ваш Telegram ID:\n\n" +
+                String(user.id) +
+                "\n\nДобавьте именно это число в Render → Environment → DRIVER_CHAT_IDS."
+            );
             return;
         }
 
