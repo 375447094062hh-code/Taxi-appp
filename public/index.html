@@ -16,7 +16,7 @@
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid .btn{margin:0}
 label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,select{width:100%;background:#0c121c;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;font-size:15px;outline:none}input:focus,select:focus{border-color:var(--accent)}
 .info{font-size:13px;line-height:1.55;color:var(--muted)}.price{font-size:28px;font-weight:900;color:var(--accent);margin:8px 0}.status{padding:12px;border-radius:14px;background:#0c131e;border:1px solid var(--line);margin-top:10px}.ok{color:var(--green)}.bad{color:var(--red)}
-.order{border:1px solid var(--line);background:#0d141f;border-radius:16px;padding:14px;margin:10px 0}.order b{display:block;margin-bottom:6px}.small{font-size:12px;color:var(--muted);line-height:1.5}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:12px}.check input{width:18px;height:18px}
+.order{border:1px solid var(--line);background:#0d141f;border-radius:16px;padding:14px;margin:10px 0}.order b{display:block;margin-bottom:6px}.small{font-size:12px;color:var(--muted);line-height:1.5}.coords{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.coords>div{background:#111a27;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:11px;color:var(--muted);word-break:break-word}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:12px}.check input{width:18px;height:18px}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#151d2a;border:1px solid var(--line);padding:12px 16px;border-radius:14px;z-index:10;max-width:90%;font-size:13px;box-shadow:0 12px 40px #0008}
 
 .mapWrap{margin-top:12px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#0b111a}.map{height:300px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}.mapHint{padding:9px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}.suggestions{background:#0c121c;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:6px}.suggestion{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer}.suggestion:last-child{border-bottom:0}
@@ -110,6 +110,11 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
       <button class="btn secondary" onclick="showDriverProfile()">Профиль</button>
     </section>
 
+    <section id="driverActive" class="card hidden">
+      <div class="title">🚕 Текущий заказ</div>
+      <div id="driverActiveOrder"></div>
+    </section>
+
     <section id="driverOrders" class="card">
       <div class="title">Доступные заказы</div>
       <div id="ordersList" class="info">Загрузка…</div>
@@ -159,6 +164,7 @@ async function start(){
     if(role==="driver"){
       $("driver").classList.remove("hidden");
       await loadDriverProfile();
+      await loadDriverActive();
       await loadDriverOrders();
       clearInterval(window.driverOrdersTimer);
       window.driverOrdersTimer=setInterval(()=>loadDriverOrders(),5000);
@@ -432,8 +438,82 @@ async function loadDriverOrders(){
       </div>`).join("");
   }catch(e){$("ordersList").innerHTML='<span class="bad">'+escapeHtml(e.message)+'</span>'}
 }
+function yandexRouteUrl(lat,lng){
+  return "https://yandex.ru/maps/?rtext=~"+encodeURIComponent(Number(lat).toFixed(6))+","+encodeURIComponent(Number(lng).toFixed(6))+"&rtt=auto";
+}
+function yandexPointUrl(lat,lng){
+  return "https://yandex.ru/maps/?ll="+encodeURIComponent(Number(lng).toFixed(6)+","+Number(lat).toFixed(6))+"&z=17&pt="+encodeURIComponent(Number(lng).toFixed(6)+","+Number(lat).toFixed(6))+",pm2rdm";
+}
+function openDriverPoint(kind){
+  const o=window.driverActiveOrder;
+  if(!o)return;
+  const lat=kind==="pickup"?o.pickup_lat:o.destination_lat;
+  const lng=kind==="pickup"?o.pickup_lng:o.destination_lng;
+  if(lat==null||lng==null){toast("У этого заказа нет координат точки.",true);return}
+  window.open(yandexRouteUrl(lat,lng),"_blank");
+}
+function renderDriverActive(){
+  const box=$("driverActive");
+  const o=window.driverActiveOrder;
+  if(!o){box.classList.add("hidden");$("driverActiveOrder").innerHTML="";return}
+  box.classList.remove("hidden");
+  const pickupCoords=o.pickup_lat!=null&&o.pickup_lng!=null
+    ? Number(o.pickup_lat).toFixed(6)+", "+Number(o.pickup_lng).toFixed(6)
+    : "нет координат";
+  const destCoords=o.destination_lat!=null&&o.destination_lng!=null
+    ? Number(o.destination_lat).toFixed(6)+", "+Number(o.destination_lng).toFixed(6)
+    : "нет координат";
+  let action="";
+  if(o.status==="accepted"){
+    action=`
+      <button class="btn" onclick="openDriverPoint('pickup')">📍 Точка А — открыть Яндекс Карты</button>
+      <button class="btn green" onclick="changeDriverStatus('arrived')">🚕 Я прибыл на точку А</button>`;
+  }else if(o.status==="arrived"){
+    action=`
+      <button class="btn" onclick="openDriverPoint('destination')">🏁 Точка Б — открыть Яндекс Карты</button>
+      <button class="btn green" onclick="changeDriverStatus('trip')">🚕 Начать поездку</button>`;
+  }else if(o.status==="trip"){
+    action=`
+      <button class="btn" onclick="openDriverPoint('destination')">🏁 Открыть точку Б в Яндекс Картах</button>
+      <button class="btn danger" onclick="changeDriverStatus('completed')">✅ Завершить заказ</button>`;
+  }
+  $("driverActiveOrder").innerHTML=`
+    <div class="order">
+      <b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
+      <div class="small">Статус: ${escapeHtml(o.status)}<br>💰 ${Number(o.amount).toFixed(2)} BYN</div>
+      <div class="coords">
+        <div><b>📍 Точка А</b><br>${escapeHtml(pickupCoords)}</div>
+        <div><b>🏁 Точка Б</b><br>${escapeHtml(destCoords)}</div>
+      </div>
+      ${action}
+    </div>`;
+}
+async function loadDriverActive(){
+  try{
+    const d=await api("/api/driver-current?telegramId="+encodeURIComponent(telegramId));
+    window.driverActiveOrder=d.order||null;
+    renderDriverActive();
+  }catch(e){toast(e.message,true)}
+}
+async function changeDriverStatus(status){
+  const o=window.driverActiveOrder;
+  if(!o)return;
+  try{
+    const d=await api("/api/orders/"+encodeURIComponent(o.id)+"/status",{method:"POST",body:JSON.stringify({telegramId,status})});
+    window.driverActiveOrder=d.order||null;
+    renderDriverActive();
+    await loadDriverOrders();
+    toast(status==="arrived"?"Вы отметили прибытие.":"Статус заказа обновлён.");
+  }catch(e){toast(e.message,true)}
+}
 async function acceptOrder(orderId){
-  try{await api("/api/orders/"+encodeURIComponent(orderId)+"/accept",{method:"POST",body:JSON.stringify({telegramId})});toast("Заказ принят");await loadDriverOrders()}catch(e){toast(e.message,true)}
+  try{
+    const d=await api("/api/orders/"+encodeURIComponent(orderId)+"/accept",{method:"POST",body:JSON.stringify({telegramId})});
+    window.driverActiveOrder=d.order||null;
+    renderDriverActive();
+    toast("Заказ принят");
+    await loadDriverOrders();
+  }catch(e){toast(e.message,true)}
 }
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 
