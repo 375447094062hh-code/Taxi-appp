@@ -1,13 +1,13 @@
 {
   "name": "rechitsa-taxi-app",
-  "version": "1.0.0",
-  "main": "startup.js",
+  "version": "2.0.0",
+  "private": true,
+  "main": "server.js",
   "scripts": {
-    "start": "node startup.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "node-fetch": "^2.6.7",
     "pg": "^8.16.3"
   }
 }
