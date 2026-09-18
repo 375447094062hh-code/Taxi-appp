@@ -2798,3 +2798,1331 @@ function getDriverState(id) {
     return (
         driverStates.get(key) || {
             step: null
+        }
+    );
+}
+
+
+function setDriverState(
+    id,
+    state
+) {
+
+    driverStates.set(
+        normalizeTelegramId(id),
+        state
+    );
+}
+
+
+function clearDriverState(id) {
+
+    driverStates.delete(
+        normalizeTelegramId(id)
+    );
+}
+
+
+function childSeatKeyboard(
+    edit = false
+) {
+
+    return {
+
+        inline_keyboard: [
+
+            [
+
+                {
+                    text:
+                        "✅ Есть",
+
+                    callback_data:
+                        edit
+                            ? "driver_seat_edit:yes"
+                            : "driver_seat:yes"
+                },
+
+                {
+                    text:
+                        "❌ Нет",
+
+                    callback_data:
+                        edit
+                            ? "driver_seat_edit:no"
+                            : "driver_seat:no"
+                }
+
+            ]
+
+        ]
+    };
+}
+
+
+// ============================================================
+// DRIVER BOT PROFILE
+// ============================================================
+
+async function startDriverProfile(
+    chatId,
+    edit = false
+) {
+
+    const driver =
+        await getDriver(
+            chatId
+        );
+
+
+    if (
+        edit &&
+        driver
+    ) {
+
+        setDriverState(
+            chatId,
+            {
+                step:
+                    "name",
+
+                data: {
+                    name:
+                        driver.name || "",
+
+                    car:
+                        driver.car || "",
+
+                    plate:
+                        driver.plate || "",
+
+                    phone:
+                        driver.phone || "",
+
+                    photoFileId:
+                        driver.photoFileId || "",
+
+                    hasChildSeat:
+                        Boolean(
+                            driver.hasChildSeat
+                        )
+                }
+            }
+        );
+
+
+        await sendTelegramMessage(
+            chatId,
+            "✏️ Изменение профиля водителя.\n\nВведите ваше имя:"
+        );
+
+        return;
+    }
+
+
+    setDriverState(
+        chatId,
+        {
+            step:
+                "name",
+
+            data: {}
+        }
+    );
+
+
+    await sendTelegramMessage(
+        chatId,
+        "🚕 Заполнение профиля водителя\n\nВведите ваше имя:"
+    );
+}
+
+
+// ============================================================
+// DRIVER PROFILE DISPLAY
+// ============================================================
+
+async function sendDriverProfile(
+    chatId
+) {
+
+    const driver =
+        await getDriver(
+            chatId
+        );
+
+
+    if (!driver) {
+
+        await sendTelegramMessage(
+            chatId,
+            "👤 Профиль водителя ещё не заполнен.\n\nНажмите /editprofile для заполнения."
+        );
+
+        return;
+    }
+
+
+    const child =
+        driver.hasChildSeat
+            ? "✅ Есть"
+            : "❌ Нет";
+
+
+    const text =
+
+        "👤 ПРОФИЛЬ ВОДИТЕЛЯ\n\n" +
+
+        `Имя: ${driver.name || "-"}\n` +
+
+        `🚕 Автомобиль: ${driver.car || "-"}\n` +
+
+        `🔢 Номер: ${driver.plate || "-"}\n` +
+
+        `📞 Телефон: ${driver.phone || "-"}\n` +
+
+        `👶 Детское кресло: ${child}\n` +
+
+        `⭐ Рейтинг: ${driver.rating || "5.00"}`;
+
+
+    await sendTelegramMessage(
+        chatId,
+        text
+    );
+}
+
+
+// ============================================================
+// TELEGRAM UPDATE
+// ============================================================
+
+async function processTelegramUpdate(
+    update
+) {
+
+    // --------------------------------------------------------
+    // MESSAGE
+    // --------------------------------------------------------
+
+    if (update.message) {
+
+        const message =
+            update.message;
+
+        const chatId =
+            message.chat.id;
+
+        const user =
+            message.from || {};
+
+        const text =
+            message.text || "";
+
+
+        // --------------------------------------------
+        // /driver — регистрация водителя без хардкода Telegram ID
+        // --------------------------------------------
+
+        if (text === "/driver") {
+            if (!pool) {
+                await sendTelegramMessage(
+                    chatId,
+                    "❌ База данных не подключена."
+                );
+                return;
+            }
+
+            try {
+                await pool.query(
+                    `INSERT INTO drivers (telegram_id, name)
+                     VALUES ($1, $2)
+                     ON CONFLICT (telegram_id) DO NOTHING`,
+                    [
+                        String(user.id),
+                        user.first_name || "Водитель"
+                    ]
+                );
+
+                driverChats.set(
+                    chatId,
+                    {
+                        chatId,
+                        telegramId: user.id,
+                        firstName: user.first_name || "Водитель",
+                        username: user.username || ""
+                    }
+                );
+
+                await startDriverProfile(chatId, false);
+            } catch (error) {
+                console.error("driver registration:", error);
+                await sendTelegramMessage(
+                    chatId,
+                    "❌ Не удалось начать регистрацию водителя: " + error.message
+                );
+            }
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /driverid — показать Telegram ID аккаунта
+        // --------------------------------------------
+
+        if (text === "/driverid") {
+            await sendTelegramMessage(
+                chatId,
+                "🆔 Ваш Telegram ID:\n\n" +
+                String(user.id) +
+                "\n\nДобавьте именно это число в Render → Environment → DRIVER_CHAT_IDS."
+            );
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /start
+        // --------------------------------------------
+
+        if (
+            text.startsWith(
+                "/start"
+            )
+        ) {
+
+            const allowed =
+                DRIVER_CHAT_IDS.length === 0 ||
+                DRIVER_CHAT_IDS.includes(
+                    String(user.id)
+                );
+
+
+            if (!allowed) {
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "🚕 Такси Речица\n\n" +
+                    "Вы можете пользоваться Mini App как пассажир.\n\n" +
+                    "Откройте приложение через кнопку меню Telegram."
+                );
+
+                return;
+            }
+
+
+            driverChats.set(
+                chatId,
+                {
+                    chatId,
+                    telegramId:
+                        user.id,
+                    firstName:
+                        user.first_name ||
+                        "Водитель",
+                    username:
+                        user.username ||
+                        ""
+                }
+            );
+
+
+            const driver =
+                await getDriver(
+                    user.id
+                );
+
+
+            if (!driver) {
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "🚕 Такси Речица\n\n" +
+                    "Вы зарегистрированы как водитель.\n\n" +
+                    "Профиль ещё не заполнен.\n" +
+                    "Нажмите /profile"
+                );
+
+            } else {
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "🚕 Такси Речица\n\n" +
+                    `Здравствуйте, ${driver.name || user.first_name || "водитель"}!\n\n` +
+                    "Вы готовы получать заказы.\n\n" +
+                    "/profile — мой профиль\n" +
+                    "/editprofile — изменить профиль\n" +
+                    "/orders — активные заказы"
+                );
+            }
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /profile
+        // --------------------------------------------
+
+        if (
+            text === "/profile"
+        ) {
+
+            const allowed =
+                DRIVER_CHAT_IDS.length === 0 ||
+                DRIVER_CHAT_IDS.includes(
+                    String(user.id)
+                );
+
+
+            if (!allowed) {
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "👤 Это профиль пассажира.\n\n" +
+                    "Для заполнения анкеты откройте Mini App и нажмите «Профиль»."
+                );
+
+                return;
+            }
+
+
+            await sendDriverProfile(
+                chatId
+            );
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /editprofile
+        // --------------------------------------------
+
+        if (
+            text === "/editprofile"
+        ) {
+
+            const allowed =
+                DRIVER_CHAT_IDS.length === 0 ||
+                DRIVER_CHAT_IDS.includes(
+                    String(user.id)
+                );
+
+
+            if (!allowed) {
+
+                await sendTelegramMessage(
+                    chatId,
+                    "Команда доступна только водителям."
+                );
+
+                return;
+            }
+
+
+            await startDriverProfile(
+                chatId,
+                true
+            );
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /orders
+        // --------------------------------------------
+
+        if (
+            text === "/orders"
+        ) {
+
+            if (
+                !(await hasDriverAccess(
+                    user.id
+                ))
+            ) {
+
+                await sendTelegramMessage(
+                    chatId,
+                    "Нет доступа водителя."
+                );
+
+                return;
+            }
+
+
+            if (!pool) {
+                return;
+            }
+
+
+            const result =
+                await pool.query(
+                    `
+                    SELECT *
+                    FROM passenger_orders
+                    WHERE driver_telegram_id = $1
+                      AND status = ANY($2::text[])
+                    ORDER BY created_at ASC
+                    `,
+                    [
+                        String(user.id),
+                        ACTIVE_STATUSES
+                    ]
+                );
+
+
+            if (!result.rows.length) {
+
+                await sendTelegramMessage(
+                    chatId,
+                    "📋 Активных заказов нет."
+                );
+
+                return;
+            }
+
+
+            for (
+                const row
+                of result.rows
+            ) {
+
+                const order =
+                    formatDbOrder(
+                        row
+                    );
+
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "🚕 АКТИВНЫЙ ЗАКАЗ\n\n" +
+
+                    `#${order.id}\n` +
+
+                    `📍 ${order.addressA}\n` +
+
+                    `🏁 ${order.addressB}\n` +
+
+                    `🕐 ${order.scheduled}\n` +
+
+                    `Статус: ${order.status}`
+                );
+            }
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // /skip
+        // --------------------------------------------
+
+        if (
+            text === "/skip"
+        ) {
+
+            const state =
+                getDriverState(
+                    user.id
+                );
+
+
+            if (
+                state.step ===
+                "photo"
+            ) {
+
+                state.data.photoFileId =
+                    "";
+
+
+                state.step =
+                    "childSeat";
+
+
+                setDriverState(
+                    user.id,
+                    state
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+                    "👶 Есть ли в автомобиле детское кресло?",
+                    {
+                        reply_markup:
+                            childSeatKeyboard()
+                    }
+                );
+
+            } else {
+
+                await sendTelegramMessage(
+                    chatId,
+                    "Пропустить сейчас нельзя."
+                );
+            }
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // PHOTO
+        // --------------------------------------------
+
+        if (
+            message.photo &&
+            (
+                isDriverTelegramId(user.id) ||
+                driverStates.has(normalizeTelegramId(user.id))
+            )
+        ) {
+
+            const state =
+                getDriverState(
+                    user.id
+                );
+
+
+            if (
+                state.step ===
+                "photo"
+            ) {
+
+                const photos =
+                    message.photo;
+
+                const largest =
+                    photos[
+                        photos.length - 1
+                    ];
+
+
+                state.data.photoFileId =
+                    largest.file_id;
+
+
+                state.step =
+                    "childSeat";
+
+
+                setDriverState(
+                    user.id,
+                    state
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+                    "👶 Есть ли в автомобиле детское кресло?",
+                    {
+                        reply_markup:
+                            childSeatKeyboard()
+                    }
+                );
+            }
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // PROFILE TEXT STEPS
+        // --------------------------------------------
+
+        if (
+            isDriverTelegramId(
+                user.id
+            )
+        ) {
+
+            const state =
+                getDriverState(
+                    user.id
+                );
+
+
+            if (!state.step) {
+                return;
+            }
+
+
+            if (
+                state.step ===
+                "name"
+            ) {
+
+                state.data.name =
+                    text.trim();
+
+                state.step =
+                    "car";
+
+
+                setDriverState(
+                    user.id,
+                    state
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+                    "🚕 Введите марку и модель автомобиля:"
+                );
+
+                return;
+            }
+
+
+            if (
+                state.step ===
+                "car"
+            ) {
+
+                state.data.car =
+                    text.trim();
+
+                state.step =
+                    "plate";
+
+
+                setDriverState(
+                    user.id,
+                    state
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+                    "🔢 Введите госномер автомобиля:"
+                );
+
+                return;
+            }
+
+
+            if (
+                state.step ===
+                "plate"
+            ) {
+
+                state.data.plate =
+                    text.trim();
+
+                state.step =
+                    "phone";
+
+
+                setDriverState(
+                    user.id,
+                    state
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+                    "📞 Введите номер телефона:"
+                );
+
+                return;
+            }
+
+
+            if (
+                state.step ===
+                "phone"
+            ) {
+
+                state.data.phone =
+                    text.trim();
+
+                state.step =
+                    "photo";
+
+
+                setDriverState(
+                    user.id,
+                    state
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "📸 Отправьте фотографию автомобиля.\n\n" +
+                    "Можно нажать /skip, если фотографию добавлять не хотите."
+                );
+
+                return;
+            }
+        }
+
+
+        return;
+    }
+
+
+    // --------------------------------------------------------
+    // CALLBACK
+    // --------------------------------------------------------
+
+    if (
+        update.callback_query
+    ) {
+
+        const callback =
+            update.callback_query;
+
+        const chatId =
+            callback.message?.chat?.id;
+
+        const fromId =
+            callback.from?.id;
+
+        const data =
+            callback.data || "";
+
+
+        await telegram(
+            "answerCallbackQuery",
+            {
+                callback_query_id:
+                    callback.id
+            }
+        );
+
+
+        // --------------------------------------------
+        // DRIVER CHILD SEAT
+        // --------------------------------------------
+
+        if (
+            data.startsWith(
+                "driver_seat:"
+            )
+        ) {
+
+            const value =
+                data.split(":")[1] ===
+                "yes";
+
+
+            const state =
+                getDriverState(
+                    fromId
+                );
+
+
+            state.data.hasChildSeat =
+                value;
+
+
+            try {
+
+                await saveDriver(
+                    fromId,
+
+                    state.data.name,
+
+                    state.data.car,
+
+                    state.data.plate,
+
+                    state.data.phone,
+
+                    state.data.photoFileId,
+
+                    state.data.hasChildSeat
+                );
+
+
+                clearDriverState(
+                    fromId
+                );
+
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "✅ Профиль водителя сохранён!\n\n" +
+
+                    `👤 ${state.data.name}\n` +
+
+                    `🚕 ${state.data.car}\n` +
+
+                    `🔢 ${state.data.plate}\n` +
+
+                    `📞 ${state.data.phone}\n` +
+
+                    `👶 Детское кресло: ${
+                        value
+                            ? "есть"
+                            : "нет"
+                    }\n\n` +
+
+                    "Теперь вы можете получать заказы."
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    error
+                );
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "❌ Не удалось сохранить профиль:\n" +
+                    error.message
+                );
+            }
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // EDIT DRIVER CHILD SEAT
+        // --------------------------------------------
+
+        if (
+            data.startsWith(
+                "driver_seat_edit:"
+            )
+        ) {
+
+            const value =
+                data.split(":")[1] ===
+                "yes";
+
+
+            const driver =
+                await getDriver(
+                    fromId
+                );
+
+
+            if (!driver) {
+                return;
+            }
+
+
+            await saveDriver(
+                fromId,
+
+                driver.name,
+
+                driver.car,
+
+                driver.plate,
+
+                driver.phone,
+
+                driver.photoFileId,
+
+                value
+            );
+
+
+            await sendTelegramMessage(
+                chatId,
+
+                "✅ Детское кресло обновлено:\n\n" +
+                (
+                    value
+                        ? "Есть"
+                        : "Нет"
+                )
+            );
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // ACCEPT
+        // --------------------------------------------
+
+        if (
+            data.startsWith(
+                "accept:"
+            )
+        ) {
+
+            const orderId =
+                data.substring(
+                    "accept:".length
+                );
+
+
+            const result =
+                await acceptOrder(
+                    orderId,
+                    fromId
+                );
+
+
+            if (
+                result.success
+            ) {
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    "✅ ЗАКАЗ ПРИНЯТ!\n\n" +
+
+                    `Заказ #${shortOrderNumber(result.order.id)}\n\n` +
+
+                    "Откройте Mini App для управления поездкой."
+                );
+
+            } else {
+
+                await sendTelegramMessage(
+                    chatId,
+
+                    `⚠️ ${result.error}`
+                );
+            }
+
+
+            return;
+        }
+
+
+        // --------------------------------------------
+        // REJECT
+        // --------------------------------------------
+
+        if (
+            data.startsWith(
+                "reject:"
+            )
+        ) {
+
+            const orderId =
+                data.substring(
+                    "reject:".length
+                );
+
+
+            await sendTelegramMessage(
+                chatId,
+
+                `❌ Заказ #${shortOrderNumber(orderId)} отклонён.`
+            );
+
+
+            return;
+        }
+    }
+}
+
+
+// ============================================================
+// TELEGRAM POLLING
+// ============================================================
+
+async function telegramPollingLoop() {
+
+    if (telegramPolling) {
+        return;
+    }
+
+
+    telegramPolling = true;
+
+
+    if (!BOT_TOKEN) {
+
+        console.error(
+            "TELEGRAM_BOT_TOKEN не задан."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        await telegram(
+            "deleteWebhook",
+            {
+                drop_pending_updates:
+                    false
+            }
+        );
+
+
+        const me =
+            await telegram(
+                "getMe"
+            );
+
+
+        console.log(
+            `Telegram бот подключён: @${me.username}`
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Telegram startup:",
+            error.message
+        );
+
+        telegramPolling = false;
+
+        return;
+    }
+
+
+    while (true) {
+
+        try {
+
+            const updates =
+                await telegram(
+                    "getUpdates",
+                    {
+                        offset:
+                            telegramOffset,
+
+                        timeout:
+                            25,
+
+                        allowed_updates:
+                            [
+                                "message",
+                                "callback_query"
+                            ]
+                    }
+                );
+
+
+            for (
+                const update
+                of updates
+            ) {
+
+                telegramOffset =
+                    update.update_id + 1;
+
+
+                try {
+
+                    await processTelegramUpdate(
+                        update
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "Telegram update:",
+                        error
+                    );
+                }
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Telegram polling:",
+                error.message
+            );
+
+            // Неверный/отозванный токен не имеет смысла
+            // повторять бесконечно. После исправления
+            // TELEGRAM_BOT_TOKEN в Render нужен новый deploy.
+            if (String(error.message || "").toLowerCase().includes("unauthorized")) {
+                console.error(
+                    "Telegram polling остановлен: TELEGRAM_BOT_TOKEN отклонён Telegram."
+                );
+                telegramPolling = false;
+                return;
+            }
+
+            await sleep(
+                3000
+            );
+        }
+    }
+}
+
+
+// ============================================================
+// HEALTH
+// ============================================================
+
+app.get(
+    "/health",
+    async (req, res) => {
+
+        let database =
+            false;
+
+
+        if (pool) {
+
+            try {
+
+                await pool.query(
+                    "SELECT 1"
+                );
+
+                database = true;
+
+            } catch (_) {}
+        }
+
+
+        res.json({
+
+            ok: true,
+
+            database,
+
+            telegram:
+                Boolean(
+                    BOT_TOKEN
+                ),
+
+            time:
+                new Date().toISOString()
+        });
+    }
+);
+
+
+// ============================================================
+// MAIN PAGE
+// ============================================================
+
+app.get(
+    "/",
+    (req, res) => {
+
+        const publicIndex =
+            path.join(
+                __dirname,
+                "public",
+                "index.html"
+            );
+
+
+        const rootIndex =
+            path.join(
+                __dirname,
+                "index.html"
+            );
+
+
+        if (
+            fs.existsSync(
+                publicIndex
+            )
+        ) {
+
+            return res.sendFile(
+                publicIndex
+            );
+        }
+
+
+        if (
+            fs.existsSync(
+                rootIndex
+            )
+        ) {
+
+            return res.sendFile(
+                rootIndex
+            );
+        }
+
+
+        return res.status(404).send(
+            "index.html не найден"
+        );
+    }
+);
+
+
+// ============================================================
+// START
+// ============================================================
+
+async function start() {
+
+    try {
+
+        await initDatabase();
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка запуска PostgreSQL:",
+            error
+        );
+    }
+
+
+    app.listen(
+        PORT,
+        () => {
+
+            console.log(
+                "================================="
+            );
+
+            console.log(
+                `Такси Речица запущено на порту ${PORT}`
+            );
+
+            console.log(
+                `PostgreSQL: ${
+                    pool
+                        ? "подключён"
+                        : "НЕ ПОДКЛЮЧЁН"
+                }`
+            );
+
+            console.log(
+                `Telegram: ${
+                    BOT_TOKEN
+                        ? "подключён"
+                        : "НЕ ПОДКЛЮЧЁН"
+                }`
+            );
+
+            console.log(
+                "================================="
+            );
+
+
+            telegramPollingLoop();
+        }
+    );
+}
+
+
+start();
