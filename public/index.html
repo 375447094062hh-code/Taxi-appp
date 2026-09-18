@@ -84,7 +84,7 @@
 <script>
 const tg=window.Telegram?.WebApp; tg?.ready?.(); tg?.expand?.();
 const uid=String(tg?.initDataUnsafe?.user?.id||""); let role="",pProfile=null,dProfile=null;
-let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null;
+let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null,livePassengerMap=null,passengerRenderKey="",driverRenderKey="",waitingTimer=null;
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
