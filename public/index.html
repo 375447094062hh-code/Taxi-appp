@@ -19,6 +19,14 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
 .order{border:1px solid var(--line);background:#0d141f;border-radius:16px;padding:14px;margin:10px 0}.order b{display:block;margin-bottom:6px}.small{font-size:12px;color:var(--muted);line-height:1.5}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:12px}.check input{width:18px;height:18px}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#151d2a;border:1px solid var(--line);padding:12px 16px;border-radius:14px;z-index:10;max-width:90%;font-size:13px;box-shadow:0 12px 40px #0008}
 </style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+
+.mapWrap{margin-top:12px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#0b111a}.map{height:300px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}.mapHint{padding:9px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}
+
+<style>
+.leaflet-container{font:inherit;background:#0b111a}.leaflet-control-zoom a{background:#111722;color:#fff;border-color:#263246}.leaflet-control-attribution{background:#111722cc!important;color:#8d9aae!important}.leaflet-control-attribution a{color:#cbd5e1!important}
+</style>
 </head>
 <body>
 <div class="app">
@@ -49,6 +57,11 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
     <section id="passengerForm" class="card hidden">
       <div class="title">Куда едем?</div>
       <label>Откуда</label><input id="pickup" placeholder="Например: ул. Советская, 10">
+      <div class="mapWrap">
+        <div id="passengerMap" class="map"></div>
+        <button class="btn secondary locBtn" type="button" onclick="locatePassenger()">📍 Определить моё местоположение</button>
+        <div id="mapHint" class="mapHint">Нажмите на карту или определите своё местоположение.</div>
+      </div>
       <label>Куда</label><input id="destination" placeholder="Например: ул. Строителей, 15">
       <label>Тариф</label><select id="tariff"><option>Стандарт</option></select>
       <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
@@ -155,8 +168,70 @@ async function savePassengerProfile(){
     passengerProfile=d.profile;toast("Профиль сохранён");await loadPassengerProfile();backPassenger();
   }catch(e){toast(e.message,true)}
 }
+let passengerMap=null;
+let pickupMarker=null;
+let destinationMarker=null;
+let routeLayer=null;
+
+function initPassengerMap(){
+  if(passengerMap || !window.L) return;
+  passengerMap=L.map("passengerMap",{zoomControl:true}).setView([52.414,30.391],13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:19,
+    attribution:"© OpenStreetMap contributors"
+  }).addTo(passengerMap);
+
+  passengerMap.on("click",e=>{
+    setPickupPoint(e.latlng.lat,e.latlng.lng,true);
+  });
+}
+
+async function reverseGeocode(lat,lng){
+  const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="+encodeURIComponent(lat)+"&lon="+encodeURIComponent(lng)+"&zoom=18&addressdetails=1",{
+    headers:{"Accept":"application/json"}
+  });
+  if(!r.ok) throw new Error("Не удалось определить адрес");
+  const d=await r.json();
+  return d.display_name||`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+}
+
+async function setPickupPoint(lat,lng,fromMap=false){
+  initPassengerMap();
+  if(pickupMarker) pickupMarker.remove();
+  pickupMarker=L.marker([lat,lng]).addTo(passengerMap).bindPopup("📍 Откуда").openPopup();
+  passengerMap.setView([lat,lng],16);
+  try{
+    $("pickup").value=await reverseGeocode(lat,lng);
+    $("mapHint").textContent=fromMap?"Точка подачи выбрана на карте.":"Ваше местоположение определено.";
+  }catch(e){
+    $("pickup").value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    $("mapHint").textContent="Точка определена, но адрес получить не удалось.";
+  }
+}
+
+function locatePassenger(){
+  if(!navigator.geolocation){
+    toast("Геолокация не поддерживается вашим устройством.",true);
+    return;
+  }
+  $("mapHint").textContent="Определяем ваше местоположение…";
+  navigator.geolocation.getCurrentPosition(
+    p=>setPickupPoint(p.coords.latitude,p.coords.longitude,false),
+    e=>{
+      const messages={1:"Разрешите доступ к геолокации в браузере/Telegram.",2:"Не удалось определить местоположение.",3:"Истекло время ожидания геолокации."};
+      $("mapHint").textContent=messages[e.code]||"Не удалось определить местоположение.";
+      toast(messages[e.code]||"Ошибка геолокации",true);
+    },
+    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
+  );
+}
+
 function showOrder(){
   showOnly("passengerForm");
+  setTimeout(()=>{
+    initPassengerMap();
+    passengerMap?.invalidateSize();
+  },80);
   if(!passengerProfile){toast("Сначала заполните профиль",true);showPassengerProfile()}
 }
 function backPassenger(){showOnly("passengerHome")}
@@ -233,5 +308,7 @@ function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;",
 
 start();
 </script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </body>
 </html>
