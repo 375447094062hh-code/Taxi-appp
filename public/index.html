@@ -206,7 +206,7 @@ async function openHistory(who){
 function historyCard(o){return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+new Date(o.completed_at||o.created_at).toLocaleString("ru-RU")+'<br>💰 '+(Number(o.amount)+Number(o.waiting_fee||0)).toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин':'')+'</div></div>'}
 
 async function loadDriverProfile(){try{dProfile=(await api("/api/driver-profile?telegramId="+encodeURIComponent(uid))).profile;renderDriverProfile()}catch(e){toast(e.message,true)}}
-function renderDriverProfile(){$("dProfileSummary").innerHTML=dProfile?'<b>'+esc(dProfile.name)+'</b><br>'+esc(dProfile.car)+' • '+esc(dProfile.plate)+'<br>⭐ '+Number(dProfile.rating||5).toFixed(2)+' ('+(dProfile.rating_count||0)+' оценок)':'<span style="color:var(--red)">Профиль водителя не заполнен.</span>'}
+function renderDriverProfile(){$("dProfileSummary").innerHTML=dProfile?'<b>'+esc(dProfile.name)+'</b><br>'+esc(dProfile.phone)+'<br>'+esc(dProfile.car)+' • '+esc(dProfile.plate):'<span style="color:var(--red)">Профиль водителя не заполнен.</span>'}
 function editDriverProfile(){showD("dProfile");$("dName").value=dProfile?.name||"";$("dPhone").value=dProfile?.phone||"";$("dCar").value=dProfile?.car||"";$("dPlate").value=dProfile?.plate||"";$("dChild").checked=!!dProfile?.has_child_seat}
 function openDriverSettings(){showD("dSettings")}
 async function saveDriver(){try{dProfile=(await api("/api/driver-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("dName").value,phone:$("dPhone").value,car:$("dCar").value,plate:$("dPlate").value,hasChildSeat:$("dChild").checked})})).profile;toast("Профиль водителя сохранён");renderDriverProfile();showD("dSettings")}catch(e){toast(e.message,true)}}
@@ -273,7 +273,7 @@ async function toggleWaiting(id){
 
 async function openStats(){showD("dStats");$("statsMonth").value=new Date().toISOString().slice(0,7);await loadStats()}
 $("statsMonth").addEventListener("change",loadStats);
-async function loadStats(){if(!$("statsMonth").value)return;try{const d=await api("/api/driver-stats?telegramId="+encodeURIComponent(uid)+"&month="+encodeURIComponent($("statsMonth").value));const s=d.stats||{};$("statsBox").innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(s.orders||0)+'</strong><span>Завершённых заказов</span></div><div class="stat"><strong>'+Number(s.earnings||0).toFixed(2)+' BYN</strong><span>Заработано</span></div><div class="stat"><strong>'+Number(s.waiting_minutes||0)+'</strong><span>Минут ожидания</span></div><div class="stat"><strong>⭐ '+Number(dProfile?.rating||5).toFixed(2)+'</strong><span>Текущий рейтинг</span></div></div>'}catch(e){toast(e.message,true)}}
+async function loadStats(){if(!$("statsMonth").value)return;try{const d=await api("/api/driver-stats?telegramId="+encodeURIComponent(uid)+"&month="+encodeURIComponent($("statsMonth").value));const s=d.stats||{};$("statsBox").innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(s.orders||0)+'</strong><span>Завершённых заказов</span></div><div class="stat"><strong>'+Number(s.earnings||0).toFixed(2)+' BYN</strong><span>Заработано</span></div><div class="stat"><strong>'+Number(s.waiting_minutes||0)+'</strong><span>Минут ожидания</span></div></div>'}catch(e){toast(e.message,true)}}
 
 
 boot();
