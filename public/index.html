@@ -197,7 +197,8 @@ function renderPassengerOrder(o){
  '<div class="order"><div class="orderHead"><div class="routeText">'+esc(o.pickup)+'<br>↓<br>'+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:10px">💰 '+total.toFixed(2)+' BYN'+(Number(o.waiting_fee)>0?' • ожидание '+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div></div>'+extra+
  (o.status!=="searching"&&o.status!=="completed"?'<div id="livePassengerMap" class="map"></div>':"")+
  '<button class="btn secondary" onclick="openCurrent()">🔄 Обновить статус</button>'+
- (o.status==="searching"||o.status==="accepted"?'<button class="btn red" onclick="cancelPassenger(\''+esc(o.id)+'\')">Отменить заказ</button>':"");
+ (o.status==="searching"||o.status==="accepted"?'<button class="btn red" onclick="cancelPassenger(\''+esc(o.id)+'\')">Отменить заказ</button>':"")+
+ passengerRatingHtml(o);
  if(o.status!=="searching"&&o.status!=="completed"&&o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderLiveMap(o),50);
 }
 function renderLiveMap(o){
@@ -206,6 +207,37 @@ function renderLiveMap(o){
  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(m);
  const a=L.marker([o.pickup_lat,o.pickup_lng]).addTo(m).bindPopup("📍 Точка А"),b=L.marker([o.destination_lat,o.destination_lng]).addTo(m).bindPopup("🏁 Точка Б");
  m.fitBounds(L.featureGroup([a,b]).getBounds(),{padding:[25,25]});
+}
+let passengerRating=0,passengerGood=[];
+const ratingGoodOptions=["Чистота в салоне","Комфорт","Приятный запах","Спокойная езда","Вежливость водителя","Автомобиль в хорошем состоянии"];
+function setPassengerRating(n){
+ passengerRating=n;
+ document.querySelectorAll("#ratingPanel .ratingBox button").forEach((b,i)=>b.classList.toggle("active",i<n));
+}
+function togglePassengerGood(i){
+ const v=ratingGoodOptions[i], pos=passengerGood.indexOf(v);
+ if(pos>=0)passengerGood.splice(pos,1);else passengerGood.push(v);
+ const el=$("ratingGood"+i);if(el)el.checked=passengerGood.includes(v);
+}
+async function submitPassengerFeedback(id){
+ if(!passengerRating)return toast("Поставьте оценку от 1 до 5",true);
+ const comment=$("ratingComment")?.value||"";
+ try{
+  await api("/api/passenger-feedback",{method:"POST",body:JSON.stringify({
+   telegramId:uid,orderId:id,rating:passengerRating,good:passengerGood,bad:[],comment
+  })});
+  localStorage.setItem("taxiRated_"+id,"1");
+  $("ratingPanel").innerHTML='<div class="sub">Спасибо за оценку! Отзыв сохранён.</div>';
+  toast("Оценка сохранена");
+ }catch(e){
+  if(String(e.message).includes("уже оставлена")){localStorage.setItem("taxiRated_"+id,"1");$("ratingPanel").innerHTML='<div class="sub">Вы уже оценили эту поездку.</div>'}
+  else toast(e.message,true);
+ }
+}
+function passengerRatingHtml(o){
+ if(o.status!=="completed"||!o.driver_telegram_id||localStorage.getItem("taxiRated_"+o.id))return "";
+ passengerRating=0;passengerGood=[];
+ return '<div id="ratingPanel" class="order" style="margin-top:10px;border-color:var(--yellow)"><b>⭐ Оцените поездку</b><div class="small" style="margin-top:5px">Как прошла поездка?</div><div class="ratingBox">'+[1,2,3,4,5].map(n=>'<button type="button" onclick="setPassengerRating('+n+')" aria-label="'+n+' звезд">★</button>').join("")+'</div><div class="small">Что понравилось?</div>'+ratingGoodOptions.map((v,i)=>'<label class="check" style="margin-top:7px"><input id="ratingGood'+i+'" type="checkbox" onchange="togglePassengerGood('+i+')"> '+esc(v)+'</label>').join("")+'<textarea id="ratingComment" placeholder="Комментарий (необязательно)" style="margin-top:10px;min-height:70px"></textarea><button class="btn" onclick="submitPassengerFeedback(\''+esc(o.id)+'\')">⭐ Отправить оценку</button></div>';
 }
 async function loadCurrent(open=true){try{const d=await api("/api/orders/current?telegramId="+encodeURIComponent(uid));if(d.order){localStorage.setItem("taxiLastOrderId",String(d.order.id));renderPassengerOrder(d.order);if(open)showP("pCurrent");return}const last=localStorage.getItem("taxiLastOrderId");if(last){try{const done=await api("/api/order-status?id="+encodeURIComponent(last)+"&telegramId="+encodeURIComponent(uid));if(done?.id){renderPassengerOrder(done);if(open)showP("pCurrent");return}}catch(_){}}if(open)showP("pCurrent")}catch(e){if(open)toast(e.message,true)}}
 function openCurrent(){loadCurrent(true)}
@@ -224,7 +256,7 @@ function openDriverSettings(){showD("dSettings")}
 async function saveDriver(){try{dProfile=(await api("/api/driver-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("dName").value,phone:$("dPhone").value,car:$("dCar").value,plate:$("dPlate").value,hasChildSeat:$("dChild").checked})})).profile;toast("Профиль водителя сохранён");renderDriverProfile();showD("dSettings")}catch(e){toast(e.message,true)}}
 
 async function loadDriverOrders(){try{const d=await api("/api/driver-orders?telegramId="+encodeURIComponent(uid));const box=$("driverIncoming");if(!box)return;if(!d.orders.length){box.innerHTML='<div class="order" style="margin-top:12px"><b>🟢 В ожидании</b><div class="small" style="margin-top:6px">Новых заказов нет. Когда пассажир оформит поездку, заказ появится здесь автоматически.</div></div>';return}const o=d.orders[0];box.innerHTML='<div class="order" style="margin-top:12px;border-color:var(--yellow);box-shadow:0 0 0 1px #ffd21a22,0 12px 28px #0005"><div class="statusPill yellow" style="display:inline-block">🚕 НОВЫЙ ЗАКАЗ</div><div class="routeText" style="margin-top:10px">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="small" style="margin-top:9px">💰 '+Number(o.amount).toFixed(2)+' BYN<br>'+(o.scheduled_at?new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас")+(o.child_seat?"<br>👶 Детское кресло":"")+'</div><div class="grid" style="margin-top:8px"><button class="btn green" onclick="acceptDriver(\''+esc(o.id)+'\')">✅ Принять</button><button class="btn red" onclick="rejectDriver(\''+esc(o.id)+'\')">✕ Отклонить</button></div></div>'}catch(e){toast(e.message,true)}}
-async function acceptDriver(id){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/accept",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ принят");renderDriverCurrent(d.order);showD("dCurrent")}catch(e){toast(e.message,true)}}
+async function acceptDriver(id){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/accept",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ принят");renderDriverCurrent(d.order);showD("dCurrent");if(!d.order.scheduled_at)setTimeout(()=>openYandexRoute(d.order,"pickup"),350)}catch(e){toast(e.message,true)}}
 async function renderDriverMap(o){
  const el=$("driverLiveMap");if(!el||!window.L||o?.pickup_lat==null||o?.destination_lat==null)return;
  if(driverLiveMap){driverLiveMap.remove();driverLiveMap=null}
@@ -241,7 +273,18 @@ function startDriverLocationWatch(m){
  driverGeoWatch=navigator.geolocation.watchPosition(pos=>{const ll=[pos.coords.latitude,pos.coords.longitude];if(!driverLocationMarker)driverLocationMarker=L.marker(ll).addTo(m).bindPopup("🚕 Вы здесь");else driverLocationMarker.setLatLng(ll)},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
 }
 function stopDriverLocationWatch(){if(driverGeoWatch!=null){navigator.geolocation.clearWatch(driverGeoWatch);driverGeoWatch=null}if(driverLocationMarker&&driverLiveMap){driverLocationMarker.remove()}driverLocationMarker=null}
-function openNavigation(o){const lat=o.status==="trip"?Number(o.destination_lat):Number(o.pickup_lat);const lng=o.status==="trip"?Number(o.destination_lng):Number(o.pickup_lng);if(!Number.isFinite(lat)||!Number.isFinite(lng))return toast("Точка маршрута не загружена",true);const url="https://www.google.com/maps/dir/?api=1&destination="+lat+","+lng+"&travelmode=driving";if(tg?.openLink)tg.openLink(url);else window.open(url,"_blank")}
+function openYandexRoute(o,target){
+ const isB=target==="destination"||o.status==="trip";
+ const lat=isB?Number(o.destination_lat):Number(o.pickup_lat),lng=isB?Number(o.destination_lng):Number(o.pickup_lng);
+ if(!Number.isFinite(lat)||!Number.isFinite(lng))return toast("Координаты точки не загружены",true);
+ const web="https://yandex.ru/maps/?mode=routes&rtext=~"+lat+","+lng+"&rtt=auto";
+ const app="yandexmaps://maps.yandex.ru/?rtext=~"+lat+","+lng+"&rtt=auto";
+ try{
+  window.location.href=app;
+  setTimeout(()=>{try{if(tg?.openLink)tg.openLink(web);else window.location.href=web}catch(_){window.location.href=web}},900);
+ }catch(_){if(tg?.openLink)tg.openLink(web);else window.open(web,"_blank")}
+}
+function openNavigation(o){openYandexRoute(o,o?.status==="trip"?"destination":"pickup")}
 
 async function loadDriverCurrent(showIfFound=false){try{const d=await api("/api/driver-current?telegramId="+encodeURIComponent(uid));if(d.order){renderDriverCurrent(d.order);if(showIfFound)showD("dCurrent");return d.order}return null}catch(e){return null}}
 async function refreshDriver(){const current=await loadDriverCurrent(false);if(current){if(!$("dCurrent").classList.contains("hidden"))showD("dCurrent")}else if(!$("dHome").classList.contains("hidden"))await loadDriverOrders()}
@@ -260,21 +303,23 @@ function renderDriverCurrent(o){
  if(o.status==="trip")actions='<button class="btn red" onclick="driverStatus(\''+o.id+'\',\'completed\')">🏁 Завершить поездку</button>';
  const nav=o.status==="trip"?'<button class="btn navBtn" onclick="openNavigation(window.__driverOrder)">🗺 Открыть навигацию до точки Б</button>':'<button class="btn secondary" onclick="openNavigation(window.__driverOrder)">🗺 Открыть маршрут до точки А</button>';
  const totalWaitMin=Number(o.waiting_minutes||0), totalWaitFee=Number(o.waiting_fee||0);
- const waiting=o.waiting_started_at
-  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div class="small" style="margin-top:5px">Общее оплачиваемое ожидание: <b>'+totalWaitMin+' мин</b> • '+totalWaitFee.toFixed(2)+' BYN</div><div id="waitClock" class="price" style="font-size:24px;margin:7px 0">00:00</div><span class="small">Текущая сессия. После остановки минуты добавятся к общему времени.</span><button class="btn red" onclick="toggleWaiting(\''+o.id+'\')">⏸ Остановить ожидание</button></div>'
-  : '<div class="wait"><strong>⏱ Ожидание</strong><div class="small" style="margin-top:5px">Всего накоплено: <b>'+totalWaitMin+' мин</b> • '+totalWaitFee.toFixed(2)+' BYN</div><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Начать новое ожидание</button></div>';
+ const waitingAllowed=!o.scheduled_at&&(o.status==="accepted"||o.status==="arrived"||o.status==="trip");
+ const waiting=waitingAllowed?(o.waiting_started_at
+  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div class="small" style="margin-top:5px">Всего оплачено: <b>'+totalWaitMin+' мин</b> • '+totalWaitFee.toFixed(2)+' BYN</div><div id="waitClock" class="price" style="font-size:24px;margin:7px 0">00:00</div><span class="small">Пауза не обнуляет накопленное. Если минута началась — она будет начислена при паузе.</span><button class="btn red" onclick="toggleWaiting(\''+o.id+'\')">⏸ Поставить на паузу</button></div>'
+  : '<div class="wait"><strong>⏱ Ожидание</strong><div class="small" style="margin-top:5px">Всего оплачено: <b>'+totalWaitMin+' мин</b> • '+totalWaitFee.toFixed(2)+' BYN</div><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Продолжить ожидание</button></div>'):'<div class="small" style="margin-top:9px">⏱ Ожидание доступно только для заказа «Сейчас».</div>';
  window.__driverOrder=o;
  $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>📞 '+esc(o.passenger_phone||"Номер не указан")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+nav+((o.pickup_lat!=null&&o.destination_lat!=null)?'<div id="driverLiveMap" class="driverMap"></div>':"")+actions+waiting+'</div>'+
  '<div class="driverLocate">📍 Точки А и Б загружены из заказа. В режиме поездки ваше местоположение показывается на карте.</div>';
  if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderDriverMap(o),50);
+ window.__waitingBaseMinutes=Number(o.waiting_minutes||0);
  if(o.waiting_started_at)startWaitingTimer(o.waiting_started_at);
 }
-async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="trip")setTimeout(()=>openNavigation(d.order),300);if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
+async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="trip")setTimeout(()=>openYandexRoute(d.order,"destination"),350);if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
 function stopWaitingTimer(){if(waitingTimer){clearInterval(waitingTimer);waitingTimer=null}}
 function startWaitingTimer(startedAt){
  stopWaitingTimer();
  const started=new Date(startedAt).getTime();
- const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const m=Math.floor(sec/60),s=sec%60;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")};
+ const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const base=Number(window.__waitingBaseMinutes||0)*60;const totalSec=base+sec;const m=Math.floor(totalSec/60),s=totalSec%60;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")};
  tick();waitingTimer=setInterval(tick,1000);
 }
 async function toggleWaiting(id){
@@ -282,7 +327,7 @@ async function toggleWaiting(id){
   const d=await api("/api/orders/"+encodeURIComponent(id)+"/waiting",{method:"POST",body:JSON.stringify({telegramId:uid})});
   driverRenderKey="";
   renderDriverCurrent(d.order);
-  toast(d.action==="started"?"⏱ Отсчёт ожидания начат. Сумма пока 0 BYN.":"⏱ Ожидание остановлено. Начислены только полные минуты.");
+  toast(d.action==="started"?"⏱ Ожидание запущено.":"⏱ Пауза включена. Начатые минуты учтены.");
  }catch(e){toast(e.message,true)}
 }
 
