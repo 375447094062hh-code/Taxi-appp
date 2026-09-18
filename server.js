@@ -147,20 +147,36 @@ async function notifyEligibleDrivers(order) {
   for (const driver of result.rows) {
     if (order.child_seat && !driver.has_child_seat) continue;
 
-    await sendTelegram(
-      driver.telegram_id,
-      [
-        "🚕 НОВЫЙ ЗАКАЗ",
-        "",
-        `📍 Откуда: ${order.pickup}`,
-        `🏁 Куда: ${order.destination}`,
-        `💰 ${Number(order.amount).toFixed(2)} BYN`,
-        order.scheduled_at ? `🕐 ${new Date(order.scheduled_at).toLocaleString("ru-RU")}` : "⚡ Сейчас",
-        order.child_seat ? "👶 Нужно детское кресло" : "",
-        "",
-        "Откройте Mini App → Режим водителя."
-      ].filter(Boolean).join("\n")
-    );
+    const appUrl = String(
+      process.env.APP_URL ||
+      process.env.RENDER_EXTERNAL_URL ||
+      ""
+    ).trim().replace(/\/$/, "");
+
+    const text = [
+      "🚕 НОВЫЙ ЗАКАЗ",
+      "",
+      `📍 Откуда: ${order.pickup}`,
+      `🏁 Куда: ${order.destination}`,
+      `💰 ${Number(order.amount).toFixed(2)} BYN`,
+      order.distance_km != null ? `📏 ${Number(order.distance_km).toFixed(1)} км` : "",
+      order.scheduled_at ? `🕐 ${new Date(order.scheduled_at).toLocaleString("ru-RU")}` : "⚡ Сейчас",
+      order.child_seat ? "👶 Нужно детское кресло" : "",
+      "",
+      "Нажмите кнопку ниже, чтобы открыть заказы и принять этот заказ."
+    ].filter(Boolean).join("\n");
+
+    const extra = appUrl
+      ? {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: "🚕 Открыть заказы", web_app: { url: appUrl } }
+            ]]
+          }
+        }
+      : {};
+
+    await sendTelegram(driver.telegram_id, text, extra);
   }
 }
 
