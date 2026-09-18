@@ -326,10 +326,14 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
       await db(`UPDATE orders SET
         waiting_seconds=waiting_seconds+
           CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int) END,
-        waiting_minutes=waiting_minutes+
-          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int) END,
-        waiting_fee=waiting_fee+
-          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50 END,
+        waiting_minutes=GREATEST(0,CEIL((
+          waiting_seconds+
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int END
+        )/60)::int),
+        waiting_fee=GREATEST(0,CEIL((
+          waiting_seconds+
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int END
+        )/60)::numeric)*0.50,
         waiting_started_at=NULL
         WHERE id=$1 AND driver_telegram_id=$2`,[orderId,driverId]);
     }
@@ -358,10 +362,14 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
     const r=await db(`UPDATE orders
       SET waiting_seconds=waiting_seconds+
           GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int),
-          waiting_minutes=waiting_minutes+
-          GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int),
-          waiting_fee=waiting_fee+
-          GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50,
+          waiting_minutes=GREATEST(0,CEIL((
+            waiting_seconds+
+            GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int)
+          )/60)::int),
+          waiting_fee=GREATEST(0,CEIL((
+            waiting_seconds+
+            GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int)
+          )/60)::numeric)*0.50,
           waiting_started_at=NULL
       WHERE id=$1 AND driver_telegram_id=$2
       RETURNING *`,[orderId,driverId]);
