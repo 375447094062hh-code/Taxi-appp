@@ -254,7 +254,7 @@ function renderDriverCurrent(o){
  if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderDriverMap(o),50);
  if(o.waiting_started_at)startWaitingTimer(o.waiting_started_at);
 }
-async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
+async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="trip")setTimeout(()=>openNavigation(d.order),300);if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
 function stopWaitingTimer(){if(waitingTimer){clearInterval(waitingTimer);waitingTimer=null}}
 function startWaitingTimer(startedAt){
  stopWaitingTimer();
