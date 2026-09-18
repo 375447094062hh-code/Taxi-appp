@@ -96,7 +96,7 @@
 <script>
 const tg=window.Telegram?.WebApp; tg?.ready?.(); tg?.expand?.();
 const uid=String(tg?.initDataUnsafe?.user?.id||""); let role="",pProfile=null,dProfile=null;
-let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null,livePassengerMap=null,driverLiveMap=null,driverLocationMarker=null,driverGeoWatch=null,passengerRenderKey="",driverRenderKey="",waitingTimer=null;
+let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null,livePassengerMap=null,driverLiveMap=null,driverLocationMarker=null,driverGeoWatch=null,passengerRenderKey="",driverRenderKey="",waitingTimer=null,passengerWaitingTimer=null;
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -184,22 +184,51 @@ async function createPassengerOrder(){
 const statusNames={searching:["🔎","Ищем водителя","yellow"],accepted:["✅","Водитель подтвердил заказ","green"],arrived:["📍","Водитель на месте","green"],trip:["🚕","Поездка в пути","green"],completed:["🏁","Поездка завершена","green"],cancelled:["❌","Заказ отменён","yellow"]};
 function callPhone(phone){const p=String(phone||"").trim();if(!p)return toast("Номер не указан",true);const url="tel:"+p;window.location.href=url;setTimeout(()=>{try{window.open(url,"_system")}catch(_){ }},250)}
 function callLink(phone,label){return phone?'<a class="call" href="tel:'+esc(phone)+'" onclick="callPhone(\''+esc(phone).replace(/'/g,"&#039;")+'\');return false">📞 '+label+'<br><span style="font-size:11px;opacity:.9">'+esc(phone)+'</span></a>':""}
+function stopPassengerWaitingTimer(){if(passengerWaitingTimer){clearInterval(passengerWaitingTimer);passengerWaitingTimer=null}}
+function startPassengerWaitingTimer(startedAt,baseSeconds,baseAmount){
+ stopPassengerWaitingTimer();
+ const started=new Date(startedAt).getTime(), base=Math.max(0,Number(baseSeconds||0)), distanceAmount=Math.max(0,Number(baseAmount||0));
+ const tick=()=>{
+  const sec=Math.max(0,Math.floor((Date.now()-started)/1000)), totalSec=base+sec;
+  const charged=totalSec>0?Math.ceil(totalSec/60):0, fee=charged*0.5;
+  const minEl=$("passengerWaitMinutes"), feeEl=$("passengerWaitFee"), totalEl=$("passengerLiveTotal"), clock=$("passengerWaitClock");
+  if(clock)clock.textContent=formatWaitPublic(totalSec);
+  if(minEl)minEl.textContent=charged+" мин";
+  if(feeEl)feeEl.textContent=fee.toFixed(2)+" BYN";
+  if(totalEl)totalEl.textContent=(distanceAmount+fee).toFixed(2)+" BYN";const summary=$("passengerWaitSummary");if(summary)summary.textContent=charged+" мин × 0,50 BYN = "+fee.toFixed(2)+" BYN";const header=$("passengerHeaderTotal");if(header)header.textContent=(distanceAmount+fee).toFixed(2);
+ };
+ tick();passengerWaitingTimer=setInterval(tick,1000);
+}
+function formatWaitPublic(sec){sec=Math.max(0,Math.floor(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
 function renderPassengerOrder(o){
- if(!o){passengerRenderKey="none";if(livePassengerMap){livePassengerMap.remove();livePassengerMap=null}$("currentBox").innerHTML='<div class="title">Нет активной поездки</div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>';return}
- const renderKey=[o.id,o.status,o.driver_phone,o.driver_name,o.waiting_minutes,o.waiting_fee].join("|");
+ if(!o){passengerRenderKey="none";stopPassengerWaitingTimer();if(livePassengerMap){livePassengerMap.remove();livePassengerMap=null}$("currentBox").innerHTML='<div class="title">Нет активной поездки</div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>';return}
+ const renderKey=[o.id,o.status,o.driver_phone,o.driver_name,o.waiting_minutes,o.waiting_fee,o.waiting_seconds,o.waiting_started_at,o.distance_km,o.amount].join("|");
  if(renderKey===passengerRenderKey)return;
  passengerRenderKey=renderKey;
+ stopPassengerWaitingTimer();
  if(livePassengerMap){livePassengerMap.remove();livePassengerMap=null}
- const st=statusNames[o.status]||["","Статус","yellow"], total=Number(o.amount)+Number(o.waiting_fee||0);
+ const st=statusNames[o.status]||["","Статус","yellow"];
+ const baseFare=3, distanceKm=Math.max(0,Number(o.distance_km||0)), distanceUnits=Math.max(0,Math.ceil(distanceKm)), distanceCost=distanceUnits;
+ const savedWaitSec=Math.max(0,Number(o.waiting_seconds||0)), waitingMinutes=Math.max(0,Number(o.waiting_minutes||0)), waitingFee=Math.max(0,Number(o.waiting_fee||0));
+ const tripBase=Number(o.amount||0), total=tripBase+waitingFee;
  let extra="";
  if(o.driver_name)extra='<div class="order"><b>🚗 Водитель</b><div class="routeText">'+esc(o.driver_name)+'</div><div class="small">'+esc(o.driver_car||"")+' • '+esc(o.driver_plate||"")+'<br>⭐ '+Number(o.driver_rating||5).toFixed(2)+'</div>'+callLink(o.driver_phone,"Позвонить водителю")+'</div>';
+ const waitingActive=!!o.waiting_started_at;
+ const waitingHtml=(o.status!=="searching"&&o.status!=="completed")&&(!o.scheduled_at)&&waitingActive
+  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div class="small" style="margin-top:6px">Накоплено: <b id="passengerWaitClock">'+formatWaitPublic(savedWaitSec)+'</b> • оплачено <b id="passengerWaitMinutes">'+Math.max(1,waitingMinutes)+' мин</b> • <b id="passengerWaitFee">'+(Math.max(1,waitingMinutes)*0.5).toFixed(2)+' BYN</b></div><div class="small" style="margin-top:6px">0,50 BYN за каждую начатую минуту. Пауза не обнуляет накопленное время.</div></div>'
+  : (waitingMinutes>0||waitingFee>0 ? '<div class="wait"><strong>⏱ Ожидание</strong><div class="small" style="margin-top:6px">'+formatWaitPublic(savedWaitSec)+' • '+waitingMinutes+' мин × 0,50 BYN = '+waitingFee.toFixed(2)+' BYN</div></div>' : '');
+ const breakdown='<div class="order" style="margin-top:10px"><b>💰 Расчёт стоимости</b><div class="small" style="margin-top:8px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b id="passengerWaitSummary">'+waitingFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;font-size:13px;color:var(--yellow)">Итого: <b id="passengerLiveTotal">'+total.toFixed(2)+' BYN</b></span></div></div>';
  $("currentBox").innerHTML='<div class="back"><button onclick="showP(\'pHome\')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div>'+
- '<div class="order"><div class="orderHead"><div class="routeText">'+esc(o.pickup)+'<br>↓<br>'+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:10px">💰 '+total.toFixed(2)+' BYN'+(Number(o.waiting_fee)>0?' • ожидание '+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div></div>'+extra+
+ '<div class="order"><div class="orderHead"><div class="routeText">'+esc(o.pickup)+'<br>↓<br>'+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:10px">💰 <b id="passengerHeaderTotal">'+total.toFixed(2)+'</b> BYN</div></div>'+breakdown+extra+waitingHtml+
  (o.status!=="searching"&&o.status!=="completed"?'<div id="livePassengerMap" class="map"></div>':"")+
  '<button class="btn secondary" onclick="openCurrent()">🔄 Обновить статус</button>'+
  (o.status==="searching"||o.status==="accepted"?'<button class="btn red" onclick="cancelPassenger(\''+esc(o.id)+'\')">Отменить заказ</button>':"")+
  passengerRatingHtml(o);
  if(o.status!=="searching"&&o.status!=="completed"&&o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderLiveMap(o),50);
+ if(waitingActive){
+  window.__passengerBaseAmount=tripBase;
+  startPassengerWaitingTimer(o.waiting_started_at,savedWaitSec,tripBase);
+ }
 }
 function renderLiveMap(o){
  const el=$("livePassengerMap");if(!el||!window.L)return;
