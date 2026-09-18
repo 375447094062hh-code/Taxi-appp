@@ -6,56 +6,39 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const DATABASE_URL = String(process.env.DATABASE_URL || "").trim();
-
 const DRIVER_CHAT_IDS = Array.from(new Set(
   String(process.env.DRIVER_CHAT_IDS || "")
-    .split(/[,;\n]+/)
-    .map(v => v.trim().replace(/^[\"']+|[\"']+$/g, ""))
-    .filter(Boolean)
+    .split(/[,;\n]+/).map(v => v.trim()).filter(Boolean)
 ));
 
-const pool = DATABASE_URL
-  ? new Pool({
-      connectionString: DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
-    })
-  : null;
+const pool = DATABASE_URL ? new Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+}) : null;
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static("public", {
-  etag: false,
-  maxAge: 0,
+  etag: false, maxAge: 0,
   setHeaders(res) {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
   }
 }));
 
-const ACTIVE_STATUSES = ["searching", "accepted", "arrived", "trip"];
+const ACTIVE_STATUSES = ["searching","accepted","arrived","trip"];
 
-function id(v) {
-  return v == null ? "" : String(v).trim();
-}
+const clean = v => v == null ? "" : String(v).trim();
+const isDriver = id => DRIVER_CHAT_IDS.includes(clean(id));
+const makeId = () => crypto.randomUUID();
 
-function isDriver(telegramId) {
-  return DRIVER_CHAT_IDS.includes(id(telegramId));
-}
-
-function makeOrderId() {
-  return crypto.randomUUID();
-}
-
-async function db(sql, params = []) {
+async function db(sql, params=[]) {
   if (!pool) throw new Error("DATABASE_URL не задан.");
   return pool.query(sql, params);
 }
 
 async function migrate() {
-  if (!pool) {
-    console.log("DATABASE_URL не задан — PostgreSQL отключён.");
-    return;
-  }
+  if (!pool) return console.log("DATABASE_URL не задан — PostgreSQL отключён.");
 
   await db(`
     CREATE TABLE IF NOT EXISTS passengers (
@@ -74,6 +57,7 @@ async function migrate() {
       plate TEXT,
       has_child_seat BOOLEAN NOT NULL DEFAULT FALSE,
       rating NUMERIC(3,2) NOT NULL DEFAULT 5.00,
+      rating_count INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -88,7 +72,7 @@ async function migrate() {
       tariff TEXT NOT NULL DEFAULT 'Стандарт',
       child_seat BOOLEAN NOT NULL DEFAULT FALSE,
       scheduled_at TIMESTAMPTZ,
-      distance_km NUMERIC(10,2),
+      distance_km NUMERIC(10,2) DEFAULT 0,
       amount NUMERIC(10,2) NOT NULL DEFAULT 3.00,
       status TEXT NOT NULL DEFAULT 'searching',
       driver_telegram_id TEXT,
@@ -96,689 +80,316 @@ async function migrate() {
       driver_car TEXT,
       driver_plate TEXT,
       driver_phone TEXT,
+      pickup_lat DOUBLE PRECISION,
+      pickup_lng DOUBLE PRECISION,
+      destination_lat DOUBLE PRECISION,
+      destination_lng DOUBLE PRECISION,
+      waiting_minutes INTEGER NOT NULL DEFAULT 0,
+      waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      waiting_started_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       accepted_at TIMESTAMPTZ,
       arrived_at TIMESTAMPTZ,
       trip_started_at TIMESTAMPTZ,
       completed_at TIMESTAMPTZ
     );
+
+    CREATE TABLE IF NOT EXISTS ratings (
+      id BIGSERIAL PRIMARY KEY,
+      order_id TEXT UNIQUE NOT NULL,
+      passenger_telegram_id TEXT NOT NULL,
+      driver_telegram_id TEXT NOT NULL,
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      good JSONB NOT NULL DEFAULT '[]'::jsonb,
+      bad JSONB NOT NULL DEFAULT '[]'::jsonb,
+      comment TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await db(`
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_lat DOUBLE PRECISION;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_lng DOUBLE PRECISION;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_lat DOUBLE PRECISION;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_lng DOUBLE PRECISION;
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS rating_count INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_minutes INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_started_at TIMESTAMPTZ;
   `);
-
   console.log("PostgreSQL: таблицы готовы.");
 }
 
-async function telegram(method, body = {}) {
-  if (!BOT_TOKEN) return { ok: false, description: "TELEGRAM_BOT_TOKEN не задан" };
-
-  const response = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    }
-  );
-
-  return response.json();
+async function telegram(method, body={}) {
+  if (!BOT_TOKEN) return {ok:false, description:"TELEGRAM_BOT_TOKEN не задан"};
+  const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+  });
+  return r.json();
 }
 
-async function sendTelegram(chatId, text, extra = {}) {
-  return telegram("sendMessage", {
-    chat_id: chatId,
-    text,
-    ...extra
-  });
+async function sendTelegram(chatId, text, extra={}) {
+  return telegram("sendMessage", {chat_id:chatId, text, ...extra});
 }
 
 async function notifyPassenger(order, text) {
-  if (order?.passenger_telegram_id) {
-    await sendTelegram(order.passenger_telegram_id, text);
-  }
+  if (order?.passenger_telegram_id) await sendTelegram(order.passenger_telegram_id, text);
 }
 
-async function notifyEligibleDrivers(order) {
-  if (!pool || DRIVER_CHAT_IDS.length === 0) return;
-
-  const result = await db(
-    "SELECT * FROM drivers WHERE telegram_id = ANY($1::text[]) ORDER BY created_at ASC",
-    [DRIVER_CHAT_IDS]
-  );
-
-  for (const driver of result.rows) {
-    if (order.child_seat && !driver.has_child_seat) continue;
-
-    const appUrl = String(
-      process.env.APP_URL ||
-      process.env.RENDER_EXTERNAL_URL ||
-      ""
-    ).trim().replace(/\/$/, "");
-
+async function notifyDrivers(order) {
+  if (!pool || !DRIVER_CHAT_IDS.length) return;
+  const rows = (await db("SELECT * FROM drivers WHERE telegram_id=ANY($1::text[])", [DRIVER_CHAT_IDS])).rows;
+  const appUrl = clean(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/$/,"");
+  for (const d of rows) {
+    if (order.child_seat && !d.has_child_seat) continue;
     const text = [
       "🚕 НОВЫЙ ЗАКАЗ",
       "",
-      `📍 Откуда: ${order.pickup}`,
-      `🏁 Куда: ${order.destination}`,
+      `📍 ${order.pickup}`,
+      `🏁 ${order.destination}`,
       `💰 ${Number(order.amount).toFixed(2)} BYN`,
-      order.distance_km != null ? `📏 ${Number(order.distance_km).toFixed(1)} км` : "",
       order.scheduled_at ? `🕐 ${new Date(order.scheduled_at).toLocaleString("ru-RU")}` : "⚡ Сейчас",
       order.child_seat ? "👶 Нужно детское кресло" : "",
       "",
-      "Нажмите кнопку ниже, чтобы открыть заказы и принять этот заказ."
+      "Откройте Mini App и примите заказ."
     ].filter(Boolean).join("\n");
-
-    const extra = appUrl
-      ? {
-          reply_markup: {
-            inline_keyboard: [[
-              { text: "🚕 Открыть заказы", web_app: { url: appUrl } }
-            ]]
-          }
-        }
-      : {};
-
-    await sendTelegram(driver.telegram_id, text, extra);
+    await sendTelegram(d.telegram_id, text, appUrl ? {
+      reply_markup:{inline_keyboard:[[{text:"🚕 Открыть заказы",web_app:{url:appUrl}}]]}
+    } : {});
   }
 }
 
 async function setTelegramMenu() {
-  if (!BOT_TOKEN) return;
-
-  const appUrl = String(
-    process.env.APP_URL ||
-    process.env.RENDER_EXTERNAL_URL ||
-    ""
-  ).trim();
-
-  if (!appUrl) {
-    console.log("APP_URL/RENDER_EXTERNAL_URL не задан — кнопка Mini App не устанавливается.");
-    return;
-  }
-
-  const url = appUrl.replace(/\/$/, "");
-
-  await telegram("setChatMenuButton", {
-    menu_button: {
-      type: "web_app",
-      text: "🚕 Такси Речица",
-      web_app: { url }
-    }
-  });
-
-  await telegram("setMyCommands", {
-    commands: [
-      { command: "start", description: "Открыть Такси Речица" },
-      { command: "driverid", description: "Показать Telegram ID" }
-    ]
-  });
-
-  console.log("Telegram: Mini App menu button configured.");
+  const url = clean(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/$/,"");
+  if (!BOT_TOKEN || !url) return;
+  await telegram("setChatMenuButton",{menu_button:{type:"web_app",text:"🚕 Такси Речица",web_app:{url}}});
+  await telegram("setMyCommands",{commands:[
+    {command:"start",description:"Открыть Такси Речица"},
+    {command:"driverid",description:"Показать Telegram ID"}
+  ]});
 }
-
-async function pollTelegram() {
-  if (!BOT_TOKEN) {
-    console.log("TELEGRAM_BOT_TOKEN не задан — polling отключён.");
-    return;
-  }
-
-  let offset = 0;
-
-  while (true) {
-    try {
-      const result = await telegram("getUpdates", {
-        offset,
-        timeout: 25,
-        allowed_updates: ["message"]
-      });
-
-      if (!result.ok) {
-        console.error("Telegram polling:", result.description);
-        await new Promise(r => setTimeout(r, 3000));
-        continue;
-      }
-
-      for (const update of result.result || []) {
-        offset = update.update_id + 1;
-
-        if (!update.message?.text) continue;
-
-        const chatId = update.message.chat.id;
-        const userId = update.message.from?.id;
-        const text = update.message.text.trim();
-
-        if (text === "/driverid") {
-          await sendTelegram(
-            chatId,
-            `🆔 Ваш Telegram ID:\n\n${userId}\n\n` +
-            "Добавьте это число в Render → Environment → DRIVER_CHAT_IDS."
-          );
-          continue;
-        }
-
-        if (text.startsWith("/start")) {
-          if (isDriver(userId)) {
-            await sendTelegram(
-              chatId,
-              "🚕 Такси Речица\n\nВы определены как ВОДИТЕЛЬ.\nОткройте Mini App через кнопку меню."
-            );
-          } else {
-            await sendTelegram(
-              chatId,
-              "🚕 Такси Речица\n\nВы определены как ПАССАЖИР.\nОткройте Mini App через кнопку меню."
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Telegram polling error:", error.message);
-      await new Promise(r => setTimeout(r, 3000));
-    }
-  }
-}
-
-// ------------------------------------------------------------
-// ROLE
-// ------------------------------------------------------------
-
-app.get("/api/user-role", async (req, res) => {
-  try {
-    const telegramId = id(req.query.telegramId);
-
-    if (!telegramId) {
-      return res.status(400).json({
-        success: false,
-        error: "Telegram ID не указан."
-      });
-    }
-
-    if (isDriver(telegramId)) {
-      let driver = null;
-
-      if (pool) {
-        const result = await db(
-          "SELECT telegram_id, name, phone, car, plate, has_child_seat, rating FROM drivers WHERE telegram_id=$1",
-          [telegramId]
-        );
-        driver = result.rows[0] || null;
-      }
-
-      return res.json({
-        success: true,
-        role: "driver",
-        driver,
-        telegramId
-      });
-    }
-
-    return res.json({
-      success: true,
-      role: "passenger",
-      driver: null,
-      telegramId
-    });
-  } catch (error) {
-    console.error("/api/user-role:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ------------------------------------------------------------
-// PASSENGER PROFILE
-// ------------------------------------------------------------
-
-app.get("/api/passenger-profile", async (req, res) => {
-  try {
-    const telegramId = id(req.query.telegramId);
-
-    if (!telegramId) {
-      return res.status(400).json({ success: false, error: "Telegram ID не указан." });
-    }
-
-    const result = await db(
-      "SELECT telegram_id, name, phone FROM passengers WHERE telegram_id=$1",
-      [telegramId]
-    );
-
-    res.json({
-      success: true,
-      profile: result.rows[0] || null
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post("/api/passenger-profile", async (req, res) => {
-  try {
-    const telegramId = id(req.body.telegramId);
-    const name = id(req.body.name);
-    const phone = id(req.body.phone);
-
-    if (!telegramId || !name || !phone) {
-      return res.status(400).json({
-        success: false,
-        error: "Заполните имя и телефон."
-      });
-    }
-
-    const result = await db(
-      `INSERT INTO passengers (telegram_id, name, phone)
-       VALUES ($1,$2,$3)
-       ON CONFLICT (telegram_id)
-       DO UPDATE SET name=$2, phone=$3, updated_at=NOW()
-       RETURNING telegram_id, name, phone`,
-      [telegramId, name, phone]
-    );
-
-    res.json({ success: true, profile: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ------------------------------------------------------------
-// DRIVER PROFILE
-// ------------------------------------------------------------
-
-app.get("/api/driver-profile", async (req, res) => {
-  try {
-    const telegramId = id(req.query.telegramId);
-
-    if (!isDriver(telegramId)) {
-      return res.status(403).json({
-        success: false,
-        error: "Нет доступа водителя."
-      });
-    }
-
-    const result = await db(
-      "SELECT telegram_id, name, phone, car, plate, has_child_seat, rating FROM drivers WHERE telegram_id=$1",
-      [telegramId]
-    );
-
-    res.json({
-      success: true,
-      profile: result.rows[0] || null
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post("/api/driver-profile", async (req, res) => {
-  try {
-    const telegramId = id(req.body.telegramId);
-
-    if (!isDriver(telegramId)) {
-      return res.status(403).json({ success: false, error: "Нет доступа водителя." });
-    }
-
-    const name = id(req.body.name);
-    const phone = id(req.body.phone);
-    const car = id(req.body.car);
-    const plate = id(req.body.plate);
-    const hasChildSeat = Boolean(req.body.hasChildSeat);
-
-    if (!name || !phone || !car || !plate) {
-      return res.status(400).json({
-        success: false,
-        error: "Заполните имя, телефон, автомобиль и номер."
-      });
-    }
-
-    const result = await db(
-      `INSERT INTO drivers (telegram_id,name,phone,car,plate,has_child_seat)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (telegram_id)
-       DO UPDATE SET name=$2,phone=$3,car=$4,plate=$5,has_child_seat=$6,updated_at=NOW()
-       RETURNING telegram_id,name,phone,car,plate,has_child_seat,rating`,
-      [telegramId,name,phone,car,plate,hasChildSeat]
-    );
-
-    res.json({ success: true, profile: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ------------------------------------------------------------
-// ORDERS
-// ------------------------------------------------------------
-
-app.post("/api/orders", async (req, res) => {
-  try {
-    const passengerId = id(req.body.telegramId);
-
-    if (!passengerId || isDriver(passengerId)) {
-      return res.status(403).json({
-        success: false,
-        error: "Заказ может создать только пассажир."
-      });
-    }
-
-    const pickup = id(req.body.pickup);
-    const destination = id(req.body.destination);
-    const tariff = id(req.body.tariff) || "Стандарт";
-    const childSeat = Boolean(req.body.childSeat);
-    const scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt) : null;
-
-    if (!pickup || !destination) {
-      return res.status(400).json({
-        success: false,
-        error: "Укажите адрес подачи и адрес назначения."
-      });
-    }
-
-    if (scheduledAt && Number.isNaN(scheduledAt.getTime())) {
-      return res.status(400).json({
-        success: false,
-        error: "Неверная дата и время."
-      });
-    }
-
-    const passenger = await db(
-      "SELECT name,phone FROM passengers WHERE telegram_id=$1",
-      [passengerId]
-    );
-
-    const p = passenger.rows[0];
-
-    if (!p?.name || !p?.phone) {
-      return res.status(400).json({
-        success: false,
-        error: "Сначала заполните профиль пассажира."
-      });
-    }
-
-    // Базовый тариф по текущему правилу пользователя:
-    // посадка 3 BYN + 1 BYN за каждый км.
-    // Пока координаты не переданы, сохраняем минимальную сумму 3 BYN.
-    const distanceKm = Number(req.body.distanceKm);
-    const safeDistance = Number.isFinite(distanceKm) && distanceKm >= 0 ? distanceKm : 0;
-    const amount = 3 + Math.ceil(safeDistance) * 1;
-
-    const orderId = makeOrderId();
-
-    const result = await db(
-      `INSERT INTO orders
-       (id,passenger_telegram_id,passenger_name,passenger_phone,pickup,destination,tariff,child_seat,scheduled_at,distance_km,amount,pickup_lat,pickup_lng,destination_lat,destination_lng)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-       RETURNING *`,
-      [
-        orderId,
-        passengerId,
-        p.name,
-        p.phone,
-        pickup,
-        destination,
-        tariff,
-        childSeat,
-        scheduledAt,
-        safeDistance,
-        amount,
-        Number.isFinite(Number(req.body.pickupLat)) ? Number(req.body.pickupLat) : null,
-        Number.isFinite(Number(req.body.pickupLng)) ? Number(req.body.pickupLng) : null,
-        Number.isFinite(Number(req.body.destinationLat)) ? Number(req.body.destinationLat) : null,
-        Number.isFinite(Number(req.body.destinationLng)) ? Number(req.body.destinationLng) : null
-      ]
-    );
-
-    const order = result.rows[0];
-
-    await notifyEligibleDrivers(order);
-
-    res.json({
-      success: true,
-      order
-    });
-  } catch (error) {
-    console.error("/api/orders:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get("/api/orders/current", async (req, res) => {
-  try {
-    const telegramId = id(req.query.telegramId);
-
-    const result = await db(
-      `SELECT * FROM orders
-       WHERE passenger_telegram_id=$1
-         AND status = ANY($2::text[])
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [telegramId, ACTIVE_STATUSES]
-    );
-
-    res.json({
-      success: true,
-      order: result.rows[0] || null
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get("/api/driver-orders", async (req, res) => {
-  try {
-    const telegramId = id(req.query.telegramId);
-
-    if (!isDriver(telegramId)) {
-      return res.status(403).json({
-        success: false,
-        error: "Нет доступа водителя."
-      });
-    }
-
-    const result = await db(
-      `SELECT * FROM orders
-       WHERE status='searching'
-       AND (child_seat=false OR child_seat=(SELECT has_child_seat FROM drivers WHERE telegram_id=$1))
-       ORDER BY scheduled_at NULLS FIRST, created_at ASC`,
-      [telegramId]
-    );
-
-    res.json({ success: true, orders: result.rows });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post("/api/orders/:orderId/accept", async (req, res) => {
-  try {
-    const telegramId = id(req.body.telegramId);
-    const orderId = id(req.params.orderId);
-
-    if (!isDriver(telegramId)) {
-      return res.status(403).json({ success: false, error: "Нет доступа водителя." });
-    }
-
-    const driverResult = await db(
-      "SELECT * FROM drivers WHERE telegram_id=$1",
-      [telegramId]
-    );
-
-    const driver = driverResult.rows[0];
-
-    if (!driver) {
-      return res.status(400).json({
-        success: false,
-        error: "Сначала заполните профиль водителя."
-      });
-    }
-
-    const result = await db(
-      `UPDATE orders
-       SET status='accepted',
-           driver_telegram_id=$1,
-           driver_name=$2,
-           driver_car=$3,
-           driver_plate=$4,
-           driver_phone=$5,
-           accepted_at=NOW()
-       WHERE id=$6 AND status='searching'
-       RETURNING *`,
-      [telegramId,driver.name,driver.car,driver.plate,driver.phone,orderId]
-    );
-
-    if (!result.rows[0]) {
-      return res.status(409).json({
-        success: false,
-        error: "Заказ уже принят другим водителем."
-      });
-    }
-
-    const order = result.rows[0];
-
-    await notifyPassenger(
-      order,
-      [
-        "🚕 ВОДИТЕЛЬ НАЙДЕН",
-        "",
-        `👤 ${order.driver_name || "Водитель"}`,
-        `🚗 ${order.driver_car || "-"}`,
-        `🔢 ${order.driver_plate || "-"}`,
-        `📞 ${order.driver_phone || "-"}`,
-        "",
-        "Водитель направляется к вам."
-      ].join("\n")
-    );
-
-    res.json({ success: true, order });
-  } catch (error) {
-    console.error("accept:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get("/api/driver-current", async (req, res) => {
-  try {
-    const telegramId = id(req.query.telegramId);
-
-    if (!isDriver(telegramId)) {
-      return res.status(403).json({
-        success: false,
-        error: "Нет доступа водителя."
-      });
-    }
-
-    const result = await db(
-      `SELECT * FROM orders
-       WHERE driver_telegram_id=$1
-         AND status = ANY($2::text[])
-       ORDER BY accepted_at DESC NULLS LAST, created_at DESC
-       LIMIT 1`,
-      [telegramId, ACTIVE_STATUSES]
-    );
-
-    res.json({
-      success: true,
-      order: result.rows[0] || null
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post("/api/orders/:orderId/status", async (req, res) => {
-  try {
-    const telegramId = id(req.body.telegramId);
-    const orderId = id(req.params.orderId);
-    const nextStatus = id(req.body.status);
-
-    if (!isDriver(telegramId)) {
-      return res.status(403).json({ success: false, error: "Нет доступа водителя." });
-    }
-
-    const allowed = {
-      arrived: ["accepted"],
-      trip: ["arrived"],
-      completed: ["trip"]
-    };
-
-    if (!allowed[nextStatus]) {
-      return res.status(400).json({ success: false, error: "Недопустимый статус." });
-    }
-
-    const column = {
-      arrived: "arrived_at",
-      trip: "trip_started_at",
-      completed: "completed_at"
-    }[nextStatus];
-
-    const result = await db(
-      `UPDATE orders
-       SET status=$1, ${column}=NOW()
-       WHERE id=$2 AND driver_telegram_id=$3 AND status = ANY($4::text[])
-       RETURNING *`,
-      [nextStatus,orderId,telegramId,allowed[nextStatus]]
-    );
-
-    if (!result.rows[0]) {
-      return res.status(409).json({
-        success: false,
-        error: "Статус заказа уже изменён."
-      });
-    }
-
-    const order = result.rows[0];
-
-    const messages = {
-      arrived: "📍 Водитель прибыл к месту подачи.",
-      trip: "🚕 Поездка началась.",
-      completed: "✅ Поездка завершена. Спасибо!"
-    };
-
-    await notifyPassenger(order, messages[nextStatus]);
-
-    res.json({ success: true, order });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ------------------------------------------------------------
-// HEALTH
-// ------------------------------------------------------------
 
 app.get("/api/health", async (req,res) => {
-  let database = false;
-
-  try {
-    if (pool) {
-      await db("SELECT 1");
-      database = true;
-    }
-  } catch (_) {}
-
-  res.json({
-    success: true,
-    database,
-    telegram: Boolean(BOT_TOKEN),
-    driversConfigured: DRIVER_CHAT_IDS.length,
-    time: new Date().toISOString()
-  });
+  let database=false;
+  try { if(pool){await db("SELECT 1");database=true;} } catch(_){}
+  res.json({success:true,database,telegram:Boolean(BOT_TOKEN),driversConfigured:DRIVER_CHAT_IDS.length,time:new Date().toISOString()});
 });
 
-app.get("*", (req,res) => {
-  if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ success:false,error:"API route not found." });
-  }
+app.get("/api/user-role", async (req,res) => {
+  try {
+    const telegramId=clean(req.query.telegramId);
+    if(!telegramId) return res.status(400).json({success:false,error:"Telegram ID не указан."});
+    if(isDriver(telegramId)){
+      const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
+      return res.json({success:true,role:"driver",driver:r.rows[0]||null,telegramId});
+    }
+    res.json({success:true,role:"passenger",driver:null,telegramId});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/passenger-profile", async (req,res)=>{
+  try {
+    const id=clean(req.query.telegramId);
+    const r=await db("SELECT telegram_id,name,phone FROM passengers WHERE telegram_id=$1",[id]);
+    res.json({success:true,profile:r.rows[0]||null});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/passenger-profile", async (req,res)=>{
+  try {
+    const telegramId=clean(req.body.telegramId), name=clean(req.body.name), phone=clean(req.body.phone);
+    if(!telegramId||!name||!phone) return res.status(400).json({success:false,error:"Заполните имя и телефон."});
+    const r=await db(`INSERT INTO passengers(telegram_id,name,phone) VALUES($1,$2,$3)
+      ON CONFLICT(telegram_id) DO UPDATE SET name=$2,phone=$3,updated_at=NOW()
+      RETURNING telegram_id,name,phone`,[telegramId,name,phone]);
+    res.json({success:true,profile:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/driver-profile", async (req,res)=>{
+  try {
+    const telegramId=clean(req.query.telegramId);
+    if(!isDriver(telegramId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
+    res.json({success:true,profile:r.rows[0]||null});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/driver-profile", async (req,res)=>{
+  try {
+    const telegramId=clean(req.body.telegramId);
+    if(!isDriver(telegramId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const name=clean(req.body.name), phone=clean(req.body.phone), car=clean(req.body.car), plate=clean(req.body.plate);
+    if(!name||!phone||!car||!plate) return res.status(400).json({success:false,error:"Заполните имя, телефон, автомобиль и номер."});
+    const child=Boolean(req.body.hasChildSeat);
+    const r=await db(`INSERT INTO drivers(telegram_id,name,phone,car,plate,has_child_seat)
+      VALUES($1,$2,$3,$4,$5,$6)
+      ON CONFLICT(telegram_id) DO UPDATE SET name=$2,phone=$3,car=$4,plate=$5,has_child_seat=$6,updated_at=NOW()
+      RETURNING telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count`,
+      [telegramId,name,phone,car,plate,child]);
+    res.json({success:true,profile:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/orders", async (req,res)=>{
+  try {
+    const passengerId=clean(req.body.telegramId);
+    if(!passengerId||isDriver(passengerId)) return res.status(403).json({success:false,error:"Заказ может создать только пассажир."});
+    const pickup=clean(req.body.pickup), destination=clean(req.body.destination);
+    if(!pickup||!destination) return res.status(400).json({success:false,error:"Укажите точки А и Б."});
+    const p=(await db("SELECT name,phone FROM passengers WHERE telegram_id=$1",[passengerId])).rows[0];
+    if(!p?.name||!p?.phone) return res.status(400).json({success:false,error:"Сначала заполните профиль пассажира."});
+    const scheduledAt=req.body.scheduledAt?new Date(req.body.scheduledAt):null;
+    if(scheduledAt&&Number.isNaN(scheduledAt.getTime())) return res.status(400).json({success:false,error:"Неверная дата и время."});
+    const km=Number(req.body.distanceKm);
+    const distance=Number.isFinite(km)&&km>=0?km:0;
+    const amount=3+Math.ceil(distance);
+    const r=await db(`INSERT INTO orders
+      (id,passenger_telegram_id,passenger_name,passenger_phone,pickup,destination,tariff,child_seat,scheduled_at,distance_km,amount,pickup_lat,pickup_lng,destination_lat,destination_lng)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+      [makeId(),passengerId,p.name,p.phone,pickup,destination,clean(req.body.tariff)||"Стандарт",Boolean(req.body.childSeat),scheduledAt,distance,amount,
+       Number.isFinite(Number(req.body.pickupLat))?Number(req.body.pickupLat):null,
+       Number.isFinite(Number(req.body.pickupLng))?Number(req.body.pickupLng):null,
+       Number.isFinite(Number(req.body.destinationLat))?Number(req.body.destinationLat):null,
+       Number.isFinite(Number(req.body.destinationLng))?Number(req.body.destinationLng):null]);
+    await notifyDrivers(r.rows[0]);
+    res.json({success:true,order:r.rows[0]});
+  } catch(e){console.error(e);res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/orders/current", async (req,res)=>{
+  try {
+    const r=await db(`SELECT o.*, d.rating AS driver_rating
+      FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id
+      WHERE o.passenger_telegram_id=$1 AND o.status=ANY($2::text[])
+      ORDER BY o.created_at DESC LIMIT 1`,[clean(req.query.telegramId),ACTIVE_STATUSES]);
+    res.json({success:true,order:r.rows[0]||null});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/orders/history", async (req,res)=>{
+  try {
+    const id=clean(req.query.telegramId);
+    if(isDriver(id)){
+      const r=await db("SELECT * FROM orders WHERE driver_telegram_id=$1 AND status='completed' ORDER BY completed_at DESC LIMIT 100",[id]);
+      return res.json({success:true,orders:r.rows});
+    }
+    const r=await db("SELECT * FROM orders WHERE passenger_telegram_id=$1 AND status='completed' ORDER BY completed_at DESC LIMIT 100",[id]);
+    res.json({success:true,orders:r.rows});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/driver-orders", async (req,res)=>{
+  try {
+    const id=clean(req.query.telegramId);
+    if(!isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const r=await db(`SELECT * FROM orders WHERE status='searching'
+      AND (child_seat=false OR child_seat=(SELECT has_child_seat FROM drivers WHERE telegram_id=$1))
+      ORDER BY scheduled_at NULLS FIRST,created_at ASC`,[id]);
+    res.json({success:true,orders:r.rows});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/driver-current", async (req,res)=>{
+  try {
+    const id=clean(req.query.telegramId);
+    if(!isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const r=await db("SELECT * FROM orders WHERE driver_telegram_id=$1 AND status=ANY($2::text[]) ORDER BY accepted_at DESC NULLS LAST LIMIT 1",[id,ACTIVE_STATUSES]);
+    res.json({success:true,order:r.rows[0]||null});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/orders/:orderId/accept", async (req,res)=>{
+  try {
+    const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId);
+    if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const d=(await db("SELECT * FROM drivers WHERE telegram_id=$1",[driverId])).rows[0];
+    if(!d?.name||!d?.phone||!d?.car||!d?.plate) return res.status(400).json({success:false,error:"Сначала заполните профиль водителя."});
+    const r=await db(`UPDATE orders SET status='accepted',driver_telegram_id=$1,driver_name=$2,driver_car=$3,driver_plate=$4,driver_phone=$5,accepted_at=NOW()
+      WHERE id=$6 AND status='searching' RETURNING *`,[driverId,d.name,d.car,d.plate,d.phone,orderId]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ уже принят другим водителем."});
+    await notifyPassenger(r.rows[0],"✅ Водитель подтвердил заказ.\n\n🚗 "+(d.car||"Автомобиль")+" "+(d.plate||"")+"\n👤 "+(d.name||"Водитель"));
+    res.json({success:true,order:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/orders/:orderId/status", async (req,res)=>{
+  try {
+    const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId), next=clean(req.body.status);
+    if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const allowed={arrived:["accepted"],trip:["arrived"],completed:["trip"]};
+    if(!allowed[next]) return res.status(400).json({success:false,error:"Недопустимый статус."});
+    const col={arrived:"arrived_at",trip:"trip_started_at",completed:"completed_at"}[next];
+    const r=await db(`UPDATE orders SET status=$1,${col}=NOW() WHERE id=$2 AND driver_telegram_id=$3 AND status=ANY($4::text[]) RETURNING *`,
+      [next,orderId,driverId,allowed[next]]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Статус уже изменён."});
+    const msg={arrived:"📍 Водитель на месте.",trip:"🚕 Поездка началась.",completed:"🏁 Поездка завершена."}[next];
+    await notifyPassenger(r.rows[0],msg);
+    res.json({success:true,order:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/orders/:orderId/waiting", async (req,res)=>{
+  try {
+    const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId);
+    if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const r=await db(`UPDATE orders SET waiting_minutes=waiting_minutes+1,waiting_fee=waiting_fee+0.50,waiting_started_at=COALESCE(waiting_started_at,NOW())
+      WHERE id=$1 AND driver_telegram_id=$2 AND status IN ('arrived','trip') RETURNING *`,[orderId,driverId]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Ожидание сейчас недоступно."});
+    await notifyPassenger(r.rows[0],`⏱ Ожидание: ${r.rows[0].waiting_minutes} мин • +${Number(r.rows[0].waiting_fee).toFixed(2)} BYN`);
+    res.json({success:true,order:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/orders/:orderId/cancel", async (req,res)=>{
+  try {
+    const uid=clean(req.body.telegramId), oid=clean(req.params.orderId);
+    const r=await db(`UPDATE orders SET status='cancelled' WHERE id=$1 AND passenger_telegram_id=$2 AND status=ANY($3::text[]) RETURNING *`,[oid,uid,ACTIVE_STATUSES]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ нельзя отменить."});
+    if(r.rows[0].driver_telegram_id) await notifyPassenger(r.rows[0],"❌ Заказ отменён.");
+    res.json({success:true,order:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/passenger-feedback", async (req,res)=>{
+  try {
+    const passengerId=clean(req.body.telegramId), orderId=clean(req.body.orderId), rating=Number(req.body.rating);
+    if(!passengerId||!orderId||rating<1||rating>5) return res.status(400).json({success:false,error:"Выберите оценку от 1 до 5."});
+    const order=(await db("SELECT * FROM orders WHERE id=$1 AND passenger_telegram_id=$2 AND status='completed'",[orderId,passengerId])).rows[0];
+    if(!order?.driver_telegram_id) return res.status(400).json({success:false,error:"Поездка не найдена."});
+    const exists=await db("SELECT id FROM ratings WHERE order_id=$1",[orderId]);
+    if(exists.rows[0]) return res.status(409).json({success:false,error:"Оценка уже оставлена."});
+    await db("INSERT INTO ratings(order_id,passenger_telegram_id,driver_telegram_id,rating,good,bad,comment) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7)",
+      [orderId,passengerId,order.driver_telegram_id,rating,JSON.stringify(req.body.good||[]),JSON.stringify(req.body.bad||[]),clean(req.body.comment)]);
+    await db(`UPDATE drivers SET rating=ROUND(((rating*rating_count)+$1)/NULLIF(rating_count+1,0),2),rating_count=rating_count+1 WHERE telegram_id=$2`,[rating,order.driver_telegram_id]);
+    res.json({success:true});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/order-status", async (req,res)=>{
+  try {
+    const uid=clean(req.query.telegramId), oid=clean(req.query.id);
+    const r=await db(`SELECT o.*,d.rating AS driver_rating FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id WHERE o.id=$1 AND (o.passenger_telegram_id=$2 OR o.driver_telegram_id=$2)`,[oid,uid]);
+    if(!r.rows[0]) return res.status(404).json({success:false,error:"Заказ не найден."});
+    res.json(r.rows[0]);
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/driver-stats", async (req,res)=>{
+  try {
+    const id=clean(req.query.telegramId);
+    if(!isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const month = /^\d{4}-\d{2}$/.test(clean(req.query.month)) ? clean(req.query.month) : new Date().toISOString().slice(0,7);
+    const r=await db(`SELECT COUNT(*)::int AS orders,
+      COALESCE(SUM(amount+waiting_fee),0)::numeric(10,2) AS earnings,
+      COALESCE(SUM(waiting_minutes),0)::int AS waiting_minutes
+      FROM orders WHERE driver_telegram_id=$1 AND status='completed' AND TO_CHAR(completed_at,'YYYY-MM')=$2`,[id,month]);
+    res.json({success:true,month,stats:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("*",(req,res)=>{
+  if(req.path.startsWith("/api/")) return res.status(404).json({success:false,error:"API route not found."});
   res.sendFile(require("path").join(__dirname,"public","index.html"));
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT,"0.0.0.0",()=>{
   console.log(`Taxi Речица: server started on port ${PORT}`);
-  console.log(`Driver IDs configured: ${DRIVER_CHAT_IDS.length}`);
-
-  migrate()
-    .then(setTelegramMenu)
-    .then(() => pollTelegram())
-    .catch(error => console.error("Startup:", error));
+  migrate().then(setTelegramMenu).catch(e=>console.error("Startup:",e));
 });
