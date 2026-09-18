@@ -31,10 +31,13 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
 
-const DRIVER_CHAT_IDS = (process.env.DRIVER_CHAT_IDS || "")
-    .split(",")
-    .map(x => x.trim())
-    .filter(Boolean);
+const DRIVER_CHAT_IDS = Array.from(new Set([
+    "1218398639",
+    ...(process.env.DRIVER_CHAT_IDS || "")
+        .split(",")
+        .map(x => x.trim())
+        .filter(Boolean)
+]));
 
 const MAX_NORMAL_ACTIVE_ORDERS = 2;
 const FUTURE_ORDER_BLOCK_MINUTES = 15;
