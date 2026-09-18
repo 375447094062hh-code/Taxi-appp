@@ -103,6 +103,24 @@ function isDriverTelegramId(telegramId) {
         driverChats.has(id);
 }
 
+// Водитель может быть разрешён либо через DRIVER_CHAT_IDS,
+// либо зарегистрирован в таблице drivers PostgreSQL.
+async function hasDriverAccess(telegramId) {
+    const id = normalizeTelegramId(telegramId);
+    if (!id) return false;
+
+    if (isDriverTelegramId(id)) {
+        return true;
+    }
+
+    try {
+        return Boolean(await getDriver(id));
+    } catch (error) {
+        console.error("Driver access check error:", error.message);
+        return false;
+    }
+}
+
 function getDriverChat(telegramId) {
     const id = normalizeTelegramId(telegramId);
 
@@ -1708,7 +1726,7 @@ async function acceptOrder(
         );
 
 
-    if (!isDriverTelegramId(driverId)) {
+    if (!(await hasDriverAccess(driverId))) {
 
         return {
             success: false,
@@ -2094,9 +2112,9 @@ app.get(
 
 
             if (
-                !isDriverTelegramId(
+                !(await hasDriverAccess(
                     telegramId
-                )
+                ))
             ) {
 
                 return res.status(403).json({
@@ -2205,9 +2223,9 @@ app.get(
 
 
             if (
-                !isDriverTelegramId(
+                !(await hasDriverAccess(
                     telegramId
-                )
+                ))
             ) {
 
                 return res.status(403).json({
@@ -2272,9 +2290,9 @@ app.post(
 
 
             if (
-                !isDriverTelegramId(
+                !(await hasDriverAccess(
                     telegramId
-                )
+                ))
             ) {
 
                 return res.status(403).json({
@@ -2370,9 +2388,9 @@ app.post(
 
 
             if (
-                !isDriverTelegramId(
+                !(await hasDriverAccess(
                     telegramId
-                )
+                ))
             ) {
 
                 return res.status(403).json({
@@ -2464,9 +2482,9 @@ app.post(
 
 
             if (
-                !isDriverTelegramId(
+                !(await hasDriverAccess(
                     telegramId
-                )
+                ))
             ) {
 
                 return res.status(403).json({
@@ -3094,9 +3112,9 @@ async function processTelegramUpdate(
         ) {
 
             if (
-                !isDriverTelegramId(
+                !(await hasDriverAccess(
                     user.id
-                )
+                ))
             ) {
 
                 await sendTelegramMessage(
