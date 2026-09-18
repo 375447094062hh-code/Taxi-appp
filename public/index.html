@@ -292,7 +292,7 @@ async function rejectDriver(id){try{await api("/api/orders/"+encodeURIComponent(
 async function openDriverCurrent(){const order=await loadDriverCurrent(false);showD("dCurrent");if(!order)toast("Активной поездки нет. Если есть новый заказ, он появится на главной панели.",true)}
 function renderDriverCurrent(o){
  if(!o){driverRenderKey="none";stopWaitingTimer();stopDriverLocationWatch();if(driverLiveMap){driverLiveMap.remove();driverLiveMap=null}$("dCurrentBox").innerHTML='<div class="sub">Активной поездки нет.</div>';return}
- const renderKey=[o.id,o.status,o.passenger_phone,o.waiting_minutes,o.waiting_fee,o.waiting_started_at,o.pickup_lat,o.destination_lat].join("|");
+ const renderKey=[o.id,o.status,o.passenger_phone,o.waiting_minutes,o.waiting_fee,o.waiting_seconds,o.waiting_started_at,o.pickup_lat,o.destination_lat].join("|");
  if(renderKey===driverRenderKey)return;
  driverRenderKey=renderKey;
  if(!o.waiting_started_at)stopWaitingTimer();
@@ -303,15 +303,17 @@ function renderDriverCurrent(o){
  if(o.status==="trip")actions='<button class="btn red" onclick="driverStatus(\''+o.id+'\',\'completed\')">🏁 Завершить поездку</button>';
  const nav=o.status==="trip"?'<button class="btn navBtn" onclick="openNavigation(window.__driverOrder)">🗺 Открыть навигацию до точки Б</button>':'<button class="btn secondary" onclick="openNavigation(window.__driverOrder)">🗺 Открыть маршрут до точки А</button>';
  const totalWaitMin=Number(o.waiting_minutes||0), totalWaitFee=Number(o.waiting_fee||0);
+ const savedWaitSec=Math.max(0,Number(o.waiting_seconds||0));
+ const formatWait=(sec)=>{sec=Math.max(0,Math.floor(sec));const m=Math.floor(sec/60),s=sec%60;return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")};
  const waitingAllowed=!o.scheduled_at&&(o.status==="accepted"||o.status==="arrived"||o.status==="trip");
  const waiting=waitingAllowed?(o.waiting_started_at
-  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div class="small" style="margin-top:5px">Всего оплачено: <b>'+totalWaitMin+' мин</b> • '+totalWaitFee.toFixed(2)+' BYN</div><div id="waitClock" class="price" style="font-size:24px;margin:7px 0">00:00</div><span class="small">Пауза не обнуляет накопленное. Если минута началась — она будет начислена при паузе.</span><button class="btn red" onclick="toggleWaiting(\''+o.id+'\')">⏸ Поставить на паузу</button></div>'
-  : '<div class="wait"><strong>⏱ Ожидание</strong><div class="small" style="margin-top:5px">Всего оплачено: <b>'+totalWaitMin+' мин</b> • '+totalWaitFee.toFixed(2)+' BYN</div><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Продолжить ожидание</button></div>'):'<div class="small" style="margin-top:9px">⏱ Ожидание доступно только для заказа «Сейчас».</div>';
+  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div class="small" style="margin-top:5px">Начато с накопленного времени: <b>'+formatWait(savedWaitSec)+'</b> • оплачено '+totalWaitMin+' мин • '+totalWaitFee.toFixed(2)+' BYN</div><div id="waitClock" class="price" style="font-size:24px;margin:7px 0">'+formatWait(savedWaitSec)+'</div><span class="small">Пауза не обнуляет накопленное. Если минута началась — она будет начислена при паузе.</span><button class="btn red" onclick="toggleWaiting(\''+o.id+'\')">⏸ Поставить на паузу</button></div>'
+  : '<div class="wait"><strong>⏱ Ожидание на паузе</strong><div class="small" style="margin-top:5px">Накоплено: <b>'+formatWait(savedWaitSec)+'</b> • оплачено '+totalWaitMin+' мин • '+totalWaitFee.toFixed(2)+' BYN</div><div class="price" style="font-size:24px;margin:7px 0">'+formatWait(savedWaitSec)+'</div><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Продолжить с '+formatWait(savedWaitSec)+'</button></div>'):'<div class="small" style="margin-top:9px">⏱ Ожидание доступно только для заказа «Сейчас».</div>';
  window.__driverOrder=o;
  $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>📞 '+esc(o.passenger_phone||"Номер не указан")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+nav+((o.pickup_lat!=null&&o.destination_lat!=null)?'<div id="driverLiveMap" class="driverMap"></div>':"")+actions+waiting+'</div>'+
  '<div class="driverLocate">📍 Точки А и Б загружены из заказа. В режиме поездки ваше местоположение показывается на карте.</div>';
  if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderDriverMap(o),50);
- window.__waitingBaseMinutes=Number(o.waiting_minutes||0);
+ window.__waitingBaseSeconds=Math.max(0,Number(o.waiting_seconds||0));
  if(o.waiting_started_at)startWaitingTimer(o.waiting_started_at);
 }
 async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
@@ -319,7 +321,7 @@ function stopWaitingTimer(){if(waitingTimer){clearInterval(waitingTimer);waiting
 function startWaitingTimer(startedAt){
  stopWaitingTimer();
  const started=new Date(startedAt).getTime();
- const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const base=Number(window.__waitingBaseMinutes||0)*60;const totalSec=base+sec;const m=Math.floor(totalSec/60),s=totalSec%60;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")};
+ const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const base=Number(window.__waitingBaseSeconds||0);const totalSec=base+sec;const m=Math.floor(totalSec/60),s=totalSec%60;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")};
  tick();waitingTimer=setInterval(tick,1000);
 }
 async function toggleWaiting(id){
