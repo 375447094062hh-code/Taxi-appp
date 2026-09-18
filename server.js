@@ -240,6 +240,8 @@ app.post("/api/orders", async (req,res)=>{
     if(!pickup||!destination) return res.status(400).json({success:false,error:"Укажите точки А и Б."});
     const p=(await db("SELECT name,phone FROM passengers WHERE telegram_id=$1",[passengerId])).rows[0];
     if(!p?.name||!p?.phone) return res.status(400).json({success:false,error:"Сначала заполните профиль пассажира."});
+    const activeOrder=(await db("SELECT id,status FROM orders WHERE passenger_telegram_id=$1 AND status=ANY($2::text[]) ORDER BY created_at DESC LIMIT 1",[passengerId,ACTIVE_STATUSES])).rows[0];
+    if(activeOrder) return res.status(409).json({success:false,error:"У вас уже есть активный заказ. Сначала завершите или отмените его."});
     const scheduledAt=req.body.scheduledAt?new Date(req.body.scheduledAt):null;
     if(scheduledAt&&Number.isNaN(scheduledAt.getTime())) return res.status(400).json({success:false,error:"Неверная дата и время."});
     const km=Number(req.body.distanceKm);
@@ -307,9 +309,13 @@ app.post("/api/orders/:orderId/accept", async (req,res)=>{
     if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
     const d=(await db("SELECT * FROM drivers WHERE telegram_id=$1",[driverId])).rows[0];
     if(!d?.name||!d?.phone||!d?.car||!d?.plate) return res.status(400).json({success:false,error:"Сначала заполните профиль водителя."});
+    const busy=(await db("SELECT id FROM orders WHERE driver_telegram_id=$1 AND status=ANY($2::text[]) LIMIT 1",[driverId,ACTIVE_STATUSES])).rows[0];
+    if(busy) return res.status(409).json({success:false,error:"У вас уже есть текущая поездка. Сначала завершите её."});
     const r=await db(`UPDATE orders SET status='accepted',driver_telegram_id=$1,driver_name=$2,driver_car=$3,driver_plate=$4,driver_phone=$5,accepted_at=NOW()
-      WHERE id=$6 AND status='searching' RETURNING *`,[driverId,d.name,d.car,d.plate,d.phone,orderId]);
-    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ уже принят другим водителем."});
+      WHERE id=$6 AND status='searching' AND NOT EXISTS (
+        SELECT 1 FROM orders x WHERE x.driver_telegram_id=$1 AND x.status=ANY($7::text[])
+      ) RETURNING *`,[driverId,d.name,d.car,d.plate,d.phone,orderId,ACTIVE_STATUSES]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ уже принят или у водителя уже есть текущая поездка."});
     await notifyPassenger(r.rows[0],"✅ Водитель подтвердил заказ.\n\n🚗 "+(d.car||"Автомобиль")+" "+(d.plate||"")+"\n👤 "+(d.name||"Водитель"));
     res.json({success:true,order:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
@@ -322,6 +328,9 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
     const allowed={arrived:["accepted"],trip:["arrived"],completed:["trip"]};
     if(!allowed[next]) return res.status(400).json({success:false,error:"Недопустимый статус."});
     const col={arrived:"arrived_at",trip:"trip_started_at",completed:"completed_at"}[next];
+    const current=(await db("SELECT status,scheduled_at,waiting_started_at FROM orders WHERE id=$1 AND driver_telegram_id=$2",[orderId,driverId])).rows[0];
+    if(!current) return res.status(404).json({success:false,error:"Заказ не найден или он уже не принадлежит вам."});
+    if(!allowed[next].includes(current.status)) return res.status(409).json({success:false,error:"Сейчас этот переход статуса недоступен."});
     if(next==="trip"||next==="completed"){
       await db(`UPDATE orders SET
         waiting_seconds=waiting_seconds+
@@ -340,7 +349,9 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
     const r=await db(`UPDATE orders SET status=$1,${col}=NOW() WHERE id=$2 AND driver_telegram_id=$3 AND status=ANY($4::text[]) RETURNING *`,
       [next,orderId,driverId,allowed[next]]);
     if(!r.rows[0]) return res.status(409).json({success:false,error:"Статус уже изменён."});
-    const msg={arrived:"📍 Водитель на месте.",trip:"🚕 Поездка началась.",completed:"🏁 Поездка завершена."}[next];
+    const msg=next==="completed"
+      ? `🏁 Поездка завершена.\\n\\n💰 Поездка: ${Number(r.rows[0].amount).toFixed(2)} BYN\\n⏱ Ожидание: ${Number(r.rows[0].waiting_fee||0).toFixed(2)} BYN\\n💳 Итого: ${(Number(r.rows[0].amount)+Number(r.rows[0].waiting_fee||0)).toFixed(2)} BYN`
+      : {arrived:"📍 Водитель на месте.",trip:"🚕 Поездка началась."}[next];
     await notifyPassenger(r.rows[0],msg);
     res.json({success:true,order:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
@@ -395,9 +406,19 @@ app.post("/api/orders/:orderId/reject", async (req,res)=>{
 app.post("/api/orders/:orderId/cancel", async (req,res)=>{
   try {
     const uid=clean(req.body.telegramId), oid=clean(req.params.orderId);
-    const r=await db(`UPDATE orders SET status='cancelled' WHERE id=$1 AND passenger_telegram_id=$2 AND status=ANY($3::text[]) RETURNING *`,[oid,uid,ACTIVE_STATUSES]);
-    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ нельзя отменить."});
-    if(r.rows[0].driver_telegram_id) await notifyPassenger(r.rows[0],"❌ Заказ отменён.");
+    const current=(await db("SELECT * FROM orders WHERE id=$1 AND passenger_telegram_id=$2 AND status IN ('searching','accepted','arrived')",[oid,uid])).rows[0];
+    if(!current) return res.status(409).json({success:false,error:"Заказ уже нельзя отменить после начала поездки."});
+    if(current.waiting_started_at){
+      await db(`UPDATE orders SET
+        waiting_seconds=waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int),
+        waiting_minutes=GREATEST(0,CEIL((waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int))/60)::int),
+        waiting_fee=GREATEST(0,CEIL((waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int))/60)::numeric)*0.50,
+        waiting_started_at=NULL
+        WHERE id=$1`,[oid]);
+    }
+    const r=await db("UPDATE orders SET status='cancelled' WHERE id=$1 AND passenger_telegram_id=$2 AND status IN ('searching','accepted','arrived') RETURNING *",[oid,uid]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ уже изменён."});
+    if(r.rows[0].driver_telegram_id) await sendTelegram(r.rows[0].driver_telegram_id,"❌ Пассажир отменил заказ.");
     res.json({success:true,order:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
