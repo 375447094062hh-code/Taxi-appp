@@ -255,7 +255,7 @@ app.post("/api/orders", async (req,res)=>{
 
 app.get("/api/orders/current", async (req,res)=>{
   try {
-    const r=await db(`SELECT o.*, COALESCE(o.driver_phone,d.phone) AS driver_phone, d.rating AS driver_rating
+    const r=await db(`SELECT o.*, COALESCE(d.phone,o.driver_phone) AS driver_phone, d.rating AS driver_rating
       FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id
       WHERE o.passenger_telegram_id=$1 AND o.status=ANY($2::text[])
       ORDER BY o.created_at DESC LIMIT 1`,[clean(req.query.telegramId),ACTIVE_STATUSES]);
