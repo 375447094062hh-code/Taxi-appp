@@ -86,6 +86,7 @@ async function migrate() {
       destination_lng DOUBLE PRECISION,
       waiting_minutes INTEGER NOT NULL DEFAULT 0,
       waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      waiting_seconds INTEGER NOT NULL DEFAULT 0,
       waiting_started_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       accepted_at TIMESTAMPTZ,
@@ -111,6 +112,7 @@ async function migrate() {
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS rating_count INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_minutes INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_seconds INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_started_at TIMESTAMPTZ;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_by_driver_telegram_id TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
@@ -321,6 +323,8 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
     const col={arrived:"arrived_at",trip:"trip_started_at",completed:"completed_at"}[next];
     if(next==="trip"||next==="completed"){
       await db(`UPDATE orders SET
+        waiting_seconds=waiting_seconds+
+          CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int) END,
         waiting_minutes=waiting_minutes+
           CASE WHEN waiting_started_at IS NULL THEN 0 ELSE GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int) END,
         waiting_fee=waiting_fee+
@@ -351,7 +355,9 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
     }
 
     const r=await db(`UPDATE orders
-      SET waiting_minutes=waiting_minutes+
+      SET waiting_seconds=waiting_seconds+
+          GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int),
+          waiting_minutes=waiting_minutes+
           GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::int),
           waiting_fee=waiting_fee+
           GREATEST(0,CEIL(EXTRACT(EPOCH FROM (NOW()-waiting_started_at))/60)::numeric)*0.50,
