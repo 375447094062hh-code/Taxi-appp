@@ -1,45 +1,237 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Такси Речица</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;padding:0;min-height:100%;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#080c14;color:#fff}body{min-height:100vh;overflow-x:hidden}button,input{font:inherit}button{border:0;cursor:pointer}.app{width:100%;max-width:430px;min-height:100vh;margin:auto;padding:16px 14px 30px;background:radial-gradient(circle at 80% 0%,rgba(250,204,21,.10),transparent 30%),radial-gradient(circle at 0% 40%,rgba(34,197,94,.05),transparent 25%),#080c14}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.brand{display:flex;align-items:center;gap:11px}.brand-icon{width:45px;height:45px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#facc15,#f59e0b);color:#111827;font-size:21px;font-weight:900;box-shadow:0 8px 25px rgba(250,204,21,.20)}.brand-title{font-size:17px;font-weight:800;line-height:1.1}.brand-subtitle{margin-top:4px;font-size:11px;color:#7f8ca3}.status-dot{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.16);color:#6ee7a0;font-size:11px;font-weight:700}.status-dot:before{content:"";width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px rgba(34,197,94,.7)}.hero{position:relative;overflow:hidden;padding:22px;border-radius:25px;margin-bottom:14px;background:linear-gradient(135deg,rgba(250,204,21,.13),rgba(250,204,21,.02)),#111827;border:1px solid rgba(250,204,21,.13)}.hero-title{position:relative;z-index:2;font-size:25px;line-height:1.08;font-weight:900}.hero-text{position:relative;z-index:2;margin-top:9px;color:#9ba7ba;font-size:13px;line-height:1.5}.quick-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:17px}.quick-btn{min-height:52px;border-radius:15px;font-weight:800;font-size:13px}.primary{background:#facc15;color:#17120a}.secondary{background:#1a2231;border:1px solid #293449;color:#fff}.card{margin-top:12px;padding:17px;border-radius:22px;background:rgba(17,24,39,.92);border:1px solid #202b3e;box-shadow:0 12px 35px rgba(0,0,0,.14)}.card-title{font-size:15px;font-weight:850;margin-bottom:14px}.field{margin-bottom:12px}.field-label{display:block;margin-bottom:7px;font-size:11px;color:#7f8ca3;font-weight:700}.input{width:100%;height:48px;border-radius:14px;padding:0 13px;background:#0d1421;border:1px solid #243044;color:#fff;outline:none}.input:focus{border-color:rgba(250,204,21,.65);box-shadow:0 0 0 3px rgba(250,204,21,.07)}.profile-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}.profile-status{padding:6px 9px;border-radius:9px;font-size:10px;font-weight:800;background:rgba(34,197,94,.09);color:#6ee7a0;border:1px solid rgba(34,197,94,.15)}.profile-status.empty{background:rgba(250,204,21,.08);color:#facc15;border-color:rgba(250,204,21,.15)}.profile-info{padding:13px;border-radius:15px;background:#0d1421;border:1px solid #243044;margin-bottom:12px}.profile-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #1c2738}.profile-row:last-child{border-bottom:0}.profile-row span{color:#718097;font-size:11px}.profile-row strong{font-size:12px;text-align:right}.mode-switch{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:15px;background:#0b111d;border:1px solid #202b3e;margin-bottom:14px}.mode-btn{height:40px;border-radius:11px;color:#7f8ca3;background:transparent;font-size:12px;font-weight:800}.mode-btn.active{background:#facc15;color:#17120a}.tariffs{display:grid;grid-template-columns:1fr 1fr;gap:9px}.tariff{padding:13px;border-radius:15px;background:#0d1421;border:1px solid #243044;color:#fff;text-align:left}.tariff.active{border-color:#facc15;background:rgba(250,204,21,.08)}.tariff-name{font-size:13px;font-weight:850}.tariff-info{margin-top:5px;color:#7f8ca3;font-size:10px}.tariff-price{margin-top:8px;font-size:12px;color:#facc15;font-weight:800}.date-row{display:grid;grid-template-columns:1.3fr .7fr;gap:9px}.date-input{width:100%;height:48px;padding:0 11px;border-radius:14px;background:#0d1421;border:1px solid #243044;color:#fff;outline:none}.checkbox-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border-radius:15px;background:#0d1421;border:1px solid #243044;margin-top:10px}.checkbox-left{display:flex;align-items:center;gap:10px}.checkbox-left strong{display:block;font-size:12px}.checkbox-left span{display:block;margin-top:3px;font-size:10px;color:#7f8ca3}.switch{position:relative;width:45px;height:25px;flex-shrink:0}.switch input{display:none}.slider{position:absolute;inset:0;border-radius:20px;background:#273247}.slider:before{content:"";position:absolute;width:19px;height:19px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}.switch input:checked+.slider{background:#facc15}.switch input:checked+.slider:before{transform:translateX(20px);background:#17120a}.main-btn{width:100%;height:53px;margin-top:12px;border-radius:16px;background:#facc15;color:#17120a;font-size:14px;font-weight:900}.main-btn:disabled{opacity:.45;box-shadow:none}.outline-btn{width:100%;height:47px;margin-top:9px;border-radius:14px;background:#0d1421;color:#fff;border:1px solid #293449;font-size:12px;font-weight:800}.status-box{text-align:center;padding:22px 12px}.status-icon{width:64px;height:64px;margin:0 auto 13px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:rgba(250,204,21,.09);border:1px solid rgba(250,204,21,.17);font-size:27px}.status-title{font-size:17px;font-weight:900}.status-text{margin-top:7px;color:#7f8ca3;font-size:12px;line-height:1.5}.driver-card{padding:15px;border-radius:18px;background:#0d1421;border:1px solid #263247}.driver-top{display:flex;align-items:center;gap:12px}.driver-avatar{width:54px;height:54px;border-radius:17px;object-fit:cover;background:#202a3a}.driver-name{font-weight:900;font-size:14px}.driver-car{margin-top:4px;color:#8996aa;font-size:11px}.rating{margin-left:auto;color:#facc15;font-size:12px;font-weight:800}.driver-details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.detail{padding:10px;border-radius:12px;background:#141d2b}.detail span{display:block;color:#65738a;font-size:9px}.detail strong{display:block;margin-top:3px;font-size:11px}.driver-order{padding:14px;border-radius:17px;background:#0d1421;border:1px solid #263247;margin-bottom:10px}.driver-order-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.order-number{font-size:12px;font-weight:900}.order-badge{padding:5px 8px;border-radius:9px;background:rgba(250,204,21,.09);color:#facc15;font-size:9px;font-weight:800}.route{display:grid;gap:7px}.route-line{display:flex;gap:9px;align-items:flex-start}.route-dot{width:8px;height:8px;margin-top:4px;border-radius:50%;background:#facc15;flex-shrink:0}.route-dot.end{background:#22c55e}.route-text{font-size:11px;line-height:1.35;color:#d5dbe5}.route-line+.route-line{padding-top:7px;border-top:1px solid #1c2738}.driver-buttons{display:grid;grid-template-columns:1fr;gap:8px;margin-top:11px}.driver-buttons button{height:42px;border-radius:12px;font-size:11px;font-weight:850}.arrived{background:#facc15;color:#17120a}.start{background:#22c55e;color:#07130c}.complete{background:#2563eb;color:#fff}.hidden{display:none!important}.loader{width:30px;height:30px;border:3px solid #283449;border-top-color:#facc15;border-radius:50%;animation:spin .8s linear infinite;margin:8px auto 15px}@keyframes spin{to{transform:rotate(360deg)}}.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);width:calc(100% - 32px);max-width:398px;padding:13px 15px;border-radius:14px;background:#1a2332;border:1px solid #344158;box-shadow:0 14px 35px rgba(0,0,0,.35);font-size:12px;text-align:center;opacity:0;pointer-events:none;transition:.25s;z-index:999}.toast.show{opacity:1;transform:translate(-50%,0)}.toast.error{border-color:rgba(239,68,68,.45)}.footer{padding:20px 0 5px;text-align:center;color:#4e5a6d;font-size:10px}@media(min-width:500px){body{padding:20px 0}.app{min-height:calc(100vh - 40px);border-radius:30px;border:1px solid #1d2737}}
+:root{--bg:#080b12;--card:#111722;--card2:#171f2d;--line:#263246;--text:#f8fafc;--muted:#8d9aae;--accent:#ffd21a;--green:#29d17d;--red:#ff5964}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#172238 0,#080b12 48%);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;min-height:100vh}
+.app{width:min(100%,440px);margin:auto;padding:16px 14px 30px}.hidden{display:none!important}
+.top{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 18px}.brand{font-size:20px;font-weight:850}.brand span{color:var(--accent)}.role{font-size:11px;color:var(--muted);background:#121a27;border:1px solid var(--line);padding:7px 10px;border-radius:999px}
+.hero{padding:22px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#182234,#0f151f);box-shadow:0 18px 50px #0006;margin-bottom:14px}.hero h1{margin:0 0 7px;font-size:28px}.hero p{margin:0;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:12px 0}.title{font-weight:800;font-size:17px;margin-bottom:12px}
+.btn{width:100%;border:0;border-radius:15px;padding:14px 16px;font-size:15px;font-weight:800;cursor:pointer;margin-top:9px;background:var(--accent);color:#151515}.btn.secondary{background:var(--card2);border:1px solid var(--line);color:var(--text)}.btn.green{background:var(--green);color:#07140d}.btn.danger{background:var(--red);color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid .btn{margin:0}
+label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,select{width:100%;background:#0c121c;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;font-size:15px;outline:none}input:focus,select:focus{border-color:var(--accent)}
+.info{font-size:13px;line-height:1.55;color:var(--muted)}.price{font-size:28px;font-weight:900;color:var(--accent);margin:8px 0}.status{padding:12px;border-radius:14px;background:#0c131e;border:1px solid var(--line);margin-top:10px}.ok{color:var(--green)}.bad{color:var(--red)}
+.order{border:1px solid var(--line);background:#0d141f;border-radius:16px;padding:14px;margin:10px 0}.order b{display:block;margin-bottom:6px}.small{font-size:12px;color:var(--muted);line-height:1.5}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:12px}.check input{width:18px;height:18px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#151d2a;border:1px solid var(--line);padding:12px 16px;border-radius:14px;z-index:10;max-width:90%;font-size:13px;box-shadow:0 12px 40px #0008}
 </style>
 </head>
 <body>
 <div class="app">
-<div class="topbar"><div class="brand"><div class="brand-icon">T</div><div><div class="brand-title">Такси Речица</div><div class="brand-subtitle">Быстро • Удобно • Надежно</div></div></div><div class="status-dot">Онлайн</div></div>
-<section id="passengerScreen">
-<div class="hero"><div class="hero-title">Закажите такси<br>в пару касаний</div><div class="hero-text">Укажите маршрут, время и дополнительные пожелания. Заявка сразу отправится доступному водителю.</div><div class="quick-buttons"><button id="passengerTaxiButton" class="quick-btn primary" onclick="scrollToOrder()">🚕 Вызвать такси</button><button class="quick-btn secondary" onclick="showTariffInfo()">💰 Тарифы</button></div></div>
-<div id="profileCard" class="card"><div class="profile-header"><div class="card-title" style="margin:0">👤 Профиль</div><div id="profileStatus" class="profile-status empty">Не заполнен</div></div><div id="profileView" class="hidden"><div class="profile-info"><div class="profile-row"><span>Имя</span><strong id="profileNameText">—</strong></div><div class="profile-row"><span>Телефон</span><strong id="profilePhoneText">—</strong></div></div><button class="outline-btn" onclick="editPassengerProfile()">✏️ Изменить профиль</button></div><div id="profileForm"><div class="field"><label class="field-label">ВАШЕ ИМЯ</label><input id="passengerName" class="input" type="text" maxlength="100" placeholder="Введите имя"></div><div class="field"><label class="field-label">НОМЕР ТЕЛЕФОНА</label><input id="passengerPhone" class="input" type="tel" maxlength="30" placeholder="+375 XX XXX-XX-XX"></div><button id="saveProfileButton" class="main-btn" onclick="savePassengerProfile()">💾 Сохранить профиль</button></div></div>
-<div id="orderForm" class="card"><div class="card-title">🚕 Заказ такси</div><div class="field"><label class="field-label">ОТКУДА</label><input id="addressA" class="input" type="text" placeholder="Введите адрес подачи"></div><div class="field"><label class="field-label">КУДА</label><input id="addressB" class="input" type="text" placeholder="Введите адрес назначения"></div><div class="field"><label class="field-label">ВРЕМЯ ПОДАЧИ</label><div class="mode-switch"><button id="nowBtn" class="mode-btn active" onclick="setTimeMode('now')">Сейчас</button><button id="laterBtn" class="mode-btn" onclick="setTimeMode('later')">На дату</button></div></div><div id="laterFields" class="field hidden"><div class="date-row"><input id="orderDate" class="date-input" type="date"><input id="orderTime" class="date-input" type="time"></div></div><div class="card-title" style="margin-top:18px">Тариф</div><div class="tariffs"><button class="tariff active" data-tariff="Эконом" onclick="selectTariff(this)"><div class="tariff-name">Эконом</div><div class="tariff-info">Обычная поездка</div><div class="tariff-price">Посадка 3 BYN</div></button><button class="tariff" data-tariff="Комфорт" onclick="selectTariff(this)"><div class="tariff-name">Комфорт</div><div class="tariff-info">Повышенный комфорт</div><div class="tariff-price">Посадка 3 BYN</div></button></div><div class="checkbox-row"><div class="checkbox-left"><div style="font-size:20px">👶</div><div><strong>Детское кресло</strong><span>Нужно кресло для ребенка</span></div></div><label class="switch"><input id="childSeat" type="checkbox"><span class="slider"></span></label></div><button id="orderButton" class="main-btn" onclick="sendOrder()">🚕 Заказать такси</button></div>
-<div id="waitingCard" class="card hidden"><div class="status-box"><div class="status-icon">🚕</div><div class="status-title">Ищем водителя</div><div id="waitingOrderText" class="status-text">Заявка отправлена.</div><div class="loader"></div><button class="outline-btn" onclick="cancelLocalOrder()">Отменить</button></div></div>
-<div id="acceptedCard" class="card hidden"><div class="card-title">🚕 Водитель найден</div><div id="driverInfo"></div><button class="outline-btn" onclick="openDriverPhone()">📞 Позвонить водителю</button></div>
-<div id="arrivedCard" class="card hidden"><div class="status-box"><div class="status-icon">🚘</div><div class="status-title">Водитель прибыл</div><div class="status-text">Водитель уже на месте.</div></div></div>
-<div id="tripCard" class="card hidden"><div class="status-box"><div class="status-icon">🛣️</div><div class="status-title">Поездка началась</div><div class="status-text">Желаем приятной поездки!</div></div></div>
-</section>
-<section id="driverScreen" class="hidden"><div class="hero"><div class="hero-title">Режим водителя</div><div class="hero-text">Управляйте текущими заказами и принимайте новые заявки.</div></div><div class="card" style="margin-top:12px"><div class="profile-header"><div><div class="card-title" style="margin:0">🚕 Панель водителя</div><div id="driverStatusText" class="status-text" style="margin-top:4px">Вы онлайн и готовы принимать заказы.</div></div><div class="profile-status" id="driverOnlineStatus">ОНЛАЙН</div></div><div class="driver-details" style="margin-top:0"><div class="detail"><span>Текущие заказы</span><strong id="driverActiveCount">0</strong></div><div class="detail"><span>Лимит обычных</span><strong>2 заказа</strong></div></div><button class="outline-btn" onclick="editDriverProfile()">✏️ Редактировать профиль</button><button class="outline-btn" onclick="loadDriverOrders()">🔄 Обновить заказы</button></div><div id="driverOrdersCard" class="card"><div class="profile-header"><div class="card-title" style="margin:0">📋 Текущие заказы</div><div class="profile-status" id="driverOrdersStatus">Загрузка</div></div><div id="driverOrders"><div class="status-box"><div class="loader"></div><div class="status-text">Загружаем текущие заказы...</div></div></div></div></section>
-<div class="footer">Такси Речица • Mini App</div></div><div id="toast" class="toast"></div>
+  <div class="top">
+    <div class="brand">Такси <span>Речица</span></div>
+    <div id="roleBadge" class="role">Проверка…</div>
+  </div>
+
+  <main id="passenger" class="hidden">
+    <section class="hero">
+      <h1>Поехали?</h1>
+      <p>Быстро • Удобно • Надёжно</p>
+    </section>
+
+    <section id="passengerProfile" class="card">
+      <div class="title">Ваш профиль</div>
+      <div id="passengerProfileText" class="info">Заполните имя и телефон один раз.</div>
+      <button class="btn secondary" onclick="showPassengerProfile()">Профиль</button>
+    </section>
+
+    <section id="passengerHome" class="card">
+      <div class="title">Новый заказ</div>
+      <button class="btn" onclick="showOrder()">🚕 Вызвать такси</button>
+      <button class="btn secondary" onclick="showCurrentOrder()">📦 Мой заказ</button>
+      <div class="info" style="margin-top:14px">Тариф: посадка 3 BYN + 1 BYN за каждый километр.</div>
+    </section>
+
+    <section id="passengerForm" class="card hidden">
+      <div class="title">Куда едем?</div>
+      <label>Откуда</label><input id="pickup" placeholder="Например: ул. Советская, 10">
+      <label>Куда</label><input id="destination" placeholder="Например: ул. Строителей, 15">
+      <label>Тариф</label><select id="tariff"><option>Стандарт</option></select>
+      <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
+      <label>Дата и время</label><input id="scheduledAt" type="datetime-local">
+      <div class="price">от 3.00 BYN</div>
+      <div class="info">Точная сумма зависит от расстояния: 3 BYN + 1 BYN/км.</div>
+      <button class="btn" onclick="createOrder()">Подтвердить заказ</button>
+      <button class="btn secondary" onclick="backPassenger()">Назад</button>
+    </section>
+
+    <section id="passengerCurrent" class="card hidden">
+      <div class="title">Текущий заказ</div>
+      <div id="currentOrder"></div>
+      <button class="btn secondary" onclick="backPassenger()">Назад</button>
+    </section>
+
+    <section id="passengerProfileForm" class="card hidden">
+      <div class="title">Профиль пассажира</div>
+      <label>Имя</label><input id="passengerName" placeholder="Ваше имя">
+      <label>Телефон</label><input id="passengerPhone" placeholder="+375...">
+      <button class="btn" onclick="savePassengerProfile()">Сохранить</button>
+      <button class="btn secondary" onclick="backPassenger()">Назад</button>
+    </section>
+  </main>
+
+  <main id="driver" class="hidden">
+    <section class="hero">
+      <h1>Режим водителя</h1>
+      <p>Заказы только для вашего такси</p>
+    </section>
+
+    <section id="driverProfile" class="card">
+      <div class="title">Профиль водителя</div>
+      <div id="driverProfileText" class="info">Загрузка…</div>
+      <button class="btn secondary" onclick="showDriverProfile()">Профиль</button>
+    </section>
+
+    <section id="driverOrders" class="card">
+      <div class="title">Доступные заказы</div>
+      <div id="ordersList" class="info">Загрузка…</div>
+      <button class="btn secondary" onclick="loadDriverOrders()">Обновить</button>
+    </section>
+
+    <section id="driverProfileForm" class="card hidden">
+      <div class="title">Анкета водителя</div>
+      <label>Имя</label><input id="driverName" placeholder="Ваше имя">
+      <label>Телефон</label><input id="driverPhone" placeholder="+375...">
+      <label>Автомобиль</label><input id="driverCar" placeholder="Например: Volkswagen Passat">
+      <label>Госномер</label><input id="driverPlate" placeholder="0000 AB-1">
+      <label class="check"><input id="driverChildSeat" type="checkbox"> Есть детское кресло</label>
+      <button class="btn green" onclick="saveDriverProfile()">Сохранить</button>
+      <button class="btn secondary" onclick="backDriver()">Назад</button>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
 <script>
-const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#080c14');tg.setBackgroundColor('#080c14')}catch(e){}}
-const telegramUser=tg?.initDataUnsafe?.user||null;const telegramUserId=telegramUser?.id?String(telegramUser.id):'';let timeMode='now',selectedTariff='Эконом',currentOrderId=localStorage.getItem('taxi_current_order_id')||'',currentDriverPhone='',passengerPolling=null,driverPolling=null,passengerProfile=null,isDriver=false;let toastTimer=null;function toast(message,error=false){const el=document.getElementById('toast');el.textContent=message;el.classList.toggle('error',error);el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3500)}function setDefaultDateTime(){const now=new Date();const minsk=new Date(now.toLocaleString('en-US',{timeZone:'Europe/Minsk'}));const yyyy=minsk.getFullYear(),mm=String(minsk.getMonth()+1).padStart(2,'0'),dd=String(minsk.getDate()).padStart(2,'0');document.getElementById('orderDate').value=`${yyyy}-${mm}-${dd}`;const future=new Date(minsk.getTime()+30*60000);const hh=String(future.getHours()).padStart(2,'0'),min=String(future.getMinutes()).padStart(2,'0');document.getElementById('orderTime').value=`${hh}:${min}`}setDefaultDateTime();
-async function loadPassengerProfile(){if(!telegramUserId){toast('Откройте Mini App через Telegram.',true);return}try{const response=await fetch(`/api/passenger-profile?telegramId=${encodeURIComponent(telegramUserId)}&t=${Date.now()}`,{cache:'no-store'});if(!response.ok){passengerProfile=null;showEmptyProfile();return}const data=await response.json();const profile=data?.profile||data;if(profile&&profile.name&&profile.phone){passengerProfile={...profile,telegramId:telegramUserId};showSavedProfile()}else{passengerProfile=null;showEmptyProfile()}}catch(error){console.error('PROFILE LOAD ERROR:',error);showEmptyProfile()}}
-function showEmptyProfile(){document.getElementById('profileStatus').textContent='Не заполнен';document.getElementById('profileStatus').classList.add('empty');document.getElementById('profileView').classList.add('hidden');document.getElementById('profileForm').classList.remove('hidden')}function showSavedProfile(){document.getElementById('profileStatus').textContent='Заполнен';document.getElementById('profileStatus').classList.remove('empty');document.getElementById('profileNameText').textContent=passengerProfile.name||'—';document.getElementById('profilePhoneText').textContent=passengerProfile.phone||'—';document.getElementById('passengerName').value=passengerProfile.name||'';document.getElementById('passengerPhone').value=passengerProfile.phone||'';document.getElementById('profileForm').classList.add('hidden');document.getElementById('profileView').classList.remove('hidden')}function editPassengerProfile(){document.getElementById('profileForm').classList.remove('hidden');document.getElementById('profileView').classList.add('hidden');document.getElementById('passengerName').focus()}
-async function savePassengerProfile(){if(!telegramUserId){toast('Откройте приложение через Telegram.',true);return}const name=document.getElementById('passengerName').value.trim(),phone=document.getElementById('passengerPhone').value.trim();if(!name){toast('Введите ваше имя.',true);return}if(!phone){toast('Введите номер телефона.',true);return}const button=document.getElementById('saveProfileButton');button.disabled=true;button.textContent='⏳ Сохраняем...';try{const response=await fetch('/api/passenger-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegramId:telegramUserId,name,phone})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Не удалось сохранить профиль.');passengerProfile={telegramId:telegramUserId,name:data.name||name,phone:data.phone||phone};showSavedProfile();toast('✅ Профиль сохранён.')}catch(error){console.error('PROFILE SAVE ERROR:',error);toast(error.message||'Ошибка сохранения профиля.',true)}finally{button.disabled=false;button.textContent='💾 Сохранить профиль'}}
-function scrollToOrder(){document.getElementById('orderForm').scrollIntoView({behavior:'smooth'})}function selectTariff(button){document.querySelectorAll('.tariff').forEach(el=>el.classList.remove('active'));button.classList.add('active');selectedTariff=button.dataset.tariff}function showTariffInfo(){toast('Посадка — 3 BYN. Далее 1 км — 1 BYN.')}function setTimeMode(mode){timeMode=mode;document.getElementById('nowBtn').classList.toggle('active',mode==='now');document.getElementById('laterBtn').classList.toggle('active',mode==='later');document.getElementById('laterFields').classList.toggle('hidden',mode!=='later')}function minskLocalToISO(dateValue,timeValue){const parts=dateValue.split('-').map(Number),time=timeValue.split(':').map(Number);return new Date(Date.UTC(parts[0],parts[1]-1,parts[2],time[0],time[1])-3*60*60*1000).toISOString()}function isWeekendDate(dateValue){const day=new Date(`${dateValue}T12:00:00`).getDay();return day===0||day===5||day===6}function formatScheduled(dateValue,timeValue){const p=dateValue.split('-');return `${p[2]}.${p[1]}.${p[0]} в ${timeValue}`}
-async function sendOrder(){if(!telegramUserId){toast('Откройте приложение через Telegram.',true);return}if(!passengerProfile||!passengerProfile.name||!passengerProfile.phone){toast('Сначала заполните профиль пассажира.',true);document.getElementById('profileCard').scrollIntoView({behavior:'smooth'});return}const addressA=document.getElementById('addressA').value.trim(),addressB=document.getElementById('addressB').value.trim(),childSeat=document.getElementById('childSeat').checked;if(!addressA){toast('Введите адрес подачи.',true);return}if(!addressB){toast('Введите адрес назначения.',true);return}let scheduled='Ближайшее время',scheduledAt=null,isImmediate=true,isWeekend=false;if(timeMode==='later'){const dateValue=document.getElementById('orderDate').value,timeValue=document.getElementById('orderTime').value;if(!dateValue||!timeValue){toast('Выберите дату и время.',true);return}scheduled=formatScheduled(dateValue,timeValue);scheduledAt=minskLocalToISO(dateValue,timeValue);isImmediate=false;isWeekend=isWeekendDate(dateValue)}const button=document.getElementById('orderButton');button.disabled=true;button.textContent='⏳ Отправляем заявку...';try{const response=await fetch('/api/send-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegramUserId,addressA,addressB,tariff:selectedTariff,scheduled,scheduledAt,isImmediate,isWeekend,childSeat,orderAmount:window.taxiRoutePrice||3})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Ошибка создания заказа.');currentOrderId=String(data.orderId||data.id||'');if(!currentOrderId)throw new Error('Сервер не вернул номер заказа.');localStorage.setItem('taxi_current_order_id',currentOrderId);showWaiting();startPassengerPolling()}catch(error){console.error('ORDER ERROR:',error);toast(error.message||'Ошибка создания заказа.',true)}finally{button.disabled=false;button.textContent='🚕 Заказать такси'}}
-function hidePassengerCards(){['orderForm','waitingCard','acceptedCard','arrivedCard','tripCard'].forEach(id=>document.getElementById(id).classList.add('hidden'))}function orderDisplayNumber(data){const n=String(data?.orderNumber||'');if(n)return n;const id=String(data?.id||currentOrderId||'').replace(/-/g,'').toUpperCase();return id.slice(-6)||'—'}function showWaiting(data={}){hidePassengerCards();document.getElementById('waitingCard').classList.remove('hidden');document.getElementById('waitingOrderText').innerHTML=`Заявка <strong>№${escapeHtml(orderDisplayNumber(data))}</strong><br><span style="opacity:.75">Ищем свободного водителя…</span>`}function showDriver(data){hidePassengerCards();document.getElementById('acceptedCard').classList.remove('hidden');currentDriverPhone=String(data.driverPhone||'').trim();const photo=data.driverPhotoFileId||'';const phoneButton=document.querySelector('#acceptedCard .outline-btn');if(phoneButton){phoneButton.textContent=currentDriverPhone?'📞 Позвонить водителю':'📞 Номер водителя недоступен';phoneButton.disabled=!currentDriverPhone;phoneButton.style.opacity=currentDriverPhone?'1':'.55'} document.getElementById('driverInfo').innerHTML=`<div class="driver-card"><div class="driver-top">${photo?`<img class="driver-avatar" src="${escapeHtml(photo)}" alt="">`:`<div class="driver-avatar" style="display:flex;align-items:center;justify-content:center;font-size:22px">🚕</div>`}<div><div class="driver-name">${escapeHtml(data.driverName||'Водитель')}</div><div class="driver-car">${escapeHtml(data.driverCar||'Автомобиль')}</div></div><div class="rating">⭐ ${data.driverRating??'—'}</div></div><div class="driver-details"><div class="detail"><span>Номер автомобиля</span><strong>${escapeHtml(data.driverNumber||'—')}</strong></div><div class="detail"><span>Телефон</span><strong>${escapeHtml(data.driverPhone||'—')}</strong></div></div></div>`}
-let lastOrderStatus='';const orderStatusRank={searching:1,accepted:2,arrived:3,trip:4,completed:5};function applyOrderStatus(data){if(!data)return;const s=String(data.status||'');if(!s)return;const old=orderStatusRank[lastOrderStatus]||0;const next=orderStatusRank[s]||0;if(s!=='none'&&next<old)return;if(s==='none'){stopPassengerPolling();localStorage.removeItem('taxi_current_order_id');currentOrderId='';window.currentOrderId='';hidePassengerCards();document.getElementById('orderForm').classList.remove('hidden');toast('Активная заявка не найдена.',true);return}if(s==='searching'){showWaiting(data);return}if(s==='accepted'){showDriver(data);return}if(s==='arrived'){hidePassengerCards();document.getElementById('arrivedCard').classList.remove('hidden');return}if(s==='trip'){hidePassengerCards();document.getElementById('tripCard').classList.remove('hidden');return}if(s==='completed'){stopPassengerPolling();localStorage.removeItem('taxi_current_order_id');currentOrderId='';window.currentOrderId='';hidePassengerCards();document.getElementById('orderForm').classList.remove('hidden');toast('Поездка завершена.')}}async function checkOrderStatus(){if(!currentOrderId)return;try{let response=await fetch(`/api/order-status?id=${encodeURIComponent(currentOrderId)}&t=${Date.now()}`,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});if(!response.ok)return;let data=await response.json();if(!data)return;let s=String(data.status||'');if(s==='searching'&&telegramUserId){try{const fallback=await fetch(`/api/order-status?telegramUserId=${encodeURIComponent(telegramUserId)}&t=${Date.now()}`,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});if(fallback.ok){const fd=await fallback.json();const fs=String(fd?.status||'');if((orderStatusRank[fs]||0)>(orderStatusRank[s]||0)){data=fd;s=fs;if(fd.id) {currentOrderId=String(fd.id);localStorage.setItem('taxi_current_order_id',currentOrderId);window.currentOrderId=currentOrderId;}}}}catch(_){} }if(s==='completed')lastOrderStatus='completed';else if((orderStatusRank[s]||0)>=(orderStatusRank[lastOrderStatus]||0))lastOrderStatus=s;applyOrderStatus(data)}function startPassengerPolling(){stopPassengerPolling();lastOrderStatus='';window.currentOrderId=currentOrderId;checkOrderStatus();passengerPolling=setInterval(checkOrderStatus,2500)}function stopPassengerPolling(){if(passengerPolling){clearInterval(passengerPolling);passengerPolling=null}}function cancelLocalOrder(){stopPassengerPolling();localStorage.removeItem('taxi_current_order_id');currentOrderId='';hidePassengerCards();document.getElementById('orderForm').classList.remove('hidden')}
-async function openDriverMode(){if(!telegramUserId){toast('Откройте Mini App через Telegram.',true);return}const button=document.getElementById('driverModeButton');if(button){button.disabled=true;button.textContent='⏳ Проверяем доступ...'}try{const response=await fetch(`/api/user-role?telegramId=${encodeURIComponent(telegramUserId)}&t=${Date.now()}`,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});const data=await response.json();if(response.ok&&data?.role==='driver'){activateDriverMode();return}toast('Этот аккаунт не зарегистрирован как водитель.',true)}catch(error){console.error('OPEN DRIVER MODE ERROR:',error);toast('Не удалось проверить режим водителя.',true)}finally{if(button&&!isDriver){button.disabled=false;button.textContent='🚗 Режим водителя'}}}
-async function loadDriverProfile(){if(!telegramUserId)return;try{const response=await fetch(`/api/driver-profile?telegramId=${encodeURIComponent(telegramUserId)}&t=${Date.now()}`,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});if(response.ok){const data=await response.json();window.__driverProfile=data?.driver||null}}catch(error){console.error('DRIVER PROFILE LOAD ERROR:',error)}}
-async function activateDriverMode(){isDriver=true;window.__isTaxiDriver=true;window.taxiIsDriver=true;stopPassengerPolling();document.getElementById('passengerScreen')?.classList.add('hidden');document.getElementById('driverScreen')?.classList.remove('hidden');await loadDriverProfile();loadDriverOrders();if(driverPolling)clearInterval(driverPolling);driverPolling=setInterval(loadDriverOrders,3000);return true}
-async function detectDriver(){if(!telegramUserId)return false;const id=encodeURIComponent(telegramUserId),headers={'Cache-Control':'no-cache','Pragma':'no-cache'};try{const response=await fetch(`/api/user-role?telegramId=${id}&t=${Date.now()}`,{cache:'no-store',headers});if(response.ok){const data=await response.json();if(data?.role==='driver')return activateDriverMode()}}catch(error){console.error('ROLE CHECK ERROR:',error)}return false}
-async function editDriverProfile(){const current=window.__driverProfile||{};const name=prompt('Имя водителя:',current.name||'');if(name===null)return;const car=prompt('Автомобиль:',current.car||'');if(car===null)return;const plate=prompt('Госномер:',current.plate||'');if(plate===null)return;const phone=prompt('Телефон:',current.phone||'');if(phone===null)return;const hasChild=confirm('Есть детское кресло?');try{const response=await fetch('/api/driver-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegramId:telegramUserId,name:name.trim(),car:car.trim(),plate:plate.trim(),phone:phone.trim(),hasChildSeat:hasChild})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Не удалось сохранить профиль.');window.__driverProfile=data.driver||data;toast('✅ Профиль водителя сохранён.');}catch(error){console.error('DRIVER PROFILE SAVE ERROR:',error);toast(error.message||'Ошибка сохранения профиля.',true)}}async function loadDriverOrders(){if(!telegramUserId)return;const container=document.getElementById('driverOrders');const countEl=document.getElementById('driverActiveCount');const statusEl=document.getElementById('driverOrdersStatus');try{const response=await fetch(`/api/driver-orders?telegramId=${encodeURIComponent(telegramUserId)}&t=${Date.now()}`,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});if(!response.ok){if(response.status===401||response.status===403){isDriver=false;document.getElementById('driverScreen').classList.add('hidden');document.getElementById('passengerScreen').classList.remove('hidden');return}throw new Error('HTTP '+response.status)}const data=await response.json(),orders=Array.isArray(data)?data:(data.orders||[]);if(countEl)countEl.textContent=orders.length;if(statusEl){statusEl.textContent=orders.length?'ЕСТЬ ЗАКАЗЫ':'НЕТ ЗАКАЗОВ';statusEl.classList.toggle('empty',!orders.length)}if(!orders.length){container.innerHTML=`<div class="status-box"><div class="status-icon">✓</div><div class="status-title">Текущих заказов нет</div><div class="status-text">Новых активных заказов пока нет. Когда заказ будет назначен вам, он появится здесь.</div></div>`;return}container.innerHTML=orders.map(renderDriverOrder).join('')}catch(error){console.error(error);container.innerHTML=`<div class="status-text" style="text-align:center">Не удалось загрузить заказы.</div>`}}
-function renderDriverOrder(order){const status=order.status||'accepted';let badge='Принят',buttons='';if(status==='arrived')badge='На месте';if(status==='trip')badge='В поездке';if(status==='accepted')buttons=`<button class="arrived" onclick="driverArrived('${escapeJs(order.id)}')">🚕 Я на месте</button>`;if(status==='arrived')buttons=`<button class="start" onclick="startTrip('${escapeJs(order.id)}')">▶ Начать поездку</button>`;if(status==='trip')buttons=`<button class="complete" onclick="completeOrder('${escapeJs(order.id)}')">✓ Завершить поездку</button>`;return `<div class="driver-order"><div class="driver-order-head"><div class="order-number">Заказ №${escapeHtml(String(order.id))}</div><div class="order-badge">${badge}</div></div><div class="route"><div class="route-line"><div class="route-dot"></div><div class="route-text">${escapeHtml(order.addressA||'Адрес подачи')}</div></div><div class="route-line"><div class="route-dot end"></div><div class="route-text">${escapeHtml(order.addressB||'Адрес назначения')}</div></div></div><div class="driver-details"><div class="detail"><span>Время</span><strong>${escapeHtml(order.scheduled||'Сейчас')}</strong></div><div class="detail"><span>Тариф</span><strong>${escapeHtml(order.tariff||'Эконом')}</strong></div><div class="detail"><span>Детское кресло</span><strong>${order.childSeat?'👶 Нужно':'Не нужно'}</strong></div><div class="detail"><span>Клиент</span><strong>Telegram</strong></div></div><div class="driver-buttons">${buttons}</div></div>`}
-async function driverArrived(orderId){await driverAction('/api/driver-arrived',orderId,'Водитель отмечен как прибывший.')}async function startTrip(orderId){await driverAction('/api/start-trip',orderId,'Поездка началась.')}async function completeOrder(orderId){await driverAction('/api/complete-order',orderId,'Поездка завершена.')}async function driverAction(url,orderId,successMessage){try{const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegramId:telegramUserId,orderId})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Не удалось изменить статус.');toast(successMessage);loadDriverOrders()}catch(error){console.error(error);toast(error.message||'Ошибка.',true)}}function openDriverPhone(){if(!currentDriverPhone){toast('Телефон водителя недоступен.',true);return}window.location.href=`tel:${currentDriverPhone}`}function escapeHtml(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}function escapeJs(value){return String(value??'').replaceAll('\\','\\\\').replaceAll("'","\\'").replaceAll('"','\\"')}
-async function startApp(){const passenger=document.getElementById('passengerScreen'),driver=document.getElementById('driverScreen');if(!passenger||!driver){console.error('TAXI UI ERROR: screens not found');return}passenger.classList.add('hidden');driver.classList.add('hidden');if(!telegramUserId){passenger.classList.remove('hidden');toast('Откройте Mini App через Telegram.',true);return}try{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);const response=await fetch('/api/user-role?telegramId='+encodeURIComponent(telegramUserId)+'&t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'},signal:controller.signal});clearTimeout(timer);if(response.ok){const data=await response.json();console.log('TAXI USER ROLE:',data);if(data?.role==='driver'){await activateDriverMode();return}if(data?.role==='passenger'){isDriver=false;window.__isTaxiDriver=false;window.taxiIsDriver=false;passenger.classList.remove('hidden');await loadPassengerProfile();if(currentOrderId){showWaiting();startPassengerPolling()}return}}else{console.warn('TAXI USER ROLE HTTP:',response.status)}}catch(error){console.error('START ROLE ERROR:',error)}isDriver=false;window.__isTaxiDriver=false;window.taxiIsDriver=false;passenger.classList.remove('hidden');await loadPassengerProfile();if(currentOrderId){showWaiting();startPassengerPolling()}}startApp();</script>
+const tg=window.Telegram?.WebApp;
+tg?.ready?.();
+tg?.expand?.();
+
+const telegramId=String(tg?.initDataUnsafe?.user?.id||"");
+let role="";
+let passengerProfile=null;
+let driverProfile=null;
+
+function $(x){return document.getElementById(x)}
+function toast(text,bad=false){$("toast").textContent=text;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
+async function api(url,options={}){const r=await fetch(url,{...options,cache:"no-store",headers:{"Content-Type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Ошибка сервера");return d}
+
+function showOnly(section){
+  ["passengerHome","passengerForm","passengerCurrent","passengerProfileForm","driverOrders","driverProfileForm"].forEach(x=>$(x)?.classList.add("hidden"));
+  $(section)?.classList.remove("hidden");
+}
+
+async function start(){
+  if(!telegramId){$("roleBadge").textContent="Откройте через Telegram";$("passenger").classList.remove("hidden");showOnly("passengerHome");return}
+  try{
+    const data=await api("/api/user-role?telegramId="+encodeURIComponent(telegramId));
+    role=data.role;
+    $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
+    if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); await loadDriverOrders(); }
+    else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); showOnly("passengerHome"); }
+  }catch(e){toast(e.message,true);$("roleBadge").textContent="Ошибка";$("passenger").classList.remove("hidden")}
+}
+
+async function loadPassengerProfile(){
+  try{
+    const d=await api("/api/passenger-profile?telegramId="+encodeURIComponent(telegramId));
+    passengerProfile=d.profile;
+    $("passengerProfileText").textContent=passengerProfile?passengerProfile.name+" • "+passengerProfile.phone:"Профиль ещё не заполнен.";
+  }catch(e){$("passengerProfileText").textContent=e.message}
+}
+function showPassengerProfile(){
+  showOnly("passengerProfileForm");
+  $("passengerName").value=passengerProfile?.name||"";
+  $("passengerPhone").value=passengerProfile?.phone||"";
+}
+async function savePassengerProfile(){
+  try{
+    const d=await api("/api/passenger-profile",{method:"POST",body:JSON.stringify({telegramId,name:$("passengerName").value,phone:$("passengerPhone").value})});
+    passengerProfile=d.profile;toast("Профиль сохранён");await loadPassengerProfile();backPassenger();
+  }catch(e){toast(e.message,true)}
+}
+function showOrder(){
+  showOnly("passengerForm");
+  if(!passengerProfile){toast("Сначала заполните профиль",true);showPassengerProfile()}
+}
+function backPassenger(){showOnly("passengerHome")}
+async function createOrder(){
+  if(!passengerProfile){toast("Сначала заполните профиль",true);return}
+  try{
+    const scheduled=$("scheduledAt").value?new Date($("scheduledAt").value).toISOString():null;
+    const d=await api("/api/orders",{method:"POST",body:JSON.stringify({
+      telegramId,
+      pickup:$("pickup").value,
+      destination:$("destination").value,
+      tariff:$("tariff").value,
+      childSeat:$("childSeat").checked,
+      scheduledAt:scheduled
+    })});
+    toast("Заказ создан");
+    showCurrentOrderData(d.order);
+    showOnly("passengerCurrent");
+  }catch(e){toast(e.message,true)}
+}
+function showCurrentOrder(){loadCurrentOrder()}
+async function loadCurrentOrder(){
+  try{const d=await api("/api/orders/current?telegramId="+encodeURIComponent(telegramId));showCurrentOrderData(d.order);showOnly("passengerCurrent")}catch(e){toast(e.message,true)}
+}
+function showCurrentOrderData(o){
+  if(!o){$("currentOrder").innerHTML='<div class="info">Активных заказов нет.</div>';return}
+  $("currentOrder").innerHTML=`
+    <div class="order"><b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
+    <div class="small">Статус: ${escapeHtml(o.status)}<br>Сумма: ${Number(o.amount).toFixed(2)} BYN</div>
+    ${o.driver_name?'<div class="small ok" style="margin-top:8px">Водитель: '+escapeHtml(o.driver_name)+'<br>'+escapeHtml(o.driver_car||"")+' '+escapeHtml(o.driver_plate||"")+'</div>':""}</div>`;
+}
+async function loadDriverProfile(){
+  try{
+    const d=await api("/api/driver-profile?telegramId="+encodeURIComponent(telegramId));
+    driverProfile=d.profile;
+    $("driverProfileText").innerHTML=driverProfile
+      ? `<b>${escapeHtml(driverProfile.name)}</b><br>${escapeHtml(driverProfile.car)} • ${escapeHtml(driverProfile.plate)}<br>⭐ ${Number(driverProfile.rating||5).toFixed(2)} • Детское кресло: ${driverProfile.has_child_seat?"да":"нет"}`
+      : '<span class="bad">Профиль не заполнен.</span>';
+  }catch(e){$("driverProfileText").textContent=e.message}
+}
+function showDriverProfile(){
+  showOnly("driverProfileForm");
+  $("driverName").value=driverProfile?.name||"";
+  $("driverPhone").value=driverProfile?.phone||"";
+  $("driverCar").value=driverProfile?.car||"";
+  $("driverPlate").value=driverProfile?.plate||"";
+  $("driverChildSeat").checked=!!driverProfile?.has_child_seat;
+}
+function backDriver(){showOnly("driverOrders")}
+async function saveDriverProfile(){
+  try{
+    const d=await api("/api/driver-profile",{method:"POST",body:JSON.stringify({
+      telegramId,name:$("driverName").value,phone:$("driverPhone").value,car:$("driverCar").value,plate:$("driverPlate").value,hasChildSeat:$("driverChildSeat").checked
+    })});
+    driverProfile=d.profile;toast("Профиль водителя сохранён");await loadDriverProfile();backDriver();
+  }catch(e){toast(e.message,true)}
+}
+async function loadDriverOrders(){
+  try{
+    const d=await api("/api/driver-orders?telegramId="+encodeURIComponent(telegramId));
+    if(!d.orders.length){$("ordersList").innerHTML="Свободных заказов сейчас нет.";return}
+    $("ordersList").innerHTML=d.orders.map(o=>`
+      <div class="order">
+        <b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
+        <div class="small">${o.scheduled_at?"🕐 "+new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас"}<br>💰 ${Number(o.amount).toFixed(2)} BYN ${o.child_seat?"• 👶 кресло":""}</div>
+        <button class="btn green" onclick="acceptOrder('${o.id}')">Принять заказ</button>
+      </div>`).join("");
+  }catch(e){$("ordersList").innerHTML='<span class="bad">'+escapeHtml(e.message)+'</span>'}
+}
+async function acceptOrder(orderId){
+  try{await api("/api/orders/"+encodeURIComponent(orderId)+"/accept",{method:"POST",body:JSON.stringify({telegramId})});toast("Заказ принят");await loadDriverOrders()}catch(e){toast(e.message,true)}
+}
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+
+start();
+</script>
 </body>
 </html>
