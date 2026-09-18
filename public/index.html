@@ -167,7 +167,11 @@ async function createPassengerOrder(){
 const statusNames={searching:["🔎","Ищем водителя","yellow"],accepted:["✅","Водитель подтвердил заказ","green"],arrived:["📍","Водитель на месте","green"],trip:["🚕","Поездка в пути","green"],completed:["🏁","Поездка завершена","green"],cancelled:["❌","Заказ отменён","yellow"]};
 function callLink(phone,label){return phone?'<a class="call" href="tel:'+esc(phone)+'">📞 '+label+'</a>':""}
 function renderPassengerOrder(o){
- if(!o){$("currentBox").innerHTML='<div class="title">Нет активной поездки</div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>';return}
+ if(!o){passengerRenderKey="none";if(livePassengerMap){livePassengerMap.remove();livePassengerMap=null}$("currentBox").innerHTML='<div class="title">Нет активной поездки</div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>';return}
+ const renderKey=[o.id,o.status,o.driver_phone,o.driver_name,o.waiting_minutes,o.waiting_fee].join("|");
+ if(renderKey===passengerRenderKey)return;
+ passengerRenderKey=renderKey;
+ if(livePassengerMap){livePassengerMap.remove();livePassengerMap=null}
  const st=statusNames[o.status]||["","Статус","yellow"], total=Number(o.amount)+Number(o.waiting_fee||0);
  let extra="";
  if(o.driver_name)extra='<div class="order"><b>🚗 Водитель</b><div class="routeText">'+esc(o.driver_name)+'</div><div class="small">'+esc(o.driver_car||"")+' • '+esc(o.driver_plate||"")+'<br>⭐ '+Number(o.driver_rating||5).toFixed(2)+'</div>'+callLink(o.driver_phone,"Позвонить водителю")+'</div>';
