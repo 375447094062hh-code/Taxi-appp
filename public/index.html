@@ -159,8 +159,17 @@ async function start(){
     const data=await api("/api/user-role?telegramId="+encodeURIComponent(telegramId));
     role=data.role;
     $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
-    if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); await loadDriverOrders(); }
-    else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); showOnly("passengerHome"); }
+    if(role==="driver"){
+      $("driver").classList.remove("hidden");
+      await loadDriverProfile();
+      await loadDriverOrders();
+      clearInterval(window.driverOrdersTimer);
+      window.driverOrdersTimer=setInterval(()=>loadDriverOrders(),5000);
+    } else {
+      $("passenger").classList.remove("hidden");
+      await loadPassengerProfile();
+      showOnly("passengerHome");
+    }
   }catch(e){toast(e.message,true);$("roleBadge").textContent="Ошибка";$("passenger").classList.remove("hidden")}
 }
 
@@ -421,7 +430,7 @@ async function loadDriverOrders(){
     $("ordersList").innerHTML=d.orders.map(o=>`
       <div class="order">
         <b>${escapeHtml(o.pickup)} → ${escapeHtml(o.destination)}</b>
-        <div class="small">${o.scheduled_at?"🕐 "+new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас"}<br>💰 ${Number(o.amount).toFixed(2)} BYN ${o.child_seat?"• 👶 кресло":""}</div>
+        <div class="small">${o.scheduled_at?"🕐 "+new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас"}<br>💰 ${Number(o.amount).toFixed(2)} BYN ${o.distance_km!=null?"• 📏 "+Number(o.distance_km).toFixed(1)+" км":""} ${o.child_seat?"• 👶 кресло":""}</div>
         <button class="btn green" onclick="acceptOrder('${o.id}')">Принять заказ</button>
       </div>`).join("");
   }catch(e){$("ordersList").innerHTML='<span class="bad">'+escapeHtml(e.message)+'</span>'}
