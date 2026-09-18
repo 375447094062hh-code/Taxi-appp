@@ -114,6 +114,7 @@ async function migrate() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_seconds INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_started_at TIMESTAMPTZ;
+    UPDATE orders SET waiting_seconds=waiting_minutes*60 WHERE waiting_seconds=0 AND waiting_minutes>0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_by_driver_telegram_id TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
   `);
