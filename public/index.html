@@ -71,9 +71,17 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
       </div>
       <label>Тариф</label><select id="tariff"><option>Стандарт</option></select>
       <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
-      <label>Дата и время</label><input id="scheduledAt" type="datetime-local">
-      <div class="price">от 3.00 BYN</div>
-      <div class="info">Точная сумма зависит от расстояния: 3 BYN + 1 BYN/км.</div>
+      <label>Время заказа</label>
+      <div class="grid" style="margin-top:6px">
+        <button id="nowBtn" class="btn" type="button" onclick="setOrderNow()">⚡ Сейчас</button>
+        <button id="laterBtn" class="btn secondary" type="button" onclick="setOrderLater()">🕐 На дату</button>
+      </div>
+      <div id="scheduleBox" class="hidden">
+        <label>Дата и время</label>
+        <input id="scheduledAt" type="datetime-local"> 
+      </div>
+      <div class="price">3.00 BYN</div>
+      <div id="orderSummary" class="info">Укажите точки маршрута — сумма рассчитается автоматически.</div>
       <button class="btn" onclick="createOrder()">Подтвердить заказ</button>
       <button class="btn secondary" onclick="backPassenger()">Назад</button>
     </section>
@@ -182,6 +190,7 @@ let routeLayer=null;
 let destinationTimer=null;
 let pickupPoint=null;
 let destinationPoint=null;
+let orderTimeMode="now";
 
 function initPassengerMap(){
   if(passengerMap || !window.L) return;
@@ -259,6 +268,7 @@ async function buildRoute(){
     const group=L.featureGroup([pickupMarker,destinationMarker,routeLayer]);
     routeMap.fitBounds(group.getBounds(),{padding:[25,25]});
     $("routeHint").innerHTML=`📏 ${km.toFixed(1)} км • 💰 <b>${window.currentAmount.toFixed(2)} BYN</b><br>3 BYN посадка + 1 BYN/км`;
+    $("orderSummary").innerHTML=`Маршрут готов: ${km.toFixed(1)} км. Посадка 3 BYN + расстояние ${Math.ceil(km)} BYN.`;
     document.querySelector("#passengerForm .price").textContent=window.currentAmount.toFixed(2)+" BYN";
   }catch(e){
     $("routeHint").textContent="Не удалось построить маршрут. Проверьте адреса.";
@@ -307,6 +317,25 @@ function locatePassenger(){
   );
 }
 
+function setOrderNow(){
+  orderTimeMode="now";
+  $("scheduleBox").classList.add("hidden");
+  $("nowBtn").classList.remove("secondary");
+  $("laterBtn").classList.add("secondary");
+}
+function setOrderLater(){
+  orderTimeMode="later";
+  $("scheduleBox").classList.remove("hidden");
+  $("nowBtn").classList.add("secondary");
+  $("laterBtn").classList.remove("secondary");
+  const input=$("scheduledAt");
+  if(!input.value){
+    const d=new Date(Date.now()+60*60*1000);
+    d.setSeconds(0,0);
+    input.value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  }
+}
+
 function showOrder(){
   showOnly("passengerForm");
   setTimeout(()=>{
@@ -321,7 +350,15 @@ function backPassenger(){showOnly("passengerHome")}
 async function createOrder(){
   if(!passengerProfile){toast("Сначала заполните профиль",true);return}
   try{
-    const scheduled=$("scheduledAt").value?new Date($("scheduledAt").value).toISOString():null;
+    let scheduled=null;
+    if(orderTimeMode==="later"){
+      if(!$("scheduledAt").value){toast("Выберите дату и время",true);return}
+      const dt=new Date($("scheduledAt").value);
+      if(Number.isNaN(dt.getTime()) || dt.getTime()<=Date.now()){toast("Дата и время должны быть в будущем",true);return}
+      scheduled=dt.toISOString();
+    }
+    if(!$("pickup").value || !pickupPoint){toast("Сначала определите точку подачи",true);return}
+    if(!$("destination").value || !destinationPoint){toast("Выберите точку назначения",true);return}
     const d=await api("/api/orders",{method:"POST",body:JSON.stringify({
       telegramId,
       pickup:$("pickup").value,
@@ -329,7 +366,11 @@ async function createOrder(){
       tariff:$("tariff").value,
       childSeat:$("childSeat").checked,
       scheduledAt:scheduled,
-      distanceKm:window.currentDistanceKm||0
+      distanceKm:window.currentDistanceKm||0,
+      pickupLat:pickupPoint.lat,
+      pickupLng:pickupPoint.lng,
+      destinationLat:destinationPoint.lat,
+      destinationLng:destinationPoint.lng
     })});
     toast("Заказ создан");
     showCurrentOrderData(d.order);
