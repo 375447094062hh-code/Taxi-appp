@@ -31,13 +31,12 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
 
-const DRIVER_CHAT_IDS = Array.from(new Set([
-    "1218398639",
-    ...(process.env.DRIVER_CHAT_IDS || "")
+const DRIVER_CHAT_IDS = Array.from(new Set(
+    (process.env.DRIVER_CHAT_IDS || "")
         .split(",")
         .map(x => x.trim())
         .filter(Boolean)
-]));
+));
 
 const MAX_NORMAL_ACTIVE_ORDERS = 2;
 const FUTURE_ORDER_BLOCK_MINUTES = 15;
@@ -3881,6 +3880,16 @@ async function telegramPollingLoop() {
                 error.message
             );
 
+            // Неверный/отозванный токен не имеет смысла
+            // повторять бесконечно. После исправления
+            // TELEGRAM_BOT_TOKEN в Render нужен новый deploy.
+            if (String(error.message || "").toLowerCase().includes("unauthorized")) {
+                console.error(
+                    "Telegram polling остановлен: TELEGRAM_BOT_TOKEN отклонён Telegram."
+                );
+                telegramPolling = false;
+                return;
+            }
 
             await sleep(
                 3000
