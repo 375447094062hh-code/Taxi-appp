@@ -350,7 +350,7 @@ function stopWaitingTimer(){if(waitingTimer){clearInterval(waitingTimer);waiting
 function startWaitingTimer(startedAt){
  stopWaitingTimer();
  const started=new Date(startedAt).getTime();
- const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const base=Number(window.__waitingBaseSeconds||0);const totalSec=base+sec;const m=Math.floor(totalSec/60),s=totalSec%60;const charged=Math.max(1,Math.ceil(totalSec/60));const fee=charged*0.5;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");const minEl=$("waitLiveMinutes");const feeEl=$("waitLiveFee");if(minEl)minEl.textContent=charged+" мин";if(feeEl)feeEl.textContent=fee.toFixed(2)+" BYN";const totalEl=$("driverLiveTotal");if(totalEl)totalEl.textContent=(Number(window.__driverOrder?.amount||0)+fee).toFixed(2)+" BYN"};
+ const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const base=Number(window.__waitingBaseSeconds||0);const totalSec=base+sec;const m=Math.floor(totalSec/60),s=totalSec%60;const charged=totalSec>0?Math.ceil(totalSec/60):0;const fee=charged*0.5;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");const minEl=$("waitLiveMinutes");const feeEl=$("waitLiveFee");if(minEl)minEl.textContent=charged+" мин";if(feeEl)feeEl.textContent=fee.toFixed(2)+" BYN";const totalEl=$("driverLiveTotal");if(totalEl)totalEl.textContent=(Number(window.__driverOrder?.amount||0)+fee).toFixed(2)+" BYN"};
  tick();waitingTimer=setInterval(tick,1000);
 }
 async function toggleWaiting(id){
