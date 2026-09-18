@@ -110,7 +110,7 @@ async function savePassenger(){try{pProfile=(await api("/api/passenger-profile",
 
 function openPassengerOrder(){
  if(!pProfile){toast("Сначала заполните профиль",true);editPassengerProfile();return}
- showP("pOrder"); setTimeout(()=>{initMap();map?.invalidateSize();},100);
+ clearRoutePoints(false);showP("pOrder"); setTimeout(()=>{initMap();map?.invalidateSize();},100);
 }
 function openTariffs(){showP("pTariffs")}
 function openPassengerSettings(){showP("pSettings")}
@@ -143,7 +143,7 @@ async function setDestination(lat,lng,address){
 function resetRouteInfo(){window.distanceKm=0;$("routeInfo").textContent="Выберите точки А и Б на карте или введите адреса.";$("orderPrice").textContent="3.00 BYN"}
 function clearPickup(){pickupPoint=null;if(pMarker){pMarker.remove();pMarker=null}if(routeLayer){routeLayer.remove();routeLayer=null}$("pPickup").value="";resetRouteInfo();if(destPoint)map?.setView([destPoint.lat,destPoint.lng],15)}
 function clearDestination(){destPoint=null;if(dMarker){dMarker.remove();dMarker=null}if(routeLayer){routeLayer.remove();routeLayer=null}$("pDestination").value="";resetRouteInfo();if(pickupPoint)map?.setView([pickupPoint.lat,pickupPoint.lng],15)}
-function clearRoutePoints(){clearPickup();clearDestination();toast("Маршрут очищен — выберите точки заново")}
+function clearRoutePoints(notify=true){clearPickup();clearDestination();if(notify)toast("Маршрут очищен — выберите точки заново")}
 async function buildRoute(){
  if(!pickupPoint||!destPoint)return;
  try{
