@@ -104,6 +104,13 @@ async function migrate() {
     );
   `);
 
+  await db(`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_lat DOUBLE PRECISION;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_lng DOUBLE PRECISION;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_lat DOUBLE PRECISION;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_lng DOUBLE PRECISION;
+  `);
+
   console.log("PostgreSQL: таблицы готовы.");
 }
 
@@ -500,8 +507,8 @@ app.post("/api/orders", async (req, res) => {
 
     const result = await db(
       `INSERT INTO orders
-       (id,passenger_telegram_id,passenger_name,passenger_phone,pickup,destination,tariff,child_seat,scheduled_at,distance_km,amount)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       (id,passenger_telegram_id,passenger_name,passenger_phone,pickup,destination,tariff,child_seat,scheduled_at,distance_km,amount,pickup_lat,pickup_lng,destination_lat,destination_lng)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
       [
         orderId,
@@ -514,7 +521,11 @@ app.post("/api/orders", async (req, res) => {
         childSeat,
         scheduledAt,
         safeDistance,
-        amount
+        amount,
+        Number.isFinite(Number(req.body.pickupLat)) ? Number(req.body.pickupLat) : null,
+        Number.isFinite(Number(req.body.pickupLng)) ? Number(req.body.pickupLng) : null,
+        Number.isFinite(Number(req.body.destinationLat)) ? Number(req.body.destinationLat) : null,
+        Number.isFinite(Number(req.body.destinationLng)) ? Number(req.body.destinationLng) : null
       ]
     );
 
@@ -642,6 +653,35 @@ app.post("/api/orders/:orderId/accept", async (req, res) => {
     res.json({ success: true, order });
   } catch (error) {
     console.error("accept:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/api/driver-current", async (req, res) => {
+  try {
+    const telegramId = id(req.query.telegramId);
+
+    if (!isDriver(telegramId)) {
+      return res.status(403).json({
+        success: false,
+        error: "Нет доступа водителя."
+      });
+    }
+
+    const result = await db(
+      `SELECT * FROM orders
+       WHERE driver_telegram_id=$1
+         AND status = ANY($2::text[])
+       ORDER BY accepted_at DESC NULLS LAST, created_at DESC
+       LIMIT 1`,
+      [telegramId, ACTIVE_STATUSES]
+    );
+
+    res.json({
+      success: true,
+      order: result.rows[0] || null
+    });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
