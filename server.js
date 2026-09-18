@@ -112,6 +112,8 @@ async function migrate() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_minutes INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_started_at TIMESTAMPTZ;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_by_driver_telegram_id TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
   `);
   console.log("PostgreSQL: таблицы готовы.");
 }
@@ -280,6 +282,7 @@ app.get("/api/driver-orders", async (req,res)=>{
     const id=clean(req.query.telegramId);
     if(!isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
     const r=await db(`SELECT * FROM orders WHERE status='searching'
+      AND (rejected_by_driver_telegram_id IS NULL OR rejected_by_driver_telegram_id<>$1)
       AND (child_seat=false OR child_seat=(SELECT has_child_seat FROM drivers WHERE telegram_id=$1))
       ORDER BY scheduled_at NULLS FIRST,created_at ASC`,[id]);
     res.json({success:true,orders:r.rows});
@@ -357,6 +360,19 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
     const charged=Number(r.rows[0].waiting_minutes)-Number(current.waiting_minutes||0);
     if(charged>0) await notifyPassenger(r.rows[0],`⏱ Ожидание завершено: ${r.rows[0].waiting_minutes} мин • +${Number(r.rows[0].waiting_fee).toFixed(2)} BYN`);
     res.json({success:true,action:"stopped",order:r.rows[0]});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/orders/:orderId/reject", async (req,res)=>{
+  try {
+    const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId);
+    if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const r=await db(`UPDATE orders
+      SET status='cancelled',rejected_by_driver_telegram_id=$1,rejected_at=NOW()
+      WHERE id=$2 AND status='searching' RETURNING *`,[driverId,orderId]);
+    if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ уже недоступен."});
+    await notifyPassenger(r.rows[0],"❌ Водитель отклонил заказ. Пожалуйста, оформите новый заказ.");
+    res.json({success:true,order:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
