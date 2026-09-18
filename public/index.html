@@ -210,18 +210,39 @@ async function acceptDriver(id){try{const d=await api("/api/orders/"+encodeURICo
 async function loadDriverCurrent(){try{const d=await api("/api/driver-current?telegramId="+encodeURIComponent(uid));if(d.order){renderDriverCurrent(d.order);if($("dCurrent")&&!$("dCurrent").classList.contains("hidden"))showD("dCurrent")}}catch(e){}}
 function openDriverCurrent(){loadDriverCurrent();showD("dCurrent")}
 function renderDriverCurrent(o){
- if(!o){$("dCurrentBox").innerHTML='<div class="sub">Активной поездки нет.</div>';return}
+ if(!o){driverRenderKey="none";stopWaitingTimer();$("dCurrentBox").innerHTML='<div class="sub">Активной поездки нет.</div>';return}
+ const renderKey=[o.id,o.status,o.passenger_phone,o.waiting_minutes,o.waiting_fee,o.waiting_started_at].join("|");
+ if(renderKey===driverRenderKey)return;
+ driverRenderKey=renderKey;
+ if(!o.waiting_started_at)stopWaitingTimer();
  const st=statusNames[o.status]||["","Статус","yellow"],total=Number(o.amount)+Number(o.waiting_fee||0);
  let actions="";
  if(o.status==="accepted")actions='<button class="btn green" onclick="driverStatus(\''+o.id+'\',\'arrived\')">📍 Я на месте</button>';
  if(o.status==="arrived")actions='<button class="btn blue" onclick="driverStatus(\''+o.id+'\',\'trip\')">🚕 Начать поездку</button>';
  if(o.status==="trip")actions='<button class="btn red" onclick="driverStatus(\''+o.id+'\',\'completed\')">🏁 Завершить поездку</button>';
- $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+actions+
- '<div class="wait"><strong>⏱ Ожидание</strong><br><span class="small">1 минута = 0,50 BYN</span><button class="btn secondary" onclick="addWaiting(\''+o.id+'\')">+ 1 минута • 0,50 BYN</button></div></div>'+
+ const waiting=o.waiting_started_at
+  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div id="waitClock" class="price" style="font-size:24px;margin:5px 0">00:00</div><span class="small">Начисление: 0,50 BYN за каждую полную минуту</span><button class="btn red" onclick="toggleWaiting(\''+o.id+'\')">⏸ Остановить ожидание</button></div>'
+  : '<div class="wait"><strong>⏱ Ожидание</strong><br><span class="small">Сумма не начисляется, пока не пройдёт полная минута.</span><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Начать отсчёт</button></div>';
+ $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+actions+waiting+'</div>'+
  '<div class="sub">Статус автоматически обновляется у пассажира каждые несколько секунд.</div>';
+ if(o.waiting_started_at)startWaitingTimer(o.waiting_started_at);
 }
 async function driverStatus(id,status){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась.":"Поездка завершена.");if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
-async function addWaiting(id){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/waiting",{method:"POST",body:JSON.stringify({telegramId:uid})});renderDriverCurrent(d.order);toast("Добавлено 0,50 BYN за 1 минуту ожидания")}catch(e){toast(e.message,true)}}
+function stopWaitingTimer(){if(waitingTimer){clearInterval(waitingTimer);waitingTimer=null}}
+function startWaitingTimer(startedAt){
+ stopWaitingTimer();
+ const started=new Date(startedAt).getTime();
+ const tick=()=>{const el=$("waitClock");if(!el)return;const sec=Math.max(0,Math.floor((Date.now()-started)/1000));const m=Math.floor(sec/60),s=sec%60;el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")};
+ tick();waitingTimer=setInterval(tick,1000);
+}
+async function toggleWaiting(id){
+ try{
+  const d=await api("/api/orders/"+encodeURIComponent(id)+"/waiting",{method:"POST",body:JSON.stringify({telegramId:uid})});
+  driverRenderKey="";
+  renderDriverCurrent(d.order);
+  toast(d.action==="started"?"⏱ Отсчёт ожидания начат. Сумма пока 0 BYN.":"⏱ Ожидание остановлено. Начислены только полные минуты.");
+ }catch(e){toast(e.message,true)}
+}
 
 async function openStats(){showD("dStats");$("statsMonth").value=new Date().toISOString().slice(0,7);await loadStats()}
 $("statsMonth").addEventListener("change",loadStats);
