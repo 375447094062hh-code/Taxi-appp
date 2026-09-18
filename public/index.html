@@ -6,21 +6,14 @@
 <title>Такси Речица</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:#080b12;--card:#111722;--card2:#171f2d;--line:#263246;--text:#f8fafc;--muted:#8d9aae;--accent:#ffd21a;--green:#29d17d;--red:#ff5964}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#172238 0,#080b12 48%);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;min-height:100vh}
-.app{width:min(100%,440px);margin:auto;padding:16px 14px 30px}.hidden{display:none!important}
-.top{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 18px}.brand{font-size:20px;font-weight:850}.brand span{color:var(--accent)}.role{font-size:11px;color:var(--muted);background:#121a27;border:1px solid var(--line);padding:7px 10px;border-radius:999px}
-.hero{padding:22px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#182234,#0f151f);box-shadow:0 18px 50px #0006;margin-bottom:14px}.hero h1{margin:0 0 7px;font-size:28px}.hero p{margin:0;color:var(--muted)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:12px 0}.title{font-weight:800;font-size:17px;margin-bottom:12px}
-.btn{width:100%;border:0;border-radius:15px;padding:14px 16px;font-size:15px;font-weight:800;cursor:pointer;margin-top:9px;background:var(--accent);color:#151515}.btn.secondary{background:var(--card2);border:1px solid var(--line);color:var(--text)}.btn.green{background:var(--green);color:#07140d}.btn.danger{background:var(--red);color:#fff}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid .btn{margin:0}
-label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,select{width:100%;background:#0c121c;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;font-size:15px;outline:none}input:focus,select:focus{border-color:var(--accent)}
-.info{font-size:13px;line-height:1.55;color:var(--muted)}.price{font-size:28px;font-weight:900;color:var(--accent);margin:8px 0}.status{padding:12px;border-radius:14px;background:#0c131e;border:1px solid var(--line);margin-top:10px}.ok{color:var(--green)}.bad{color:var(--red)}
-.order{border:1px solid var(--line);background:#0d141f;border-radius:16px;padding:14px;margin:10px 0}.order b{display:block;margin-bottom:6px}.small{font-size:12px;color:var(--muted);line-height:1.5}.coords{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.coords>div{background:#111a27;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:11px;color:var(--muted);word-break:break-word}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:12px}.check input{width:18px;height:18px}
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#151d2a;border:1px solid var(--line);padding:12px 16px;border-radius:14px;z-index:10;max-width:90%;font-size:13px;box-shadow:0 12px 40px #0008}
-
-.mapWrap{margin-top:12px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#0b111a}.map{height:300px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}.mapHint{padding:9px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}.suggestions{background:#0c121c;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:6px}.suggestion{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer}.suggestion:last-child{border-bottom:0}
-.leaflet-container{font:inherit;background:#0b111a}.leaflet-control-zoom a{background:#111722;color:#fff;border-color:#263246}.leaflet-control-attribution{background:#111722cc!important;color:#8d9aae!important}.leaflet-control-attribution a{color:#cbd5e1!important}
+:root{--bg:#06111d;--navy:#081a2b;--card:#0c2134;--card2:#102a40;--line:#23425b;--text:#f8fbff;--muted:#8ea7bb;--accent:#ffd21a;--accent2:#ffdf4d;--green:#2bd982;--red:#ff5964}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}.app{width:min(100%,430px);min-height:100vh;margin:auto;padding:10px 12px 28px;background:linear-gradient(180deg,#071727 0%,#06111d 55%,#071522 100%)}.hidden{display:none!important}
+.top{height:42px;display:flex;align-items:center;justify-content:space-between;margin:0 3px 8px}.brand{font-size:19px;font-weight:900;letter-spacing:-.4px}.brand span{color:var(--accent)}.role{font-size:10px;font-weight:800;color:#d6e3ee;background:#0d2236;border:1px solid #31506a;padding:7px 10px;border-radius:999px}
+.hero{position:relative;overflow:hidden;padding:24px 18px 22px;border:1px solid #31506a;border-radius:25px;background:radial-gradient(circle at 80% 20%,#1d4664 0,#102b43 38%,#091a2b 75%);box-shadow:0 18px 45px #0007;margin-bottom:12px;min-height:174px}.hero:after{content:"";position:absolute;right:-26px;bottom:-34px;width:210px;height:105px;border-radius:50% 50% 0 0;background:linear-gradient(180deg,#f2bd28,#d88e14);transform:rotate(-7deg);opacity:.95}.hero:before{content:"🚕";position:absolute;right:36px;bottom:23px;font-size:58px;z-index:1;filter:drop-shadow(0 10px 8px #0007)}.hero h1{position:relative;z-index:2;margin:0 0 5px;font-size:29px;letter-spacing:-.8px}.hero p{position:relative;z-index:2;margin:0;color:#b9cbd9;font-size:13px}.card{background:linear-gradient(145deg,#0d253a,#091b2d);border:1px solid var(--line);border-radius:20px;padding:14px;margin:10px 0;box-shadow:0 10px 28px #0003}.title{font-weight:900;font-size:17px;margin-bottom:10px}.btn{width:100%;border:0;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:900;cursor:pointer;margin-top:8px;background:linear-gradient(180deg,var(--accent2),var(--accent));color:#111;box-shadow:0 8px 20px #ffd21a26}.btn.secondary{background:#0c2032;border:1px solid #31506a;color:var(--text);box-shadow:none}.btn.green{background:var(--green);color:#06160e}.btn.danger{background:var(--red);color:#fff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.grid .btn{margin:0}
+label{display:block;color:#9db3c5;font-size:11px;font-weight:700;margin:11px 0 5px}input,select{width:100%;background:#081827;color:var(--text);border:1px solid #2a4961;border-radius:13px;padding:13px;font-size:15px;outline:none}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #ffd21a18}.info{font-size:12px;line-height:1.5;color:var(--muted)}.price{font-size:29px;font-weight:950;color:var(--accent);margin:10px 0}.status{padding:12px;border-radius:14px;background:#081827;border:1px solid var(--line);margin-top:9px}.ok{color:var(--green)}.bad{color:var(--red)}.order{border:1px solid #294860;background:#081a2b;border-radius:15px;padding:13px;margin:9px 0}.order b{display:block;margin-bottom:5px}.small{font-size:11px;color:#9ab0c1;line-height:1.5}.coords{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0}.coords>div{background:#0b2236;border:1px solid #2a4961;border-radius:11px;padding:9px;font-size:10px;color:#a7bbc9;word-break:break-word}.check{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;margin-top:11px}.check input{width:18px;height:18px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#102a40;border:1px solid #41627a;padding:11px 15px;border-radius:13px;z-index:20;max-width:90%;font-size:12px;box-shadow:0 12px 35px #0009}
+.stepbar{display:flex;align-items:center;gap:6px;margin:7px 2px 11px}.stepbar i{height:4px;flex:1;border-radius:8px;background:#1c3448}.stepbar i.active{background:var(--accent)}.backline{display:flex;align-items:center;gap:10px;margin:3px 2px 10px;font-size:15px;font-weight:850}.backline button{width:36px;height:36px;border-radius:11px;border:1px solid #2a4961;background:#0c2032;color:#fff;font-size:18px}.locationCard{border:1px solid #31506a;background:#0a1c2d;border-radius:15px;padding:11px;margin-top:10px}.locationCard strong{display:block;font-size:12px;margin-bottom:4px}.locationCard span{font-size:11px;color:#9fb5c5}.choiceRow{display:flex;gap:8px}.choice{flex:1;padding:12px 8px;border:1px solid #2a4961;background:#0a1b2c;border-radius:13px;text-align:center;font-size:12px;font-weight:800}.choice.active{border-color:var(--accent);background:#ffd21a12;color:#fff}.carChoice{display:flex;align-items:center;gap:12px;border:1px solid #2a4961;background:#0a1b2c;border-radius:16px;padding:12px}.carChoice.active{border:2px solid var(--accent);padding:11px}.carIcon{font-size:42px}.carMeta{flex:1}.carMeta b{font-size:14px}.carMeta span{display:block;color:#93aabd;font-size:10px;margin-top:3px}.carPrice{font-size:17px;font-weight:900;color:var(--accent)}.routeMini{border:1px solid #31506a;border-radius:14px;overflow:hidden;background:#081827}.routeMini .map{height:245px}.mapWrap{margin-top:10px;border:1px solid #31506a;border-radius:17px;overflow:hidden;background:#081827}.map{height:285px;width:100%}.locBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}.mapHint{padding:9px 11px;font-size:11px;color:var(--muted);border-top:1px solid #23425b}.suggestions{background:#081827;border:1px solid #2a4961;border-radius:12px;overflow:hidden;margin-top:6px}.suggestion{padding:11px 12px;border-bottom:1px solid #203b50;font-size:12px;cursor:pointer}.suggestion:last-child{border-bottom:0}.leaflet-container{font:inherit;background:#dbe5ea}.leaflet-control-zoom a{background:#0c2032;color:#fff;border-color:#31506a}.leaflet-control-attribution{background:#0b2032cc!important;color:#9ab0c1!important}.leaflet-control-attribution a{color:#d5e3ed!important}
+.homeAction{margin-top:10px}.homeAction .btn{height:54px;font-size:16px}.menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.menuItem{border:1px solid #2a4961;background:#0a1b2c;border-radius:14px;padding:12px 10px;text-align:left;color:#e8f1f7;font-size:12px;font-weight:800}.menuItem span{display:block;font-size:19px;margin-bottom:5px}.miniNote{display:flex;gap:8px;align-items:center;margin-top:10px;padding:10px 11px;border-radius:12px;background:#091a2a;color:#91a8ba;font-size:10px}
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -34,63 +27,81 @@ label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,se
 
   <main id="passenger" class="hidden">
     <section class="hero">
-      <h1>Поехали?</h1>
+      <h1>Такси <span style="color:var(--accent)">Речица</span></h1>
       <p>Быстро • Удобно • Надёжно</p>
     </section>
 
     <section id="passengerProfile" class="card">
-      <div class="title">Ваш профиль</div>
-      <div id="passengerProfileText" class="info">Заполните имя и телефон один раз.</div>
-      <button class="btn secondary" onclick="showPassengerProfile()">Профиль</button>
+      <div class="title">👤 Профиль</div>
+      <div id="passengerProfileText" class="info">Имя и телефон сохраняются для следующих поездок.</div>
+      <button class="btn secondary" onclick="showPassengerProfile()">Настроить профиль</button>
     </section>
 
     <section id="passengerHome" class="card">
-      <div class="title">Новый заказ</div>
-      <button class="btn" onclick="showOrder()">🚕 Вызвать такси</button>
-      <button class="btn secondary" onclick="showCurrentOrder()">📦 Мой заказ</button>
-      <div class="info" style="margin-top:14px">Тариф: посадка 3 BYN + 1 BYN за каждый километр.</div>
+      <div class="title">Куда поедем?</div>
+      <div class="homeAction"><button class="btn" onclick="showOrder()">🚕 Вызвать такси</button></div>
+      <div class="menuRow">
+        <button class="menuItem" onclick="showCurrentOrder()"><span>📦</span>Мой заказ</button>
+        <button class="menuItem" onclick="showPassengerProfile()"><span>👤</span>Профиль</button>
+      </div>
+      <div class="miniNote">💳 Оплата сейчас — наличными водителю</div>
+      <div class="miniNote">💰 Посадка 3 BYN + 1 BYN за каждый километр</div>
     </section>
 
     <section id="passengerForm" class="card hidden">
-      <div class="title">Куда едем?</div>
-      <label>Откуда</label><input id="pickup" placeholder="Например: ул. Советская, 10">
+      <div class="backline"><button type="button" onclick="backPassenger()">‹</button><span id="passengerStepTitle">Выбор точки отправления</span></div>
+      <div class="stepbar"><i class="active"></i><i class="active"></i><i></i><i></i></div>
+      <div class="locationCard"><strong>📍 Текущее местоположение</strong><span>Определите точку на карте или выберите её вручную.</span></div>
+      <label>Ваш адрес</label><input id="pickup" placeholder="Например: ул. Советская, 10">
       <div class="mapWrap">
         <div id="passengerMap" class="map"></div>
         <button class="btn secondary locBtn" type="button" onclick="locatePassenger()">📍 Определить моё местоположение</button>
         <div id="mapHint" class="mapHint">Нажмите на карту или определите своё местоположение.</div>
       </div>
-      <label>Куда</label>
-      <input id="destination" placeholder="Например: ул. Строителей, 15" oninput="destinationTyping()">
+
+      <label>Куда едем?</label>
+      <input id="destination" placeholder="Введите адрес назначения" oninput="destinationTyping()">
       <div id="destinationSuggestions" class="suggestions hidden"></div>
-      <div class="mapWrap" style="margin-top:12px">
+      <div class="mapWrap routeMini">
         <div id="routeMap" class="map"></div>
         <div id="routeHint" class="mapHint">Выберите точку назначения на карте или введите адрес.</div>
       </div>
-      <label>Тариф</label><select id="tariff"><option>Стандарт</option></select>
-      <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
-      <label>Время заказа</label>
-      <div class="grid" style="margin-top:6px">
-        <button id="nowBtn" class="btn" type="button" onclick="setOrderNow()">⚡ Сейчас</button>
-        <button id="laterBtn" class="btn secondary" type="button" onclick="setOrderLater()">🕐 На дату</button>
+
+      <label>Время поездки</label>
+      <div class="choiceRow">
+        <button id="nowBtn" class="choice active" type="button" onclick="setOrderNow()">⚡ Сейчас</button>
+        <button id="laterBtn" class="choice" type="button" onclick="setOrderLater()">🕐 На дату</button>
       </div>
       <div id="scheduleBox" class="hidden">
-        <label>Дата и время</label>
-        <input id="scheduledAt" type="datetime-local"> 
+        <label>Дата и время</label><input id="scheduledAt" type="datetime-local">
       </div>
+
+      <label>Автомобиль</label>
+      <div class="carChoice active">
+        <div class="carIcon">🚕</div>
+        <div class="carMeta"><b>Стандарт</b><span>4 места • багаж</span><span>Ваш личный автомобиль</span></div>
+        <div class="carPrice" id="carPrice">3 BYN</div>
+      </div>
+      <select id="tariff" class="hidden"><option>Стандарт</option></select>
+      <label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
+
       <div class="price">3.00 BYN</div>
       <div id="orderSummary" class="info">Укажите точки маршрута — сумма рассчитается автоматически.</div>
-      <button class="btn" onclick="createOrder()">Подтвердить заказ</button>
+      <button class="btn" onclick="createOrder()">Далее</button>
       <button class="btn secondary" onclick="backPassenger()">Назад</button>
     </section>
 
     <section id="passengerCurrent" class="card hidden">
-      <div class="title">Текущий заказ</div>
+      <div class="backline"><button type="button" onclick="backPassenger()">‹</button><span>Ваш заказ</span></div>
+      <div class="stepbar"><i class="active"></i><i class="active"></i><i class="active"></i><i></i></div>
       <div id="currentOrder"></div>
+      <div class="miniNote">📍 Водитель увидит координаты точки А и точки Б.</div>
       <button class="btn secondary" onclick="backPassenger()">Назад</button>
     </section>
 
     <section id="passengerProfileForm" class="card hidden">
-      <div class="title">Профиль пассажира</div>
+      <div class="backline"><button type="button" onclick="backPassenger()">‹</button><span>Профиль</span></div>
+      <div class="stepbar"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i></div>
       <label>Имя</label><input id="passengerName" placeholder="Ваше имя">
       <label>Телефон</label><input id="passengerPhone" placeholder="+375...">
       <button class="btn" onclick="savePassengerProfile()">Сохранить</button>
