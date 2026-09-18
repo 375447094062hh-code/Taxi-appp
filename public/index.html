@@ -241,13 +241,13 @@ function renderDriverCurrent(o){
  if(!o.waiting_started_at)stopWaitingTimer();
  const st=statusNames[o.status]||["","Статус","yellow"],total=Number(o.amount)+Number(o.waiting_fee||0);
  let actions="";
- if(o.status==="accepted")actions='<button class="btn green" onclick="driverStatus(\\''+o.id+'\\',\\'arrived\\')">📍 Я на месте</button>';
- if(o.status==="arrived")actions='<button class="btn blue" onclick="driverStatus(\\''+o.id+'\\',\\'trip\\')">🚕 Начать поездку</button>';
- if(o.status==="trip")actions='<button class="btn red" onclick="driverStatus(\\''+o.id+'\\',\\'completed\\')">🏁 Завершить поездку</button>';
+ if(o.status==="accepted")actions='<button class="btn green" onclick="driverStatus(\''+o.id+'\',\'arrived\')">📍 Я на месте</button>';
+ if(o.status==="arrived")actions='<button class="btn blue" onclick="driverStatus(\''+o.id+'\',\'trip\')">🚕 Начать поездку</button>';
+ if(o.status==="trip")actions='<button class="btn red" onclick="driverStatus(\''+o.id+'\',\'completed\')">🏁 Завершить поездку</button>';
  const nav=o.status==="trip"?'<button class="btn navBtn" onclick="openNavigation(window.__driverOrder)">🗺 Открыть навигацию до точки Б</button>':'<button class="btn secondary" onclick="openNavigation(window.__driverOrder)">🗺 Открыть маршрут до точки А</button>';
  const waiting=o.waiting_started_at
-  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div id="waitClock" class="price" style="font-size:24px;margin:5px 0">00:00</div><span class="small">Начисление: 0,50 BYN за каждую полную минуту</span><button class="btn red" onclick="toggleWaiting(\\''+o.id+'\\')">⏸ Остановить ожидание</button></div>'
-  : '<div class="wait"><strong>⏱ Ожидание</strong><br><span class="small">Сумма не начисляется, пока не пройдёт полная минута.</span><button class="btn secondary" onclick="toggleWaiting(\\''+o.id+'\\')">▶️ Начать отсчёт</button></div>';
+  ? '<div class="wait"><strong>⏱ Ожидание идёт</strong><div id="waitClock" class="price" style="font-size:24px;margin:5px 0">00:00</div><span class="small">Начисление: 0,50 BYN за каждую полную минуту</span><button class="btn red" onclick="toggleWaiting(\''+o.id+'\')">⏸ Остановить ожидание</button></div>'
+  : '<div class="wait"><strong>⏱ Ожидание</strong><br><span class="small">Сумма не начисляется, пока не пройдёт полная минута.</span><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Начать отсчёт</button></div>';
  window.__driverOrder=o;
  $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusPill '+st[2]+'">'+st[0]+' '+st[1]+'</div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>📞 '+esc(o.passenger_phone||"Номер не указан")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+nav+((o.pickup_lat!=null&&o.destination_lat!=null)?'<div id="driverLiveMap" class="driverMap"></div>':"")+actions+waiting+'</div>'+
  '<div class="driverLocate">📍 Точки А и Б загружены из заказа. В режиме поездки ваше местоположение показывается на карте.</div>';
