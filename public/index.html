@@ -47,6 +47,7 @@
 <div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Новый заказ</div></div>
 <div class="sub">Точка А и точка Б теперь находятся в одном маршруте — ничего переключать не нужно.</div>
 <div class="routeActions" style="margin-top:0;margin-bottom:9px"><button class="btn secondary" onclick="locatePickup()">📍 Моё местоположение</button><button class="btn secondary" onclick="clearRoutePoints()">↺ Новый маршрут</button></div>
+<div id="savedQuickAddresses" class="grid" style="margin-bottom:9px"></div>
 <div class="routeBox">
 <div class="routeLine"><span class="dot"></span><input id="pPickup" placeholder="Точка А — откуда"><button class="clearPoint" type="button" onclick="clearPickup()" aria-label="Очистить точку А">×</button></div>
 <div id="pickupSug" class="suggestions hidden"></div>
@@ -68,7 +69,7 @@
 <section id="pCurrent" class="card hidden"><div id="currentBox"></div></section>
 <section id="pHistory" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Мои поездки</div></div><div id="pHistoryList"></div></section>
 <section id="pTariffs" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Тарифы</div></div><div class="tariff active"><b>🚕 Стандарт</b><span>Посадка — 3 BYN</span><span>Каждый километр — 1 BYN</span><span>Детское кресло — без отдельной наценки</span></div><div class="sub">Ожидание: 0,10 BYN за каждые 10 секунд. Например: 2 минуты = 12 × 0,10 = 1,20 BYN.</div></section>
-<section id="pSettings" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Настройки</div></div><button class="btn secondary" onclick="editPassengerProfile()">👤 Редактировать профиль</button></section>
+<section id="pSettings" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Настройки</div></div><button class="btn secondary" onclick="editPassengerProfile()">👤 Редактировать профиль</button><div class="title" style="margin-top:16px">📍 Сохранённые адреса</div><div class="sub">Дом и работа будут доступны прямо при оформлении заказа.</div><div id="savedAddressesList" style="margin-top:9px"><div class="small">Загрузка…</div></div><div class="grid" style="margin-top:9px"><button class="btn secondary" onclick="saveSavedAddressPrompt('Дом')">🏠 Сохранить дом</button><button class="btn secondary" onclick="saveSavedAddressPrompt('Работа')">💼 Сохранить работу</button></div></section>
 <section id="pSupport" class="card hidden">
 <div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Поддержка</div></div>
 <div class="supportHero"><b>🆘 Мы на связи</b><div class="sub" style="margin-top:5px">Идея, ошибка или вопрос — сообщение попадёт владельцу сервиса.</div></div>
@@ -166,7 +167,7 @@ async function boot(){
  }catch(e){toast(e.message,true)}
 }
 
-async function loadPassengerProfile(){try{pProfile=(await api("/api/passenger-profile?telegramId="+encodeURIComponent(uid))).profile; }catch(e){toast(e.message,true)}}
+async function loadPassengerProfile(){try{pProfile=(await api("/api/passenger-profile?telegramId="+encodeURIComponent(uid))).profile; await loadSavedAddresses(); }catch(e){toast(e.message,true)}}
 function editPassengerProfile(){showP("pProfile");$("pName").value=pProfile?.name||"";$("pPhone").value=pProfile?.phone||""}
 async function savePassenger(){try{pProfile=(await api("/api/passenger-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("pName").value,phone:$("pPhone").value})})).profile;toast("Профиль сохранён");showP("pSettings")}catch(e){toast(e.message,true)}}
 
@@ -176,6 +177,55 @@ function openPassengerOrder(){
 }
 function openTariffs(){showP("pTariffs")}
 function openPassengerSettings(){showP("pSettings")}
+let savedAddresses=[];
+async function loadSavedAddresses(){
+ try{
+  const d=await api("/api/saved-addresses?telegramId="+encodeURIComponent(uid));
+  savedAddresses=d.addresses||[];
+  renderSavedAddresses();
+ }catch(e){$("savedAddressesList")&&($("savedAddressesList").innerHTML='<div class="small">Не удалось загрузить адреса.</div>')}
+}
+function renderSavedAddresses(){
+ const list=$("savedAddressesList"), quick=$("savedQuickAddresses");
+ if(list) list.innerHTML=savedAddresses.length?savedAddresses.map(a=>'<div class="order" style="margin:7px 0"><div style="display:flex;align-items:center;gap:8px"><b>'+esc(a.label)+'</b><button class="clearPoint" style="margin-left:auto!important" onclick="deleteSavedAddress('+Number(a.id)+')">×</button></div><div class="small" style="margin-top:5px">'+esc(a.address)+'</div></div>').join(""):'<div class="small">Пока нет сохранённых адресов.</div>';
+ if(quick) quick.innerHTML=savedAddresses.map(a=>'<button class="btn secondary" style="margin:0" onclick="useSavedAddress('+Number(a.id)+')">'+(a.label==="Дом"?"🏠 ":a.label==="Работа"?"💼 ":"📍 ")+esc(a.label)+'</button>').join("");
+}
+async function saveSavedAddressPrompt(label){
+ const address=prompt("Адрес «"+label+"»:",label==="Дом"?(savedAddresses.find(a=>a.label==="Дом")?.address||""):(savedAddresses.find(a=>a.label==="Работа")?.address||""));
+ if(address===null)return;
+ const value=address.trim();if(!value)return toast("Укажите адрес",true);
+ try{
+  const items=await searchAddress(value), first=items?.[0];
+  const d=await api("/api/saved-addresses",{method:"POST",body:JSON.stringify({telegramId:uid,label,address:value,lat:first?Number(first.lat):null,lng:first?Number(first.lon):null})});
+  savedAddresses=savedAddresses.filter(a=>a.label!==label);savedAddresses.push(d.address);renderSavedAddresses();toast("Адрес сохранён");
+ }catch(e){toast(e.message,true)}
+}
+async function deleteSavedAddress(id){
+ try{await api("/api/saved-addresses/"+encodeURIComponent(id)+"?telegramId="+encodeURIComponent(uid),{method:"DELETE"});savedAddresses=savedAddresses.filter(a=>Number(a.id)!==Number(id));renderSavedAddresses();toast("Адрес удалён")}catch(e){toast(e.message,true)}
+}
+function useSavedAddress(id){
+ const a=savedAddresses.find(x=>Number(x.id)===Number(id));if(!a)return;
+ if(!pProfile)return editPassengerProfile();
+ showP("pOrder");
+ setTimeout(()=>{initMap();if(Number.isFinite(Number(a.lat))&&Number.isFinite(Number(a.lng)))setPickup(Number(a.lat),Number(a.lng),a.address);else setPickupByAddress(a.address)},80);
+}
+async function setPickupByAddress(address){
+ try{const items=await searchAddress(address);const x=items?.[0];if(x)setPickup(Number(x.lat),Number(x.lon),address);else $("pPickup").value=address}catch(_){$("pPickup").value=address}
+}
+function repeatHistoryRoute(pickup,destination){
+ showP("pOrder");clearRoutePoints(false);
+ setTimeout(async()=>{
+  initMap();
+  try{
+   const a=await searchAddress(pickup),b=await searchAddress(destination);
+   if(a?.[0])await setPickup(Number(a[0].lat),Number(a[0].lon),pickup);
+   else $("pPickup").value=pickup;
+   if(b?.[0])await setDestination(Number(b[0].lat),Number(b[0].lon),destination);
+   else $("pDestination").value=destination;
+  }catch(_){$("pPickup").value=pickup;$("pDestination").value=destination}
+ },80);
+}
+
 
 function initMap(){
  if(!window.L)return;
@@ -334,7 +384,7 @@ function historyCard(o){
  const base=Number(o.amount||0), distanceKm=Math.max(0,Number(o.distance_km||0)), distanceCost=Math.max(0,base-3);
  const waitSec=Math.max(0,Number(o.waiting_seconds||0)), waitFee=Math.max(0,Number(o.waiting_fee||0)), waitIntervals=waitFee>0?Math.max(1,Math.ceil(waitFee/0.1)):0;
  const total=base+waitFee, date=new Date(o.completed_at||o.created_at).toLocaleString("ru-RU");
- return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+date+'</div><div class="order" style="margin-top:9px;margin-bottom:0"><b>🧾 Подробный расчёт</b><div class="small" style="margin-top:7px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+(waitSec?formatWaitingDescription(waitSec,0)+' • ':'')+(waitIntervals?waitIntervals+' × 0,10 BYN = ':'')+waitFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;padding-top:7px;border-top:1px solid #294860;color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div></div>';
+ return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+date+'</div><button class="btn secondary" style="margin-top:8px" onclick="repeatHistoryRoute('+esc(JSON.stringify(o.pickup))+','+esc(JSON.stringify(o.destination))+')">🔄 Повторить маршрут</button><div class="order" style="margin-top:9px;margin-bottom:0"><b>🧾 Подробный расчёт</b><div class="small" style="margin-top:7px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+(waitSec?formatWaitingDescription(waitSec,0)+' • ':'')+(waitIntervals?waitIntervals+' × 0,10 BYN = ':'')+waitFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;padding-top:7px;border-top:1px solid #294860;color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div></div>';
 }
 
 const supportKinds={
