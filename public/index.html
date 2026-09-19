@@ -190,7 +190,7 @@ function startPassengerWaitingTimer(startedAt,baseSeconds,baseAmount){
  const started=new Date(startedAt).getTime(), base=Math.max(0,Number(baseSeconds||0)), distanceAmount=Math.max(0,Number(baseAmount||0));
  const tick=()=>{
   const sec=Math.max(0,Math.floor((Date.now()-started)/1000)), totalSec=base+sec;
-  const charged=totalSec>0?Math.ceil(totalSec/60):0, fee=charged*0.5;
+  const charged=Math.max(1,Math.ceil(totalSec/60)), fee=charged*0.5;
   const minEl=$("passengerWaitMinutes"), feeEl=$("passengerWaitFee"), totalEl=$("passengerLiveTotal"), clock=$("passengerWaitClock");
   if(clock)clock.textContent=formatWaitPublic(totalSec);
   if(minEl)minEl.textContent=charged+" мин";
