@@ -325,7 +325,7 @@ function renderDriverCurrent(o){
  if(renderKey===driverRenderKey)return;
  driverRenderKey=renderKey;
  if(!o.waiting_started_at)stopWaitingTimer();
- const st=statusNames[o.status]||["","Статус","yellow"],total=Number(o.amount)+Number(o.waiting_fee||0);
+ const st=statusNames[o.status]||["","Статус","yellow"],baseAmount=Number(o.amount||0),distanceKm=Number(o.distance_km||0),distanceCharge=Math.max(0,baseAmount-3),waitFee=Number(o.waiting_fee||0),total=baseAmount+waitFee;
  let actions="";
  if(o.status==="accepted")actions='<button class="btn green" onclick="driverStatus(\''+o.id+'\',\'arrived\')">📍 Я на месте</button>';
  if(o.status==="arrived")actions='<button class="btn blue" onclick="driverStatus(\''+o.id+'\',\'trip\')">🚕 Начать поездку</button>';
@@ -340,6 +340,7 @@ function renderDriverCurrent(o){
   : '<div class="wait"><strong>⏱ Ожидание на паузе</strong><div class="small" style="margin-top:5px">Накоплено: <b>'+formatWait(savedWaitSec)+'</b> • оплачено '+totalWaitMin+' мин • '+totalWaitFee.toFixed(2)+' BYN</div><div class="price" style="font-size:24px;margin:7px 0">'+formatWait(savedWaitSec)+'</div><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Продолжить с '+formatWait(savedWaitSec)+'</button></div>'):'<div class="small" style="margin-top:9px">⏱ Ожидание доступно только для заказа «Сейчас».</div>';
  window.__driverOrder=o;
  $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusBig '+st[2]+'"><div class="statusIcon">'+st[0]+'</div><div class="statusText">'+esc(st[1])+'</div></div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>📞 '+esc(o.passenger_phone||"Номер не указан")+'<br>💰 '+total.toFixed(2)+' BYN'+(o.waiting_minutes?' • ⏱ '+o.waiting_minutes+' мин • +'+Number(o.waiting_fee).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+nav+((o.pickup_lat!=null&&o.destination_lat!=null)?'<div id="driverLiveMap" class="driverMap"></div>':"")+actions+waiting+'</div>'+
+ (o.status==="completed"?'<div class="order" style="margin-top:10px;border-color:var(--green);background:linear-gradient(145deg,#0b2c23,#081f1b)"><div class="title" style="margin:0 0 8px">🏁 Расчёт поездки</div><div class="small">🚕 Посадка <b>3,00 BYN</b><br>📏 Расстояние <b>'+distanceKm.toFixed(2)+' км</b> • начислено за расстояние <b>'+distanceCharge.toFixed(2)+' BYN</b><br>⏱ Ожидание <b>'+waitFee.toFixed(2)+' BYN</b>'+(o.waiting_minutes?' • '+Number(o.waiting_minutes)+' мин':'')+'</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #315847"><span style="font-weight:900">💳 Итого к оплате</span><strong style="font-size:24px;color:var(--yellow)">'+total.toFixed(2)+' BYN</strong></div><div class="small" style="margin-top:8px">Посадка 3 BYN + расстояние по тарифу 1 BYN/км (километр округляется вверх) + ожидание 0,50 BYN/мин.</div></div>':'')+
  '<div class="driverLocate">📍 Точки А и Б загружены из заказа. В режиме поездки ваше местоположение показывается на карте.</div>';
  if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderDriverMap(o),50);
  window.__waitingBaseSeconds=Math.max(0,Number(o.waiting_seconds||0));
