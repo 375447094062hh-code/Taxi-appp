@@ -108,6 +108,18 @@ async function migrate() {
       comment TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS saved_addresses (
+      id BIGSERIAL PRIMARY KEY,
+      telegram_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      address TEXT NOT NULL,
+      lat DOUBLE PRECISION,
+      lng DOUBLE PRECISION,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(telegram_id,label)
+    );
   `);
 
   await db(`
@@ -374,6 +386,41 @@ app.post("/api/driver-profile", async (req,res)=>{
       [telegramId,name,phone,car,plate,child]);
     res.json({success:true,profile:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/saved-addresses", async (req,res)=>{
+  try{
+    const id=clean(req.query.telegramId);
+    if(!id||isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа."});
+    const r=await db("SELECT id,label,address,lat,lng FROM saved_addresses WHERE telegram_id=$1 ORDER BY CASE label WHEN 'Дом' THEN 1 WHEN 'Работа' THEN 2 ELSE 3 END, label",[id]);
+    res.json({success:true,addresses:r.rows});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/saved-addresses", async (req,res)=>{
+  try{
+    const id=clean(req.body.telegramId), label=clean(req.body.label), address=clean(req.body.address);
+    if(!id||isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа."});
+    if(!label||!address) return res.status(400).json({success:false,error:"Укажите название и адрес."});
+    if(label.length>30||address.length>300) return res.status(400).json({success:false,error:"Слишком длинное название или адрес."});
+    const lat=Number(req.body.lat), lng=Number(req.body.lng);
+    const r=await db(`INSERT INTO saved_addresses(telegram_id,label,address,lat,lng)
+      VALUES($1,$2,$3,$4,$5)
+      ON CONFLICT(telegram_id,label) DO UPDATE SET address=$3,lat=$4,lng=$5,updated_at=NOW()
+      RETURNING id,label,address,lat,lng`,
+      [id,label,address,Number.isFinite(lat)?lat:null,Number.isFinite(lng)?lng:null]);
+    res.json({success:true,address:r.rows[0]});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.delete("/api/saved-addresses/:id", async (req,res)=>{
+  try{
+    const id=clean(req.query.telegramId), addressId=Number(req.params.id);
+    if(!id||isDriver(id)||!Number.isInteger(addressId)) return res.status(403).json({success:false,error:"Нет доступа."});
+    const r=await db("DELETE FROM saved_addresses WHERE id=$1 AND telegram_id=$2 RETURNING id",[addressId,id]);
+    if(!r.rows[0]) return res.status(404).json({success:false,error:"Адрес не найден."});
+    res.json({success:true});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
 app.post("/api/orders", async (req,res)=>{
