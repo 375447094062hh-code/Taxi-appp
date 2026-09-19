@@ -212,7 +212,7 @@
 <div class="field"><label>Тариф</label>
 <div class="tariff active"><b>🚕 Стандарт</b><span>Посадка 3 BYN + 1 BYN за каждый километр</span></div>
 </div>
-<label class="check"><input id="childSeat" type="checkbox"> Детское кресло</label>
+<label class="check"><input id="childSeat" type="checkbox" onchange="updateOrderPrice()"> Детское кресло <span style="margin-left:auto;color:var(--yellow);font-weight:900">+1 BYN</span></label>
 <div id="routeInfo" class="sub" style="margin-top:9px">Выберите точки А и Б на карте или введите адреса.</div>
 <div class="price" id="orderPrice">3.00 BYN</div>
 <button class="btn" onclick="createPassengerOrder()">🚕 Заказать такси</button>
@@ -220,7 +220,7 @@
 
 <section id="pCurrent" class="card hidden"><div id="currentBox"></div></section>
 <section id="pHistory" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Мои поездки</div></div><div id="pHistoryList"></div></section>
-<section id="pTariffs" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Тарифы</div></div><div class="tariff active"><b>🚕 Стандарт</b><span>Посадка — 3 BYN</span><span>Каждый километр — 1 BYN</span><span>Детское кресло — без отдельной наценки</span></div><div class="sub">Ожидание: 0,10 BYN за каждые 10 секунд. Например: 2 минуты = 12 × 0,10 = 1,20 BYN.</div></section>
+<section id="pTariffs" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Тарифы</div></div><div class="tariff active"><b>🚕 Стандарт</b><span>Посадка — 3 BYN</span><span>Каждый километр — 1 BYN</span><span>Детское кресло — +1 BYN</span></div><div class="sub">Ожидание: 0,10 BYN за каждые 10 секунд. Например: 2 минуты = 12 × 0,10 = 1,20 BYN.</div></section>
 <section id="pSettings" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Настройки</div></div><button class="btn secondary" onclick="editPassengerProfile()">👤 Редактировать профиль</button><div class="title" style="margin-top:16px">📍 Сохранённые адреса</div><div class="sub">Дом и работа будут доступны прямо при оформлении заказа.</div><div id="savedAddressesList" style="margin-top:9px"><div class="small">Загрузка…</div></div><div class="grid" style="margin-top:9px"><button class="btn secondary" onclick="saveSavedAddressPrompt('Дом')">🏠 Сохранить дом</button><button class="btn secondary" onclick="saveSavedAddressPrompt('Работа')">💼 Сохранить работу</button></div></section>
 <section id="pSupport" class="card hidden">
 <div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Поддержка</div></div>
@@ -482,7 +482,8 @@ async function setPickup(lat,lng,address){
 async function setDestination(lat,lng,address){
  initMap();destPoint={lat,lng};if(dMarker)dMarker.remove();dMarker=L.marker([lat,lng]).addTo(map).bindPopup("🏁 Точка Б").openPopup();$("pDestination").value=address||await reverse(lat,lng);if(pickupPoint)buildRoute();else resetRouteInfo();
 }
-function resetRouteInfo(){window.distanceKm=0;$("routeInfo").textContent="Выберите точки А и Б на карте или введите адреса.";$("orderPrice").textContent="3.00 BYN"}
+function updateOrderPrice(){const extra=$("childSeat")?.checked?1:0;$("orderPrice").textContent=(3+Math.ceil(Number(window.distanceKm||0))+extra).toFixed(2)+" BYN"}
+function resetRouteInfo(){window.distanceKm=0;$("routeInfo").textContent="Выберите точки А и Б на карте или введите адреса.";updateOrderPrice()}
 function clearPickup(){pickupPoint=null;if(pMarker){pMarker.remove();pMarker=null}if(routeLayer){routeLayer.remove();routeLayer=null}$("pPickup").value="";resetRouteInfo();if(destPoint)map?.setView([destPoint.lat,destPoint.lng],15)}
 function clearDestination(){destPoint=null;if(dMarker){dMarker.remove();dMarker=null}if(routeLayer){routeLayer.remove();routeLayer=null}$("pDestination").value="";resetRouteInfo();if(pickupPoint)map?.setView([pickupPoint.lat,pickupPoint.lng],15)}
 function clearRoutePoints(notify=true){clearPickup();clearDestination();if(notify)toast("Маршрут очищен — выберите точки заново")}
@@ -495,7 +496,7 @@ async function buildRoute(){
   if(routeLayer)routeLayer.remove();routeLayer=L.geoJSON(r.geometry,{style:{weight:5}}).addTo(map);
   map.fitBounds(L.featureGroup([pMarker,dMarker,routeLayer]).getBounds(),{padding:[20,20]});
   $("routeInfo").innerHTML="📏 "+km.toFixed(1)+" км • посадка 3 BYN + "+Math.ceil(km)+" BYN";
-  $("orderPrice").textContent=amount.toFixed(2)+" BYN"; window.distanceKm=km;
+  $("orderPrice").textContent=(amount+($("childSeat")?.checked?1:0)).toFixed(2)+" BYN"; window.distanceKm=km;
  }catch(_){$("routeInfo").textContent="Маршрут пока не построен. Проверьте точки А и Б."}
 }
 function locatePickup(){if(!navigator.geolocation)return toast("Геолокация недоступна",true);navigator.geolocation.getCurrentPosition(p=>setPickup(p.coords.latitude,p.coords.longitude),()=>toast("Разрешите геолокацию",true),{enableHighAccuracy:true,timeout:15000})}
