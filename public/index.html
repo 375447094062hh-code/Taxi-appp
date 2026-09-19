@@ -40,6 +40,7 @@
 <button onclick="openTariffs()"><b>💰</b>Тарифы</button>
 <button onclick="openPassengerSettings()"><b>⚙️</b>Настройки</button>
 <button onclick="openSupport('passenger')"><b>🆘</b>Поддержка и идеи</button>
+<button id="ownerMenuBtn" class="hidden" onclick="openOwnerPanel()"><b>🛠️</b>Панель владельца</button>
 </div>
 </section>
 
@@ -94,6 +95,12 @@
 <div class="faqItem"><b>💰 Как считается стоимость?</b><span class="small">Посадка — 3 BYN + 1 BYN за каждый километр. Ожидание — 0,10 BYN за каждые 10 секунд после начала поездки.</span></div>
 <div class="faqItem"><b>📋 Где посмотреть поездку?</b><span class="small">Текущий заказ находится в «Текущая поездка», завершённые — в «Мои поездки».</span></div>
 </section>
+<section id="pOwner" class="card hidden">
+<div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Панель владельца</div></div>
+<div id="ownerDashboard"><div class="small">Загрузка…</div></div>
+<div class="title" style="margin-top:16px">🆘 Последние обращения</div>
+<div id="ownerSupportList"><div class="small">Загрузка…</div></div>
+</section>
 <section id="pProfile" class="card hidden"><div class="back"><button onclick="showP('pSettings')">‹</button><div class="title" style="margin:0">Профиль пассажира</div></div><div class="field"><label>Имя</label><input id="pName"></div><div class="field"><label>Телефон</label><input id="pPhone" placeholder="+375..."></div><button class="btn" onclick="savePassenger()">Сохранить профиль</button></section>
 </main>
 
@@ -147,13 +154,14 @@
 <script>
 const tg=window.Telegram?.WebApp; tg?.ready?.(); tg?.expand?.();
 const uid=String(tg?.initDataUnsafe?.user?.id||""); let role="",pProfile=null,dProfile=null;
+window.__ownerChatId="OWNER_CHAT_ID_RUNTIME";
 let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null,livePassengerMap=null,driverLiveMap=null,driverLocationMarker=null,driverGeoWatch=null,passengerRenderKey="",driverRenderKey="",waitingTimer=null,passengerWaitingTimer=null;
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
 async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
-function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 function showD(id){["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 
 async function boot(){
@@ -161,6 +169,8 @@ async function boot(){
  try{
   const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
   $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
+  if(uid===String("OWNER_PLACEHOLDER")){}
+  if(role!=="driver" && true && window.__ownerChatId && uid===window.__ownerChatId) $("ownerMenuBtn")?.classList.remove("hidden");
   if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); const current=await loadDriverCurrent(true); if(!current) await loadDriverOrders(); }
   else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
   clearInterval(poller); poller=setInterval(role==="driver"?refreshDriver:()=>loadCurrent(false),3000);
@@ -170,6 +180,17 @@ async function boot(){
 async function loadPassengerProfile(){try{pProfile=(await api("/api/passenger-profile?telegramId="+encodeURIComponent(uid))).profile; await loadSavedAddresses(); }catch(e){toast(e.message,true)}}
 function editPassengerProfile(){showP("pProfile");$("pName").value=pProfile?.name||"";$("pPhone").value=pProfile?.phone||""}
 async function savePassenger(){try{pProfile=(await api("/api/passenger-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("pName").value,phone:$("pPhone").value})})).profile;toast("Профиль сохранён");showP("pSettings")}catch(e){toast(e.message,true)}}
+
+function openOwnerPanel(){showP("pOwner");loadOwnerDashboard()}
+async function loadOwnerDashboard(){
+ try{
+  const d=await api("/api/owner-dashboard?telegramId="+encodeURIComponent(uid));
+  const t=d.today||{},m=d.month||{},r=d.ratings||{},s=d.support||{};
+  $("ownerDashboard").innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(t.orders||0)+'</strong><span>Поездок сегодня</span></div><div class="stat"><strong>'+Number(t.revenue||0).toFixed(2)+' BYN</strong><span>Выручка сегодня</span></div><div class="stat"><strong>'+Number(m.orders||0)+'</strong><span>Поездок за месяц</span></div><div class="stat"><strong>'+Number(m.revenue||0).toFixed(2)+' BYN</strong><span>Выручка за месяц</span></div></div><div class="order" style="margin-top:10px"><b>⭐ Рейтинг</b><div class="small" style="margin-top:6px">'+Number(r.avg||0).toFixed(2)+' / 5 • '+Number(r.count||0)+' оценок</div><div class="small" style="margin-top:6px">🆘 Открытых обращений: <b>'+Number(s.open||0)+'</b> • всего: '+Number(s.total||0)+'</div></div>'+(d.active?'<div class="order"><b>🚕 Активный заказ</b><div class="small" style="margin-top:6px">'+esc(d.active.passenger_name||"Пассажир")+'<br>'+esc(d.active.pickup)+' → '+esc(d.active.destination)+'<br>💳 '+(Number(d.active.amount||0)+Number(d.active.waiting_fee||0)).toFixed(2)+' BYN</div></div>':'<div class="order"><b>🟢 Сейчас активных поездок нет</b></div>');
+  const h=await api("/api/owner-support?telegramId="+encodeURIComponent(uid));
+  $("ownerSupportList").innerHTML=h.messages?.length?h.messages.map(x=>'<div class="historyItem"><b>'+esc(x.kind)+' • '+esc(x.role)+'</b><div class="small">'+new Date(x.created_at).toLocaleString("ru-RU")+'</div><div class="order" style="margin-top:7px"><div>'+esc(x.message)+'</div>'+(x.reply_text?'<div class="small" style="margin-top:7px">↩️ '+esc(x.reply_text)+'</div>':'<div class="small" style="margin-top:7px;color:var(--yellow)">⏳ Ожидает ответа</div>')+'</div></div>').join(""):'<div class="small">Обращений пока нет.</div>';
+ }catch(e){$("ownerDashboard").innerHTML='<div class="small" style="color:var(--red)">Нет доступа к панели владельца.</div>'}
+}
 
 function openPassengerOrder(){
  if(!pProfile){toast("Сначала заполните профиль",true);editPassengerProfile();return}
