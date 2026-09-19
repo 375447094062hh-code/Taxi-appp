@@ -143,6 +143,7 @@ async function migrate() {
     UPDATE orders SET waiting_seconds=waiting_minutes*60 WHERE waiting_seconds=0 AND waiting_minutes>0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_by_driver_telegram_id TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS driver_notified_at TIMESTAMPTZ;
   `);
   console.log("PostgreSQL: таблицы готовы.");
 }
@@ -164,6 +165,7 @@ async function notifyPassenger(order, text) {
 }
 
 async function notifyDrivers(order) {
+  if (order?.scheduled_at && new Date(order.scheduled_at).getTime() > Date.now()) return;
   if (!pool || !DRIVER_CHAT_IDS.length) return;
   const rows = (await db("SELECT * FROM drivers WHERE telegram_id=ANY($1::text[])", [DRIVER_CHAT_IDS])).rows;
   const appUrl = clean(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/$/,"");
@@ -342,6 +344,36 @@ async function telegramPoll(){
   loop();
 }
 
+async function notifyDueScheduledOrders(){
+  if(!pool || !DRIVER_CHAT_IDS.length) return;
+  try{
+    const r=await db(`SELECT * FROM orders WHERE status='searching' AND scheduled_at IS NOT NULL AND scheduled_at <= NOW() + INTERVAL '30 minutes' AND scheduled_at > NOW() - INTERVAL '2 hours' AND driver_notified_at IS NULL ORDER BY scheduled_at ASC LIMIT 20`);
+    for(const order of r.rows){ await notifyDrivers(order); await db("UPDATE orders SET driver_notified_at=NOW() WHERE id=$1",[order.id]); }
+  }catch(e){console.error("Scheduled dispatch:",e.message);}
+}
+setInterval(notifyDueScheduledOrders,30000);
+setTimeout(notifyDueScheduledOrders,5000);
+
+app.get("/api/owner-orders", async (req,res)=>{
+  try{
+    const owner=clean(req.query.telegramId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const r=await db(`SELECT o.*, COALESCE(d.phone,o.driver_phone) AS driver_phone FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id ORDER BY o.created_at DESC LIMIT 100`);
+    res.json({success:true,orders:r.rows});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.post("/api/owner-orders/:orderId/cancel", async (req,res)=>{
+  try{
+    const owner=clean(req.body.telegramId), orderId=clean(req.params.orderId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const r=await db(`UPDATE orders SET status='cancelled',waiting_started_at=NULL WHERE id=$1 AND status=ANY($2::text[]) RETURNING *`,[orderId,ACTIVE_STATUSES]);
+    if(!r.rows[0]) return res.status(404).json({success:false,error:"Активный заказ не найден."});
+    await notifyPassenger(r.rows[0],"❌ Заказ отменён владельцем сервиса.");
+    if(r.rows[0].driver_telegram_id) await sendTelegram(r.rows[0].driver_telegram_id,"❌ Заказ отменён владельцем сервиса.");
+    res.json({success:true,order:r.rows[0]});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
 app.get("/api/owner-dashboard", async (req,res)=>{
   try{
     const owner=clean(req.query.telegramId);
@@ -473,6 +505,7 @@ app.post("/api/orders", async (req,res)=>{
     if(activeOrder) return res.status(409).json({success:false,error:"У вас уже есть активный заказ. Сначала завершите или отмените его."});
     const scheduledAt=req.body.scheduledAt?new Date(req.body.scheduledAt):null;
     if(scheduledAt&&Number.isNaN(scheduledAt.getTime())) return res.status(400).json({success:false,error:"Неверная дата и время."});
+    if(scheduledAt && scheduledAt.getTime() <= Date.now()) return res.status(400).json({success:false,error:"Дата предварительного заказа должна быть в будущем."});
     const km=Number(req.body.distanceKm);
     const distance=Number.isFinite(km)&&km>=0?km:0;
     const amount=3+Math.ceil(distance);
@@ -515,7 +548,7 @@ app.get("/api/driver-orders", async (req,res)=>{
   try {
     const id=clean(req.query.telegramId);
     if(!isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
-    const r=await db(`SELECT * FROM orders WHERE status='searching'
+    const r=await db(`SELECT * FROM orders WHERE status='searching' AND (scheduled_at IS NULL OR scheduled_at <= NOW() + INTERVAL '30 minutes')
       AND (rejected_by_driver_telegram_id IS NULL OR rejected_by_driver_telegram_id<>$1)
       AND (child_seat=false OR child_seat=(SELECT has_child_seat FROM drivers WHERE telegram_id=$1))
       ORDER BY scheduled_at NULLS FIRST,created_at ASC`,[id]);
