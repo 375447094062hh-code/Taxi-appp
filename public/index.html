@@ -181,7 +181,7 @@ function openOwnerPanel(){showP("pOwner");loadOwnerDashboard()}
 function openOwnerDriverPanel(){showD("dOwner");loadOwnerDashboard(true)}
 function ownerSelectDay(day,driverMode){
  const base=window.__ownerDate||new Date().toISOString().slice(0,7);
- const month=/^\\d{4}-\\d{2}$/.test(base)?base:new Date().toISOString().slice(0,7);
+ const month=/^\d{4}-\d{2}$/.test(base)?base:new Date().toISOString().slice(0,7);
  window.__ownerPeriod="day";
  window.__ownerDate=month+"-"+String(day).padStart(2,"0");
  loadOwnerDashboard(driverMode);
