@@ -45,6 +45,7 @@
 <section id="pOrder" class="card hidden">
 <div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Новый заказ</div></div>
 <div class="sub">Точка А и точка Б теперь находятся в одном маршруте — ничего переключать не нужно.</div>
+<div class="routeActions" style="margin-top:0;margin-bottom:9px"><button class="btn secondary" onclick="locatePickup()">📍 Моё местоположение</button><button class="btn secondary" onclick="clearRoutePoints()">↺ Новый маршрут</button></div>
 <div class="routeBox">
 <div class="routeLine"><span class="dot"></span><input id="pPickup" placeholder="Точка А — откуда"><button class="clearPoint" type="button" onclick="clearPickup()" aria-label="Очистить точку А">×</button></div>
 <div id="pickupSug" class="suggestions hidden"></div>
@@ -52,7 +53,6 @@
 <div id="destSug" class="suggestions hidden"></div>
 </div>
 <div id="orderMap" class="map"></div>
-<div class="routeActions"><button class="btn secondary" onclick="locatePickup()">📍 Моё местоположение</button><button class="btn secondary" onclick="clearRoutePoints()">↺ Новый маршрут</button></div>
 <div class="field"><label>Когда</label><div class="choice"><button id="nowChoice" class="active" onclick="setWhen('now')">⚡ Сейчас</button><button id="laterChoice" onclick="setWhen('later')">🕐 На дату</button></div></div>
 <div id="scheduleWrap" class="field hidden"><label>Дата и время</label><input id="scheduledAt" type="datetime-local"></div>
 <div class="field"><label>Тариф</label>
