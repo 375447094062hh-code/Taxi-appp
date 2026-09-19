@@ -11,6 +11,7 @@ const DRIVER_CHAT_IDS = Array.from(new Set(
     .split(/[,;\n]+/).map(v => v.trim()).filter(Boolean)
 ));
 
+
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -29,6 +30,7 @@ app.use(express.static("public", {
 const ACTIVE_STATUSES = ["searching","accepted","arrived","trip"];
 
 const clean = v => v == null ? "" : String(v).trim();
+const OWNER_CHAT_ID = clean(process.env.OWNER_CHAT_ID);
 const isDriver = id => DRIVER_CHAT_IDS.includes(clean(id));
 const makeId = () => crypto.randomUUID();
 
@@ -170,10 +172,152 @@ async function setTelegramMenu() {
   ]});
 }
 
+
+// ---------- Встроенная поддержка ----------
+const supportReplyTargets = new Map();
+let telegramPollingStarted = false;
+let telegramUpdateOffset = 0;
+
+function supportKindLabel(kind){
+  return ({
+    idea:"💡 Идея / улучшение",
+    bug:"🐛 Ошибка в приложении",
+    trip:"🚕 Проблема с поездкой",
+    message:"💬 Сообщение"
+  })[clean(kind)] || "💬 Сообщение";
+}
+
+async function buildSupportOrder(orderId, telegramId){
+  if(!orderId) return null;
+  const r=await db(
+    "SELECT id,pickup,destination,status,amount,waiting_fee,scheduled_at FROM orders WHERE id=$1 AND (passenger_telegram_id=$2 OR driver_telegram_id=$2)",
+    [orderId,telegramId]
+  );
+  return r.rows[0] || null;
+}
+
+app.post("/api/support", async (req,res)=>{
+  try{
+    if(!OWNER_CHAT_ID) return res.status(503).json({success:false,error:"Поддержка ещё не настроена владельцем сервиса."});
+    const telegramId=clean(req.body.telegramId);
+    const kind=clean(req.body.kind);
+    const message=clean(req.body.message);
+    const orderId=clean(req.body.orderId);
+    if(!telegramId||!message) return res.status(400).json({success:false,error:"Напишите сообщение."});
+    if(message.length>4000) return res.status(400).json({success:false,error:"Сообщение слишком длинное. Максимум 4000 символов."});
+
+    const passenger=(await db("SELECT name,phone FROM passengers WHERE telegram_id=$1",[telegramId])).rows[0];
+    const driver=(await db("SELECT name,phone,car,plate FROM drivers WHERE telegram_id=$1",[telegramId])).rows[0];
+    const role=isDriver(telegramId)?"Водитель":"Пассажир";
+    const profile=driver||passenger||{};
+    const order=await buildSupportOrder(orderId,telegramId);
+
+    const lines=[
+      "🆘 НОВОЕ ОБРАЩЕНИЕ",
+      "",
+      "📌 Тема: "+supportKindLabel(kind),
+      "👤 Роль: "+role,
+      "🙍 Имя: "+(profile.name||"Не указано"),
+      "📞 Телефон: "+(profile.phone||"Не указан"),
+      "🆔 Telegram ID: "+telegramId,
+      order ? "" : "",
+      order ? "🚕 ПОЕЗДКА" : "",
+      order ? "🆔 Заказ: "+order.id : "",
+      order ? "📍 "+order.pickup : "",
+      order ? "🏁 "+order.destination : "",
+      order ? "📊 Статус: "+order.status : "",
+      order ? "💳 Сумма: "+(Number(order.amount||0)+Number(order.waiting_fee||0)).toFixed(2)+" BYN" : "",
+      order?.scheduled_at ? "🕐 "+new Date(order.scheduled_at).toLocaleString("ru-RU") : "",
+      "",
+      "💬 Сообщение:",
+      message
+    ].filter(Boolean).join("\n");
+
+    supportReplyTargets.set(telegramId,{telegramId,orderId:order?.id||"",name:profile.name||""});
+    const sent=await sendTelegram(OWNER_CHAT_ID,lines,{
+      reply_markup:{inline_keyboard:[[{text:"↩️ Ответить пользователю",callback_data:"support_reply:"+telegramId}]]}
+    });
+    if(!sent.ok) throw new Error(sent.description||"Не удалось отправить обращение владельцу.");
+    res.json({success:true});
+  }catch(e){
+    console.error("Support:",e);
+    res.status(500).json({success:false,error:e.message||"Не удалось отправить обращение."});
+  }
+});
+
+async function handleTelegramUpdate(update){
+  if(update.callback_query){
+    const q=update.callback_query;
+    const adminChatId=clean(q.from?.id);
+    if(adminChatId!==OWNER_CHAT_ID) {
+      await telegram("answerCallbackQuery",{callback_query_id:q.id,text:"Нет доступа."});
+      return;
+    }
+    const data=clean(q.data);
+    if(data.startsWith("support_reply:")){
+      const targetId=clean(data.slice("support_reply:".length));
+      if(!targetId){
+        await telegram("answerCallbackQuery",{callback_query_id:q.id,text:"Пользователь не найден."});
+        return;
+      }
+      supportReplyTargets.set(OWNER_CHAT_ID,{telegramId:targetId});
+      await telegram("answerCallbackQuery",{callback_query_id:q.id,text:"Напишите следующий текст — он уйдёт пользователю."});
+      await sendTelegram(OWNER_CHAT_ID,"✍️ Напишите ответ следующим сообщением.\n\nОн будет отправлен пользователю "+targetId+".");
+    }
+    return;
+  }
+
+  const msg=update.message;
+  if(!msg?.chat?.id) return;
+  const chatId=clean(msg.chat.id);
+  const text=clean(msg.text);
+  if(chatId!==OWNER_CHAT_ID) return;
+
+  const pending=supportReplyTargets.get(OWNER_CHAT_ID);
+  if(pending?.telegramId && text && !text.startsWith("/")){
+    const sent=await sendTelegram(pending.telegramId,"💬 Ответ от Такси Речица:\n\n"+text);
+    if(sent.ok){
+      await sendTelegram(OWNER_CHAT_ID,"✅ Ответ отправлен пользователю.");
+      supportReplyTargets.delete(OWNER_CHAT_ID);
+    }else{
+      await sendTelegram(OWNER_CHAT_ID,"❌ Не удалось отправить ответ: "+(sent.description||"пользователь недоступен."));
+    }
+    return;
+  }
+
+  if(text==="/start"){
+    const url=clean(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/$/,"");
+    await sendTelegram(OWNER_CHAT_ID,url?"🚕 Такси Речица\n\nОткройте Mini App через кнопку меню Telegram.":"🚕 Такси Речица");
+  }
+}
+
+async function telegramPoll(){
+  if(!BOT_TOKEN||!OWNER_CHAT_ID||telegramPollingStarted)return;
+  telegramPollingStarted=true;
+  try{
+    await telegram("deleteWebhook",{drop_pending_updates:false});
+  }catch(e){console.error("Telegram webhook:",e.message);}
+  const loop=async()=>{
+    try{
+      const r=await telegram("getUpdates",{offset:telegramUpdateOffset,timeout:25,allowed_updates:["message","callback_query"]});
+      if(r.ok){
+        for(const update of r.result||[]){
+          telegramUpdateOffset=Math.max(telegramUpdateOffset,Number(update.update_id)+1);
+          try{await handleTelegramUpdate(update);}catch(e){console.error("Telegram update:",e.message);}
+        }
+      }else{
+        console.error("Telegram polling:",r.description||"unknown error");
+      }
+    }catch(e){console.error("Telegram polling:",e.message);}
+    setTimeout(loop,1000);
+  };
+  loop();
+}
+
 app.get("/api/health", async (req,res) => {
   let database=false;
   try { if(pool){await db("SELECT 1");database=true;} } catch(_){}
-  res.json({success:true,database,telegram:Boolean(BOT_TOKEN),driversConfigured:DRIVER_CHAT_IDS.length,time:new Date().toISOString()});
+  res.json({success:true,database,telegram:Boolean(BOT_TOKEN),driversConfigured:DRIVER_CHAT_IDS.length,supportConfigured:Boolean(OWNER_CHAT_ID),time:new Date().toISOString()});
 });
 
 app.get("/api/user-role", async (req,res) => {
@@ -467,5 +611,5 @@ app.get("*",(req,res)=>{
 
 app.listen(PORT,"0.0.0.0",()=>{
   console.log(`Taxi Речица: server started on port ${PORT}`);
-  migrate().then(setTelegramMenu).catch(e=>console.error("Startup:",e));
+  migrate().then(async()=>{await setTelegramMenu();await telegramPoll();}).catch(e=>console.error("Startup:",e));
 });
