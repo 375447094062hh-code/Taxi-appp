@@ -109,6 +109,18 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS support_messages (
+      id BIGSERIAL PRIMARY KEY,
+      telegram_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      message TEXT NOT NULL,
+      order_id TEXT,
+      reply_text TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      replied_at TIMESTAMPTZ
+    );
+
     CREATE TABLE IF NOT EXISTS saved_addresses (
       id BIGSERIAL PRIMARY KEY,
       telegram_id TEXT NOT NULL,
@@ -245,9 +257,10 @@ app.post("/api/support", async (req,res)=>{
       message
     ].filter(Boolean).join("\n");
 
-    supportReplyTargets.set(telegramId,{telegramId,orderId:order?.id||"",name:profile.name||""});
+    const saved=(await db(`INSERT INTO support_messages(telegram_id,role,kind,message,order_id) VALUES($1,$2,$3,$4,$5) RETURNING id`,[telegramId,role,kind,message,order?.id||null])).rows[0];
+    supportReplyTargets.set(telegramId,{telegramId,orderId:order?.id||"",name:profile.name||"",supportId:saved?.id||null});
     const sent=await sendTelegram(OWNER_CHAT_ID,lines,{
-      reply_markup:{inline_keyboard:[[{text:"↩️ Ответить пользователю",callback_data:"support_reply:"+telegramId}]]}
+      reply_markup:{inline_keyboard:[[{text:"↩️ Ответить пользователю",callback_data:"support_reply:"+telegramId+":"+(saved?.id||"")}]]}
     });
     if(!sent.ok) throw new Error(sent.description||"Не удалось отправить обращение владельцу.");
     res.json({success:true});
@@ -267,12 +280,14 @@ async function handleTelegramUpdate(update){
     }
     const data=clean(q.data);
     if(data.startsWith("support_reply:")){
-      const targetId=clean(data.slice("support_reply:".length));
+      const parts=data.slice("support_reply:".length).split(":");
+      const targetId=clean(parts[0]);
+      const supportId=Number(parts[1]||0);
       if(!targetId){
         await telegram("answerCallbackQuery",{callback_query_id:q.id,text:"Пользователь не найден."});
         return;
       }
-      supportReplyTargets.set(OWNER_CHAT_ID,{telegramId:targetId});
+      supportReplyTargets.set(OWNER_CHAT_ID,{telegramId:targetId,supportId:Number.isInteger(supportId)&&supportId>0?supportId:null});
       await telegram("answerCallbackQuery",{callback_query_id:q.id,text:"Напишите следующий текст — он уйдёт пользователю."});
       await sendTelegram(OWNER_CHAT_ID,"✍️ Напишите ответ следующим сообщением.\n\nОн будет отправлен пользователю "+targetId+".");
     }
@@ -289,6 +304,7 @@ async function handleTelegramUpdate(update){
   if(pending?.telegramId && text && !text.startsWith("/")){
     const sent=await sendTelegram(pending.telegramId,"💬 Ответ от Такси Речица:\n\n"+text);
     if(sent.ok){
+      if(pending.supportId) await db("UPDATE support_messages SET reply_text=$1,replied_at=NOW() WHERE id=$2",[text,pending.supportId]);
       await sendTelegram(OWNER_CHAT_ID,"✅ Ответ отправлен пользователю.");
       supportReplyTargets.delete(OWNER_CHAT_ID);
     }else{
@@ -325,6 +341,28 @@ async function telegramPoll(){
   };
   loop();
 }
+
+app.get("/api/owner-dashboard", async (req,res)=>{
+  try{
+    const owner=clean(req.query.telegramId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const today=(await db(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at>=CURRENT_DATE`)).rows[0];
+    const month=(await db(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at>=date_trunc('month',CURRENT_DATE)`)).rows[0];
+    const active=(await db(`SELECT id,status,passenger_name,pickup,destination,amount,waiting_fee,created_at FROM orders WHERE status=ANY($1::text[]) ORDER BY created_at DESC LIMIT 1`,[ACTIVE_STATUSES])).rows[0]||null;
+    const ratings=(await db(`SELECT COUNT(*)::int AS count,COALESCE(AVG(rating),0)::numeric AS avg FROM ratings`)).rows[0];
+    const support=(await db(`SELECT COUNT(*) FILTER(WHERE replied_at IS NULL)::int AS open,COUNT(*)::int AS total FROM support_messages`)).rows[0];
+    res.json({success:true,today,month,active,ratings,support});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/owner-support", async (req,res)=>{
+  try{
+    const owner=clean(req.query.telegramId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const r=await db(`SELECT id,telegram_id,role,kind,message,order_id,reply_text,created_at,replied_at FROM support_messages ORDER BY created_at DESC LIMIT 100`);
+    res.json({success:true,messages:r.rows});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
 
 app.get("/api/health", async (req,res) => {
   let database=false;
