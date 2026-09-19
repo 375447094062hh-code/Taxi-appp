@@ -154,7 +154,7 @@
 <script>
 const tg=window.Telegram?.WebApp; tg?.ready?.(); tg?.expand?.();
 const uid=String(tg?.initDataUnsafe?.user?.id||""); let role="",pProfile=null,dProfile=null;
-window.__ownerChatId="OWNER_CHAT_ID_RUNTIME";
+window.__ownerChatId="";
 let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null,livePassengerMap=null,driverLiveMap=null,driverLocationMarker=null,driverGeoWatch=null,passengerRenderKey="",driverRenderKey="",waitingTimer=null,passengerWaitingTimer=null;
 
 const $=id=>document.getElementById(id);
@@ -169,8 +169,7 @@ async function boot(){
  try{
   const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
   $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
-  if(uid===String("OWNER_PLACEHOLDER")){}
-  if(role!=="driver" && true && window.__ownerChatId && uid===window.__ownerChatId) $("ownerMenuBtn")?.classList.remove("hidden");
+  if(r.isOwner) $("ownerMenuBtn")?.classList.remove("hidden");
   if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); const current=await loadDriverCurrent(true); if(!current) await loadDriverOrders(); }
   else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
   clearInterval(poller); poller=setInterval(role==="driver"?refreshDriver:()=>loadCurrent(false),3000);
