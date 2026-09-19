@@ -108,7 +108,7 @@
 <div class="menu">
 <button onclick="openDriverCurrent()"><b>🚕</b>Текущая поездка</button>
 <button onclick="openHistory('driver')"><b>📋</b>История поездок</button>
-<button onclick="openStats()"><b>📊</b>Статистика за месяц</button>
+
 <button onclick="openDriverSettings()"><b>⚙️</b>Настройки</button>
 <button onclick="openSupport('driver')"><b>🆘</b>Обратная связь</button>
 <button id="ownerDriverMenuBtn" class="hidden" onclick="openOwnerDriverPanel()"><b>🛠️</b>Панель владельца</button>
@@ -116,7 +116,7 @@
 </section>
 <section id="dCurrent" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div><div id="dCurrentBox"></div></section>
 <section id="dHistory" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">История поездок</div></div><div id="dHistoryList"></div></section>
-<section id="dStats" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Статистика</div></div><div class="field"><label>Месяц</label><input id="statsMonth" type="month"></div><div id="statsBox"></div></section>
+
 <section id="dSettings" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Настройки водителя</div></div><button class="btn secondary" onclick="editDriverProfile()">👤 Профиль водителя</button></section>
 <section id="dSupport" class="card hidden">
 <div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Обратная связь</div></div>
@@ -181,10 +181,11 @@ function openOwnerPanel(){showP("pOwner");loadOwnerDashboard()}
 function openOwnerDriverPanel(){showD("dOwner");loadOwnerDashboard(true)}
 async function loadOwnerDashboard(driverMode=false){
  try{
-  const d=await api("/api/owner-dashboard?telegramId="+encodeURIComponent(uid));
-  const t=d.today||{},m=d.month||{},r=d.ratings||{},s=d.support||{};
-  const dashId=driverMode?"driverOwnerDashboard":"ownerDashboard"; const listId=driverMode?"driverOwnerSupportList":"ownerSupportList";
-  $(dashId).innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(t.orders||0)+'</strong><span>Поездок сегодня</span></div><div class="stat"><strong>'+Number(t.revenue||0).toFixed(2)+' BYN</strong><span>Выручка сегодня</span></div><div class="stat"><strong>'+Number(m.orders||0)+'</strong><span>Поездок за месяц</span></div><div class="stat"><strong>'+Number(m.revenue||0).toFixed(2)+' BYN</strong><span>Выручка за месяц</span></div></div><div class="order" style="margin-top:10px"><b>⭐ Рейтинг</b><div class="small" style="margin-top:6px">'+Number(r.avg||0).toFixed(2)+' / 5 • '+Number(r.count||0)+' оценок</div><div class="small" style="margin-top:6px">🆘 Открытых обращений: <b>'+Number(s.open||0)+'</b> • всего: '+Number(s.total||0)+'</div></div>'+(d.active?'<div class="order"><b>🚕 Активный заказ</b><div class="small" style="margin-top:6px">'+esc(d.active.passenger_name||"Пассажир")+'<br>'+esc(d.active.pickup)+' → '+esc(d.active.destination)+'<br>💳 '+(Number(d.active.amount||0)+Number(d.active.waiting_fee||0)).toFixed(2)+' BYN</div></div>':'<div class="order"><b>🟢 Сейчас активных поездок нет</b></div>');
+  const d=await api("/api/owner-dashboard?telegramId="+encodeURIComponent(uid)+"&period="+(window.__ownerPeriod||"month"));
+  const s=d.stats||{},r=d.ratings||{},sup=d.support||{},dashId=driverMode?"driverOwnerDashboard":"ownerDashboard",listId=driverMode?"driverOwnerSupportList":"ownerSupportList";
+  const liked=(d.liked||[]).map(x=>"<span class=\"statusPill green\" style=\"display:inline-block;margin:3px\">❤ "+esc(x.item)+" × "+x.count+"</span>").join("");
+  const comments=(d.comments||[]).map(x=>"<div class=\"historyItem\"><span class=\"stars\">"+("★".repeat(Number(x.rating||0)))+"</span><div class=\"small\">"+esc(x.comment)+"</div></div>").join("");
+  $(dashId).innerHTML='<div class=\"choice\"><button class=\"'+((window.__ownerPeriod||"month")==="day"?"active":"")+'\" onclick=\"window.__ownerPeriod=\'day\';loadOwnerDashboard('+driverMode+')\">Сегодня</button><button class=\"'+((window.__ownerPeriod||"month")==="month"?"active":"")+'\" onclick=\"window.__ownerPeriod=\'month\';loadOwnerDashboard('+driverMode+')\">Месяц</button></div><div class=\"statGrid\"><div class=\"stat\"><strong>'+Number(s.orders||0)+'</strong><span>Поездок</span></div><div class=\"stat\"><strong>'+Number(s.revenue||0).toFixed(2)+' BYN</strong><span>Выручка</span></div></div><div class=\"order\"><b>⭐ Оценки пассажиров</b><div class=\"small\" style=\"margin-top:6px\">'+Number(r.avg||0).toFixed(2)+' / 5 • '+Number(r.count||0)+' оценок</div><div style=\"margin-top:8px\">'+liked+'</div></div><div class=\"order\"><b>💬 Что нравится пассажирам</b><div style=\"margin-top:5px\">'+(liked||'<span class=\"small\">Пока нет оценок.</span>')+'</div></div><div class=\"order\"><b>📝 Комментарии</b>'+(comments||'<div class=\"small\">Комментариев пока нет.</div>')+'</div><div class=\"small\">🆘 Открытых обращений: <b>'+Number(sup.open||0)+'</b> • всего: '+Number(sup.total||0)+'</div>'+(d.active?'<div class=\"order\"><b>🚕 Активный заказ</b><div class=\"small\" style=\"margin-top:6px\">'+esc(d.active.passenger_name||"Пассажир")+'<br>'+esc(d.active.pickup)+' → '+esc(d.active.destination)+'<br>📏 '+Number(d.active.distance_km||0).toFixed(2)+' км • 💳 '+(Number(d.active.amount||0)+Number(d.active.waiting_fee||0)).toFixed(2)+' BYN</div></div>':'');
   const od=await api("/api/owner-orders?telegramId="+encodeURIComponent(uid));
   const ol=$(driverMode?"driverOwnerOrdersList":"ownerOrdersList");
   if(ol) ol.innerHTML=od.orders?.length?od.orders.map(ownerOrderCard).join(""):'<div class="small">Заказов пока нет.</div>';
@@ -195,10 +196,9 @@ async function loadOwnerDashboard(driverMode=false){
 
 function ownerOrderCard(o){
  const names={searching:"🔎 Ищем водителя",accepted:"✅ Принят",arrived:"📍 Водитель на месте",trip:"🚕 В пути",completed:"🏁 Завершён",cancelled:"❌ Отменён"};
- const scheduled=o.scheduled_at?"<div class=\"small\">🕐 "+new Date(o.scheduled_at).toLocaleString("ru-RU")+"</div>":"";
- const total=(Number(o.amount||0)+Number(o.waiting_fee||0)).toFixed(2);
+ const base=Number(o.amount||0),wait=Number(o.waiting_fee||0),km=Number(o.distance_km||0),waitSec=Number(o.waiting_seconds||0),total=base+wait;
  const canCancel=["searching","accepted","arrived","trip"].includes(o.status);
- return "<div class=\"order\"><div class=\"orderHead\"><b>"+esc(names[o.status]||o.status)+"</b><span class=\"statusPill\">"+total+" BYN</span></div><div class=\"small\" style=\"margin-top:6px\">"+esc(o.passenger_name||"Пассажир")+" • "+new Date(o.created_at).toLocaleString("ru-RU")+"</div><div class=\"routeText\" style=\"margin-top:7px\">"+esc(o.pickup)+"<br>↓<br>"+esc(o.destination)+"</div>"+scheduled+(o.driver_name?"<div class=\"small\" style=\"margin-top:6px\">🚗 "+esc(o.driver_name)+" • "+esc(o.driver_car||"")+" "+esc(o.driver_plate||"")+"</div>":"")+(canCancel?"<button class=\"btn red\" onclick=\"ownerCancelOrder('"+esc(o.id)+"')\">Отменить заказ</button>":"")+"</div>";
+ return '<div class="order"><div class="orderHead"><b>'+esc(names[o.status]||o.status)+'</b><span class="statusPill">'+total.toFixed(2)+' BYN</span></div><div class="small" style="margin-top:6px">👤 '+esc(o.passenger_name||"Пассажир")+' • '+new Date(o.created_at).toLocaleString("ru-RU")+'</div><div class="routeText" style="margin-top:7px">'+esc(o.pickup)+'<br>↓<br>'+esc(o.destination)+'</div>'+(o.scheduled_at?'<div class="small">🕐 '+new Date(o.scheduled_at).toLocaleString("ru-RU")+'</div>':"")+'<div class="order" style="margin-top:8px"><b>🧾 Начисления</b><div class="small" style="margin-top:6px">🚕 Посадка: <b>3,00 BYN</b><br>📏 '+km.toFixed(2)+' км × 1,00 BYN → <b>'+Math.max(0,base-3).toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+wait.toFixed(2)+' BYN</b>'+(waitSec?' • '+formatWaitingDescription(waitSec,0):'')+'<br><span style="color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div>'+(o.driver_name?'<div class="small">🚗 '+esc(o.driver_name)+' • '+esc(o.driver_car||"")+' '+esc(o.driver_plate||"")+'</div>':"")+(canCancel?'<button class="btn red" onclick="ownerCancelOrder(\''+esc(o.id)+'\')">Отменить заказ</button>':"")+'</div>';
 }
 async function ownerCancelOrder(id){if(!confirm("Отменить этот заказ?"))return;try{await api("/api/owner-orders/"+encodeURIComponent(id)+"/cancel",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ отменён");loadOwnerDashboard(role==="driver")}catch(e){toast(e.message,true)}}
 
@@ -407,15 +407,16 @@ function openCurrent(){loadCurrent(true)}
 async function cancelPassenger(id){try{await api("/api/orders/"+encodeURIComponent(id)+"/cancel",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ отменён");loadCurrent(true)}catch(e){toast(e.message,true)}}
 
 async function openHistory(who){
- if(who==="passenger"){showP("pHistory");const d=await api("/api/orders/history?telegramId="+encodeURIComponent(uid));$("pHistoryList").innerHTML=d.orders.length?d.orders.map(historyCard).join(""):'<div class="sub">Завершённых поездок пока нет.</div>'}
- else{showD("dHistory");const d=await api("/api/orders/history?telegramId="+encodeURIComponent(uid));$("dHistoryList").innerHTML=d.orders.length?d.orders.map(historyCard).join(""):'<div class="sub">Завершённых поездок пока нет.</div>'}
+ if(who==="passenger"){showP("pHistory");const d=await api("/api/orders/history?telegramId="+encodeURIComponent(uid));$("pHistoryList").innerHTML=d.orders.length?d.orders.map(o=>historyCard(o,true)).join(""):'<div class="sub">Завершённых поездок пока нет.</div>'}
+ else{showD("dHistory");const d=await api("/api/orders/history?telegramId="+encodeURIComponent(uid));$("dHistoryList").innerHTML=d.orders.length?d.orders.map(o=>historyCard(o,false)).join(""):'<div class="sub">Завершённых поездок пока нет.</div>'}
 }
 function formatWaitingDescription(seconds,legacyMinutes=0){const sec=Math.max(0,Number(seconds||0));if(sec>0){const m=Math.floor(sec/60),s=Math.floor(sec%60);return m+' мин '+s+' сек';}return legacyMinutes?Number(legacyMinutes)+' мин':''}
-function historyCard(o){
+function historyCard(o,passenger=false){
  const base=Number(o.amount||0), distanceKm=Math.max(0,Number(o.distance_km||0)), distanceCost=Math.max(0,base-3);
  const waitSec=Math.max(0,Number(o.waiting_seconds||0)), waitFee=Math.max(0,Number(o.waiting_fee||0)), waitIntervals=waitFee>0?Math.max(1,Math.ceil(waitFee/0.1)):0;
  const total=base+waitFee, date=new Date(o.completed_at||o.created_at).toLocaleString("ru-RU");
- return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+date+'</div><button class="btn secondary" style="margin-top:8px" onclick="repeatHistoryRoute('+esc(JSON.stringify(o.pickup))+','+esc(JSON.stringify(o.destination))+')">🔄 Повторить маршрут</button><div class="order" style="margin-top:9px;margin-bottom:0"><b>🧾 Подробный расчёт</b><div class="small" style="margin-top:7px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+(waitSec?formatWaitingDescription(waitSec,0)+' • ':'')+(waitIntervals?waitIntervals+' × 0,10 BYN = ':'')+waitFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;padding-top:7px;border-top:1px solid #294860;color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div></div>';
+ const repeat=passenger?'<button class="btn secondary" style="margin-top:8px" onclick="repeatHistoryRoute('+esc(JSON.stringify(o.pickup))+','+esc(JSON.stringify(o.destination))+')">🔄 Повторить маршрут</button>':"";
+ return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+date+'</div>'+repeat+'<div class="order" style="margin-top:9px;margin-bottom:0"><b>🧾 Подробный расчёт</b><div class="small" style="margin-top:7px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+(waitSec?formatWaitingDescription(waitSec,0)+' • ':'')+(waitIntervals?waitIntervals+' × 0,10 BYN = ':'')+waitFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;padding-top:7px;border-top:1px solid #294860;color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div></div>';
 }
 
 const supportKinds={
@@ -539,9 +540,6 @@ async function toggleWaiting(id){
  }catch(e){toast(e.message,true)}
 }
 
-async function openStats(){showD("dStats");$("statsMonth").value=new Date().toISOString().slice(0,7);await loadStats()}
-$("statsMonth").addEventListener("change",loadStats);
-async function loadStats(){if(!$("statsMonth").value)return;try{const d=await api("/api/driver-stats?telegramId="+encodeURIComponent(uid)+"&month="+encodeURIComponent($("statsMonth").value));const s=d.stats||{};$("statsBox").innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(s.orders||0)+'</strong><span>Завершённых заказов</span></div><div class="stat"><strong>'+Number(s.earnings||0).toFixed(2)+' BYN</strong><span>Заработано</span></div><div class="stat"><strong>'+Number(s.waiting_minutes||0)+'</strong><span>Время ожидания</span></div></div>'}catch(e){toast(e.message,true)}}
 
 
 boot();
