@@ -366,7 +366,7 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
     if(current.scheduled_at) return res.status(409).json({success:false,error:"Ожидание доступно только для заказа «Сейчас»."});
 
     if(!current.waiting_started_at){
-      const r=await db("UPDATE orders SET waiting_started_at=NOW() WHERE id=$1 AND driver_telegram_id=$2 RETURNING *",[orderId,driverId]);
+      const r=await db("UPDATE orders SET waiting_started_at=NOW(), waiting_minutes=GREATEST(1,waiting_minutes), waiting_fee=GREATEST(0.50,waiting_fee) WHERE id=$1 AND driver_telegram_id=$2 RETURNING *",[orderId,driverId]);
       return res.json({success:true,action:"started",order:r.rows[0]});
     }
 
