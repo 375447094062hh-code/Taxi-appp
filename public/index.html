@@ -346,7 +346,7 @@ function renderDriverCurrent(o){
  window.__waitingBaseSeconds=Math.max(0,Number(o.waiting_seconds||0));
  if(o.waiting_started_at)startWaitingTimer(o.waiting_started_at);
 }
-async function driverStatus(id,status){try{if(status==="trip"&&window.__driverOrder){openYandexRoute(window.__driverOrder,"destination")}const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась — открываем маршрут до точки Б.":"Поездка завершена.");if(status==="completed")setTimeout(()=>openStats(),500)}catch(e){toast(e.message,true)}}
+async function driverStatus(id,status){try{if(status==="trip"&&window.__driverOrder){openYandexRoute(window.__driverOrder,"destination")}const d=await api("/api/orders/"+encodeURIComponent(id)+"/status",{method:"POST",body:JSON.stringify({telegramId:uid,status})});renderDriverCurrent(d.order);toast(status==="arrived"?"Пассажир увидит, что вы на месте.":status==="trip"?"Поездка началась — открываем маршрут до точки Б.":"Поездка завершена.");if(status==="completed"){showD("dCurrent");toast("Расчёт поездки показан ниже. В статистику можно перейти вручную.")}}catch(e){toast(e.message,true)}}
 function stopWaitingTimer(){if(waitingTimer){clearInterval(waitingTimer);waitingTimer=null}}
 function startWaitingTimer(startedAt){
  stopWaitingTimer();
