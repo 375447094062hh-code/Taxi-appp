@@ -519,7 +519,7 @@ app.post("/api/orders", async (req,res)=>{
     if(scheduledAt && scheduledAt.getTime() <= Date.now()) return res.status(400).json({success:false,error:"Дата предварительного заказа должна быть в будущем."});
     const km=Number(req.body.distanceKm);
     const distance=Number.isFinite(km)&&km>=0?km:0;
-    const amount=3+Math.ceil(distance);
+    const amount=3+Math.ceil(distance)+(Boolean(req.body.childSeat)?1:0);
     const r=await db(`INSERT INTO orders
       (id,passenger_telegram_id,passenger_name,passenger_phone,pickup,destination,tariff,child_seat,scheduled_at,distance_km,amount,pickup_lat,pickup_lng,destination_lat,destination_lng)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
