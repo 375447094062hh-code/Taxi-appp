@@ -2,7 +2,7 @@ name: Keep Render Awake
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -14,6 +14,6 @@ jobs:
           set -e
           URL="https://taxi-appp.onrender.com/api/health"
           echo "Pinging $URL"
-          curl --fail --silent --show-error --max-time 30 "$URL"
+          curl --fail --silent --show-error --max-time 60 --retry 2 --retry-delay 5 "$URL"
           echo
           echo "Render health check completed."
