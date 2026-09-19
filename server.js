@@ -342,7 +342,7 @@ app.post("/api/orders/:orderId/status", async (req,res)=>{
         waiting_fee=GREATEST(0,CEIL((
           waiting_seconds+
           CASE WHEN waiting_started_at IS NULL THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int END
-        )/10)::numeric)*0.60,
+        /10)::numeric)*0.10,
         waiting_started_at=NULL
         WHERE id=$1 AND driver_telegram_id=$2`,[orderId,driverId]);
     }
@@ -366,7 +366,7 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
     if(current.scheduled_at) return res.status(409).json({success:false,error:"Ожидание доступно только для заказа «Сейчас»."});
 
     if(!current.waiting_started_at){
-      const r=await db("UPDATE orders SET waiting_started_at=NOW(), waiting_minutes=GREATEST(1,waiting_minutes), waiting_fee=GREATEST(0.60,waiting_fee) WHERE id=$1 AND driver_telegram_id=$2 RETURNING *",[orderId,driverId]);
+      const r=await db("UPDATE orders SET waiting_started_at=NOW(), waiting_minutes=GREATEST(1,waiting_minutes), waiting_fee=GREATEST(0.10,waiting_fee) WHERE id=$1 AND driver_telegram_id=$2 RETURNING *",[orderId,driverId]);
       return res.json({success:true,action:"started",order:r.rows[0]});
     }
 
@@ -380,7 +380,7 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
           waiting_fee=GREATEST(0,CEIL((
             waiting_seconds+
             GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int)
-          )/10)::numeric)*0.60,
+          /10)::numeric)*0.10,
           waiting_started_at=NULL
       WHERE id=$1 AND driver_telegram_id=$2
       RETURNING *`,[orderId,driverId]);
@@ -412,7 +412,7 @@ app.post("/api/orders/:orderId/cancel", async (req,res)=>{
       await db(`UPDATE orders SET
         waiting_seconds=waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int),
         waiting_minutes=GREATEST(0,CEIL((waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int))/10)::int),
-        waiting_fee=GREATEST(0,CEIL((waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int))/10)::numeric)*0.60,
+        waiting_fee=GREATEST(0,CEIL((waiting_seconds+GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (NOW()-waiting_started_at)))::int))/10)::numeric)*0.10,
         waiting_started_at=NULL
         WHERE id=$1`,[oid]);
     }
