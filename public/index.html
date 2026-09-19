@@ -438,11 +438,14 @@ function historyCard(o,passenger=false){
  const waitSec=Math.max(0,Number(o.waiting_seconds||0)), waitFee=Math.max(0,Number(o.waiting_fee||0)), waitIntervals=waitFee>0?Math.max(1,Math.ceil(waitFee/0.1)):0;
  const total=base+waitFee, date=new Date(o.completed_at||o.created_at).toLocaleString("ru-RU");
  const repeat=passenger?'<button class="btn secondary" style="margin-top:8px" onclick="repeatHistoryRoute('+esc(JSON.stringify(o.pickup))+','+esc(JSON.stringify(o.destination))+')">🔄 Повторить маршрут</button>':"";
+ const completedMs=o.completed_at?new Date(o.completed_at).getTime():NaN;
+ const contactWindowMs=3*24*60*60*1000;
+ const contactAllowed=Number.isFinite(completedMs)&&completedMs<=Date.now()&&Date.now()-completedMs<=contactWindowMs;
  const phone=passenger?o.driver_phone:o.passenger_phone;
  const telegramId=passenger?o.driver_telegram_id:o.passenger_telegram_id;
  const contactLabel=passenger?"водителем":"пассажиром";
- const contactButtons=phone
-   ? '<div class="order" style="margin-top:9px;margin-bottom:0"><b>📞 Связь с '+contactLabel+'</b><div class="small" style="margin-top:5px">Если что-то забыли в машине или нашли чужую вещь после поездки — можно связаться с участником этой поездки.</div><a class="call" href="tel:'+esc(phone)+'">📞 Позвонить</a>'+(telegramId?'<a class="call" style="background:#168dcc" href="tg://user?id='+encodeURIComponent(telegramId)+'">💬 Написать в Telegram</a>':"")+'<button class="btn secondary" onclick="forgotItemPrompt('+esc(JSON.stringify(o.id))+','+esc(JSON.stringify(o.pickup+" → "+o.destination))+','+esc(JSON.stringify(contactLabel))+')">📦 Забыл(а) вещь</button></div>'
+ const contactButtons=contactAllowed&&phone
+   ? '<div class="order" style="margin-top:9px;margin-bottom:0"><b>📞 Связь с '+contactLabel+'</b><div class="small" style="margin-top:5px">Связь по этой поездке доступна в течение 3 дней после её завершения. Если что-то забыли в машине или нашли чужую вещь — можно связаться с участником поездки.</div><a class="call" href="tel:'+esc(phone)+'">📞 Позвонить</a>'+(telegramId?'<a class="call" style="background:#168dcc" href="tg://user?id='+encodeURIComponent(telegramId)+'">💬 Написать в Telegram</a>':"")+'<button class="btn secondary" onclick="forgotItemPrompt('+esc(JSON.stringify(o.id))+','+esc(JSON.stringify(o.pickup+" → "+o.destination))+','+esc(JSON.stringify(contactLabel))+')">📦 Забыл(а) вещь</button></div>'
    : "";
  return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+date+'</div>'+repeat+'<div class="order" style="margin-top:9px;margin-bottom:0"><b>🧾 Подробный расчёт</b><div class="small" style="margin-top:7px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+(waitSec?formatWaitingDescription(waitSec,0)+' • ':'')+(waitIntervals?waitIntervals+' × 0,10 BYN = ':'')+waitFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;padding-top:7px;border-top:1px solid #294860;color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div>'+contactButtons+'</div>';
 }
