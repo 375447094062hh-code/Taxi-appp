@@ -95,12 +95,7 @@
 <div class="faqItem"><b>💰 Как считается стоимость?</b><span class="small">Посадка — 3 BYN + 1 BYN за каждый километр. Ожидание — 0,10 BYN за каждые 10 секунд после начала поездки.</span></div>
 <div class="faqItem"><b>📋 Где посмотреть поездку?</b><span class="small">Текущий заказ находится в «Текущая поездка», завершённые — в «Мои поездки».</span></div>
 </section>
-<section id="pOwner" class="card hidden">
-<div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Панель владельца</div></div>
-<div id="ownerDashboard"><div class="small">Загрузка…</div></div>
-<div class="title" style="margin-top:16px">🆘 Последние обращения</div>
-<div id="ownerSupportList"><div class="small">Загрузка…</div></div>
-</section>
+<section id="pOwner" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Панель владельца</div></div><div id="ownerDashboard"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:16px">🚕 Управление заказами</div><div id="ownerOrdersList"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:16px">🆘 Последние обращения</div><div id="ownerSupportList"><div class="small">Загрузка…</div></div></section>
 <section id="pProfile" class="card hidden"><div class="back"><button onclick="showP('pSettings')">‹</button><div class="title" style="margin:0">Профиль пассажира</div></div><div class="field"><label>Имя</label><input id="pName"></div><div class="field"><label>Телефон</label><input id="pPhone" placeholder="+375..."></div><button class="btn" onclick="savePassenger()">Сохранить профиль</button></section>
 </main>
 
@@ -147,7 +142,7 @@
 <div class="faqItem"><b>⏱ Когда доступно ожидание?</b><span class="small">Только после начала поездки и только для заказа «Сейчас». Пауза не обнуляет уже накопленное время.</span></div>
 <div class="faqItem"><b>🗺 Как открыть маршрут?</b><span class="small">До начала поездки открывается маршрут к точке А, после начала — к точке Б.</span></div>
 </section>
-<section id="dOwner" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Панель владельца</div></div><div id="driverOwnerDashboard"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:16px">🆘 Последние обращения</div><div id="driverOwnerSupportList"><div class="small">Загрузка…</div></div></section>
+<section id="dOwner" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Панель владельца</div></div><div id="driverOwnerDashboard"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:16px">🚕 Управление заказами</div><div id="driverOwnerOrdersList"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:16px">🆘 Последние обращения</div><div id="driverOwnerSupportList"><div class="small">Загрузка…</div></div></section>
 <section id="dProfile" class="card hidden"><div class="back"><button onclick="showD('dSettings')">‹</button><div class="title" style="margin:0">Профиль водителя</div></div><div class="field"><label>Имя</label><input id="dName"></div><div class="field"><label>Телефон</label><input id="dPhone"></div><div class="field"><label>Автомобиль</label><input id="dCar"></div><div class="field"><label>Госномер</label><input id="dPlate"></div><label class="check"><input id="dChild" type="checkbox"> Есть детское кресло</label><button class="btn green" onclick="saveDriver()">Сохранить</button></section>
 </main>
 </div>
@@ -190,10 +185,22 @@ async function loadOwnerDashboard(driverMode=false){
   const t=d.today||{},m=d.month||{},r=d.ratings||{},s=d.support||{};
   const dashId=driverMode?"driverOwnerDashboard":"ownerDashboard"; const listId=driverMode?"driverOwnerSupportList":"ownerSupportList";
   $(dashId).innerHTML='<div class="statGrid"><div class="stat"><strong>'+Number(t.orders||0)+'</strong><span>Поездок сегодня</span></div><div class="stat"><strong>'+Number(t.revenue||0).toFixed(2)+' BYN</strong><span>Выручка сегодня</span></div><div class="stat"><strong>'+Number(m.orders||0)+'</strong><span>Поездок за месяц</span></div><div class="stat"><strong>'+Number(m.revenue||0).toFixed(2)+' BYN</strong><span>Выручка за месяц</span></div></div><div class="order" style="margin-top:10px"><b>⭐ Рейтинг</b><div class="small" style="margin-top:6px">'+Number(r.avg||0).toFixed(2)+' / 5 • '+Number(r.count||0)+' оценок</div><div class="small" style="margin-top:6px">🆘 Открытых обращений: <b>'+Number(s.open||0)+'</b> • всего: '+Number(s.total||0)+'</div></div>'+(d.active?'<div class="order"><b>🚕 Активный заказ</b><div class="small" style="margin-top:6px">'+esc(d.active.passenger_name||"Пассажир")+'<br>'+esc(d.active.pickup)+' → '+esc(d.active.destination)+'<br>💳 '+(Number(d.active.amount||0)+Number(d.active.waiting_fee||0)).toFixed(2)+' BYN</div></div>':'<div class="order"><b>🟢 Сейчас активных поездок нет</b></div>');
+  const od=await api("/api/owner-orders?telegramId="+encodeURIComponent(uid));
+  const ol=$(driverMode?"driverOwnerOrdersList":"ownerOrdersList");
+  if(ol) ol.innerHTML=od.orders?.length?od.orders.map(ownerOrderCard).join(""):'<div class="small">Заказов пока нет.</div>';
   const h=await api("/api/owner-support?telegramId="+encodeURIComponent(uid));
   $(listId).innerHTML=h.messages?.length?h.messages.map(x=>'<div class="historyItem"><b>'+esc(x.kind)+' • '+esc(x.role)+'</b><div class="small">'+new Date(x.created_at).toLocaleString("ru-RU")+'</div><div class="order" style="margin-top:7px"><div>'+esc(x.message)+'</div>'+(x.reply_text?'<div class="small" style="margin-top:7px">↩️ '+esc(x.reply_text)+'</div>':'<div class="small" style="margin-top:7px;color:var(--yellow)">⏳ Ожидает ответа</div>')+'</div></div>').join(""):'<div class="small">Обращений пока нет.</div>';
  }catch(e){const errId=driverMode?"driverOwnerDashboard":"ownerDashboard";$(errId).innerHTML='<div class="small" style="color:var(--red)">Нет доступа к панели владельца.</div>'}
 }
+
+function ownerOrderCard(o){
+ const names={searching:"🔎 Ищем водителя",accepted:"✅ Принят",arrived:"📍 Водитель на месте",trip:"🚕 В пути",completed:"🏁 Завершён",cancelled:"❌ Отменён"};
+ const scheduled=o.scheduled_at?"<div class=\"small\">🕐 "+new Date(o.scheduled_at).toLocaleString("ru-RU")+"</div>":"";
+ const total=(Number(o.amount||0)+Number(o.waiting_fee||0)).toFixed(2);
+ const canCancel=["searching","accepted","arrived","trip"].includes(o.status);
+ return "<div class=\"order\"><div class=\"orderHead\"><b>"+esc(names[o.status]||o.status)+"</b><span class=\"statusPill\">"+total+" BYN</span></div><div class=\"small\" style=\"margin-top:6px\">"+esc(o.passenger_name||"Пассажир")+" • "+new Date(o.created_at).toLocaleString("ru-RU")+"</div><div class=\"routeText\" style=\"margin-top:7px\">"+esc(o.pickup)+"<br>↓<br>"+esc(o.destination)+"</div>"+scheduled+(o.driver_name?"<div class=\"small\" style=\"margin-top:6px\">🚗 "+esc(o.driver_name)+" • "+esc(o.driver_car||"")+" "+esc(o.driver_plate||"")+"</div>":"")+(canCancel?"<button class=\"btn red\" onclick=\"ownerCancelOrder('"+esc(o.id)+"')\">Отменить заказ</button>":"")+"</div>";
+}
+async function ownerCancelOrder(id){if(!confirm("Отменить этот заказ?"))return;try{await api("/api/owner-orders/"+encodeURIComponent(id)+"/cancel",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ отменён");loadOwnerDashboard(role==="driver")}catch(e){toast(e.message,true)}}
 
 function openPassengerOrder(){
  if(!pProfile){toast("Сначала заполните профиль",true);editPassengerProfile();return}
