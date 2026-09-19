@@ -361,7 +361,7 @@ app.post("/api/orders/:orderId/waiting", async (req,res)=>{
   try {
     const driverId=clean(req.body.telegramId), orderId=clean(req.params.orderId);
     if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
-    const current=(await db("SELECT * FROM orders WHERE id=$1 AND driver_telegram_id=$2 AND status IN ('accepted','arrived','trip')",[orderId,driverId])).rows[0];
+    const current=(await db("SELECT * FROM orders WHERE id=$1 AND driver_telegram_id=$2 AND status='trip'",[orderId,driverId])).rows[0];
     if(!current) return res.status(409).json({success:false,error:"Ожидание сейчас недоступно."});
     if(current.scheduled_at) return res.status(409).json({success:false,error:"Ожидание доступно только для заказа «Сейчас»."});
 
