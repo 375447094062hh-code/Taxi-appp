@@ -376,14 +376,17 @@ app.post("/api/owner-orders/:orderId/cancel", async (req,res)=>{
 });
 app.get("/api/owner-dashboard", async (req,res)=>{
   try{
-    const owner=clean(req.query.telegramId);
+    const owner=clean(req.query.telegramId), period=clean(req.query.period)||"month";
     if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
-    const today=(await db(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at>=CURRENT_DATE`)).rows[0];
-    const month=(await db(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at>=date_trunc('month',CURRENT_DATE)`)).rows[0];
-    const active=(await db(`SELECT id,status,passenger_name,pickup,destination,amount,waiting_fee,created_at FROM orders WHERE status=ANY($1::text[]) ORDER BY created_at DESC LIMIT 1`,[ACTIVE_STATUSES])).rows[0]||null;
+    const dateFilter=period==="day" ? "CURRENT_DATE" : "date_trunc('month',CURRENT_DATE)";
+    const stats=(await db(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at>=${dateFilter}`)).rows[0];
+    const active=(await db(`SELECT id,status,passenger_name,pickup,destination,amount,waiting_fee,distance_km,waiting_seconds,scheduled_at,created_at FROM orders WHERE status=ANY($1::text[]) ORDER BY created_at DESC LIMIT 1`,[ACTIVE_STATUSES])).rows[0]||null;
     const ratings=(await db(`SELECT COUNT(*)::int AS count,COALESCE(AVG(rating),0)::numeric AS avg FROM ratings`)).rows[0];
+    const liked=(await db(`SELECT item,COUNT(*)::int AS count FROM ratings r CROSS JOIN LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(r.good)='array' THEN r.good ELSE '[]'::jsonb END) item GROUP BY item ORDER BY count DESC,item`)).rows;
+    const comments=(await db(`SELECT rating,good,comment,created_at FROM ratings WHERE comment IS NOT NULL AND TRIM(comment)<>'' ORDER BY created_at DESC LIMIT 30`)).rows;
     const support=(await db(`SELECT COUNT(*) FILTER(WHERE replied_at IS NULL)::int AS open,COUNT(*)::int AS total FROM support_messages`)).rows[0];
-    res.json({success:true,today,month,active,ratings,support});
+    const recent=(await db(`SELECT id,status,passenger_name,passenger_phone,pickup,destination,amount,waiting_fee,distance_km,waiting_seconds,scheduled_at,created_at,completed_at,driver_name,driver_car,driver_plate FROM orders ORDER BY created_at DESC LIMIT 100`)).rows;
+    res.json({success:true,period,stats,active,ratings,liked,comments,support,recent});
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
