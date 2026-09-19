@@ -19,9 +19,47 @@
   width:86%;
   right:2%;
   top:84px;
-  transform:translateY(0);
-  animation:homeTaxiFloat 5s ease-in-out infinite;
+  transform:translate(0,0) rotate(0deg);
+  animation:homeTaxiDrive 4.8s ease-in-out infinite;
+  transform-origin:50% 78%;
 }
+.homeHero .premiumTaxi .wheel{
+  transform-box:fill-box;
+  transform-origin:center;
+  animation:homeWheelSpin .8s linear infinite;
+}
+.homeHero .premiumTaxi .roadMark{
+  stroke:#ffffff66;
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-dasharray:22 18;
+  animation:homeRoadMove .9s linear infinite;
+}
+.homeHero .premiumTaxi .headBeam{
+  fill:#ffd21a22;
+  filter:url(#softGlow);
+}
+.homeHero .driveDust{
+  position:absolute;
+  z-index:2;
+  right:68%;
+  top:214px;
+  width:90px;
+  height:30px;
+  opacity:.75;
+  pointer-events:none;
+}
+.homeHero .driveDust i{
+  position:absolute;
+  display:block;
+  height:2px;
+  border-radius:99px;
+  background:#dcecff88;
+  animation:homeDust 1.2s ease-out infinite;
+}
+.homeHero .driveDust i:nth-child(1){width:30px;top:5px;left:18px;animation-delay:0s}
+.homeHero .driveDust i:nth-child(2){width:18px;top:15px;left:5px;animation-delay:.25s}
+.homeHero .driveDust i:nth-child(3){width:24px;top:24px;left:28px;animation-delay:.5s}
 .homeHero .roadGlow{
   bottom:96px;
   height:105px;
@@ -99,12 +137,22 @@
   transform:scale(.985);
   border-color:#55758d;
 }
-@keyframes homeTaxiFloat{
-  0%,100%{transform:translateY(0) rotate(0deg)}
-  50%{transform:translateY(-5px) rotate(-.35deg)}
+@keyframes homeTaxiDrive{
+  0%,100%{transform:translate(0,1px) rotate(0deg)}
+  18%{transform:translate(-4px,-1px) rotate(-.25deg)}
+  42%{transform:translate(7px,0) rotate(.3deg)}
+  58%{transform:translate(13px,-2px) rotate(.15deg)}
+  78%{transform:translate(5px,0) rotate(-.2deg)}
+}
+@keyframes homeWheelSpin{to{transform:rotate(360deg)}}
+@keyframes homeRoadMove{to{stroke-dashoffset:-40}}
+@keyframes homeDust{
+  0%{opacity:0;transform:translateX(18px) scaleX(.6)}
+  25%{opacity:.75}
+  100%{opacity:0;transform:translateX(-34px) scaleX(1.25)}
 }
 @media (prefers-reduced-motion:reduce){
-  .homeHero .premiumTaxi{animation:none}
+  .homeHero .premiumTaxi,.homeHero .premiumTaxi .wheel,.homeHero .premiumTaxi .roadMark,.homeHero .driveDust i{animation:none}
 }
 </style>
 </head>
@@ -115,14 +163,15 @@
 <main id="passenger" class="hidden">
 <section class="hero homeHero">
 <svg class="premiumTaxi" viewBox="0 0 520 190" aria-hidden="true">
-<defs><linearGradient id="taxiPaint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff9c4"/><stop offset=".28" stop-color="#ffd21a"/><stop offset=".72" stop-color="#e7aa00"/><stop offset="1" stop-color="#9d6900"/></linearGradient></defs>
+<defs><linearGradient id="taxiPaint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff9c4"/><stop offset=".28" stop-color="#ffd21a"/><stop offset=".72" stop-color="#e7aa00"/><stop offset="1" stop-color="#9d6900"/></linearGradient><filter id="softGlow"><feGaussianBlur stdDeviation="4"/></filter></defs>
 <path class="body" d="M72 124 98 89q8-11 25-13l57-9 44-43q10-9 26-9h93q16 0 28 10l49 42 50 9q19 4 29 18l15 21q5 7 5 17v22H54v-13q0-10 18-17Z"/>
 <path class="window" d="M190 73 228 30q4-4 11-4h86q8 0 14 5l44 39H190Z"/>
 <path class="window" d="M175 76h-43q-9 0-14 7l-14 20h69Z"/>
-<rect class="light" x="62" y="113" width="33" height="11" rx="5"/><rect class="light" x="438" y="112" width="25" height="10" rx="5"/>
+<path class="headBeam" d="M466 113 520 94v42l-54-14Z"/><rect class="light" x="62" y="113" width="33" height="11" rx="5"/><rect class="light" x="438" y="112" width="25" height="10" rx="5"/><path class="roadMark" d="M55 174h80m45 0h80m45 0h80m45 0h55"/>
 <circle class="wheel" cx="142" cy="151" r="27"/><circle class="hub" cx="142" cy="151" r="10"/><circle class="wheel" cx="405" cy="151" r="27"/><circle class="hub" cx="405" cy="151" r="10"/>
 <rect x="249" y="44" width="44" height="9" rx="4" fill="#111827" opacity=".75"/><text x="271" y="52" text-anchor="middle" font-size="7" font-family="Arial" fill="#ffd21a">РЕЧИЦА</text>
 </svg>
+<div class="driveDust" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="roadGlow"></div>
 <div class="heroTop"><div class="heroBadge">● Сервис работает</div><div class="heroBadge">Личный водитель</div></div>
 <div class="heroBottom"><div class="heroText"><h1>Такси Речица</h1><p>Ваш личный водитель. Заказ без лишних шагов.</p></div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button></div>
