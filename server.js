@@ -383,14 +383,15 @@ app.get("/api/owner-dashboard", async (req,res)=>{
       : (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE)) AND completed_at < date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE))+INTERVAL '1 month'",[selected])).rows[0];
     const chartMonth=(selected||new Date().toISOString().slice(0,7)).slice(0,7);
     const daily=(await db("SELECT EXTRACT(DAY FROM completed_at)::int AS day,COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',$1::date) AND completed_at < date_trunc('month',$1::date)+INTERVAL '1 month' GROUP BY 1 ORDER BY 1",[chartMonth+"-01"])).rows;
-    const monthly=(await db("SELECT TO_CHAR(date_trunc('month',completed_at),'YYYY-MM') AS month,COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',CURRENT_DATE)-INTERVAL '11 months' AND completed_at < date_trunc('month',CURRENT_DATE)+INTERVAL '1 month' GROUP BY 1 ORDER BY 1")).rows;
+    const monthly=(await db("SELECT TO_CHAR(date_trunc('month',completed_at),'YYYY-MM') AS month,COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',$1::date)-INTERVAL '11 months' AND completed_at < date_trunc('month',$1::date)+INTERVAL '1 month' GROUP BY 1 ORDER BY 1",[chartMonth+"-01"])).rows;
     const active=(await db(`SELECT id,status,passenger_name,pickup,destination,amount,waiting_fee,distance_km,waiting_seconds,scheduled_at,created_at FROM orders WHERE status=ANY($1::text[]) ORDER BY created_at DESC LIMIT 1`,[ACTIVE_STATUSES])).rows[0]||null;
     const ratings=(await db(`SELECT COUNT(*)::int AS count,COALESCE(AVG(rating),0)::numeric AS avg FROM ratings`)).rows[0];
+    const ratingDist=(await db(`SELECT rating,COUNT(*)::int AS count FROM ratings GROUP BY rating ORDER BY rating DESC`)).rows;
     const liked=(await db(`SELECT item,COUNT(*)::int AS count FROM ratings r CROSS JOIN LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(r.good)='array' THEN r.good ELSE '[]'::jsonb END) item GROUP BY item ORDER BY count DESC,item`)).rows;
     const comments=(await db(`SELECT rating,good,comment,created_at FROM ratings WHERE comment IS NOT NULL AND TRIM(comment)<>'' ORDER BY created_at DESC LIMIT 30`)).rows;
     const support=(await db(`SELECT COUNT(*) FILTER(WHERE replied_at IS NULL)::int AS open,COUNT(*)::int AS total FROM support_messages`)).rows[0];
     const recent=(await db(`SELECT id,status,passenger_name,passenger_phone,pickup,destination,amount,waiting_fee,distance_km,waiting_seconds,scheduled_at,created_at,completed_at,driver_name,driver_car,driver_plate FROM orders ORDER BY created_at DESC LIMIT 100`)).rows;
-    res.json({success:true,period,selectedDate:selected||null,stats,daily,monthly,active,ratings,liked,comments,support,recent});
+    res.json({success:true,period,selectedDate:selected||null,stats,daily,monthly,active,ratings,ratingDist,liked,comments,support,recent});
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
