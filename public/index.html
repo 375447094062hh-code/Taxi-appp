@@ -152,8 +152,8 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
 async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
-function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
-function showD(id){["dHome","dCurrent","dHistory","dStats","dSettings","dProfile"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showD(id){["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 
 async function boot(){
  if(!uid){$("roleBadge").textContent="Откройте через Telegram";$("passenger").classList.remove("hidden");showP("pHome");return}
