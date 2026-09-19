@@ -376,9 +376,9 @@ app.get("/api/user-role", async (req,res) => {
     if(!telegramId) return res.status(400).json({success:false,error:"Telegram ID не указан."});
     if(isDriver(telegramId)){
       const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
-      return res.json({success:true,role:"driver",driver:r.rows[0]||null,telegramId});
+      return res.json({success:true,role:"driver",driver:r.rows[0]||null,telegramId,isOwner:telegramId===OWNER_CHAT_ID});
     }
-    res.json({success:true,role:"passenger",driver:null,telegramId});
+    res.json({success:true,role:"passenger",driver:null,telegramId,isOwner:telegramId===OWNER_CHAT_ID});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
