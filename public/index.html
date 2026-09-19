@@ -9,7 +9,7 @@
 <style>
 :root{--bg:#06111d;--card:#0d2235;--card2:#102a40;--line:#294860;--text:#f7fbff;--muted:#91a8ba;--yellow:#ffd21a;--green:#29d980;--red:#ff5964;--blue:#4da3ff}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}body{min-height:100vh}.app{width:min(100%,440px);min-height:100vh;margin:auto;padding:10px 12px 35px;background:linear-gradient(180deg,#071827,#06111d 60%,#071522)}.hidden{display:none!important}.top{height:42px;display:flex;justify-content:space-between;align-items:center}.brand{font-size:19px;font-weight:950}.brand span{color:var(--yellow)}.badge{font-size:10px;font-weight:900;border:1px solid #31506a;background:#0c2032;padding:7px 10px;border-radius:999px}.hero{padding:22px 18px;border:1px solid #31506a;border-radius:24px;background:radial-gradient(circle at 80% 20%,#214a68,#102b43 45%,#091a2b 80%);box-shadow:0 18px 45px #0007;margin:8px 0 12px}.hero h1{margin:0 0 4px;font-size:28px}.hero p{margin:0;color:#b8cbd9;font-size:12px}.homeHero{padding:0;min-height:405px;overflow:hidden;position:relative;background:radial-gradient(circle at 75% 18%,#244b68 0,#102b43 32%,#071725 72%,#050d16 100%);border:1px solid #31506a}.homeHero:before{content:"";position:absolute;inset:-10%;opacity:.58;background:linear-gradient(125deg,transparent 0 34%,#facc1520 34.3% 35%,transparent 35.3% 57%,#ffffff10 57.3% 58%,transparent 58.3%),repeating-linear-gradient(28deg,transparent 0 48px,#6d93aa12 49px 51px),repeating-linear-gradient(-22deg,transparent 0 72px,#6d93aa10 73px 75px);transform:scale(1.15)}.homeHero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#06111d22 0%,#06111d40 42%,#06111dea 100%)}.homeHero .roadGlow{position:absolute;z-index:1;left:-10%;right:-10%;bottom:92px;height:82px;background:linear-gradient(90deg,transparent,#ffd21a18 30%,#ffd21a32 50%,#ffd21a18 70%,transparent);filter:blur(18px);transform:rotate(-7deg)}.homeHero .premiumTaxi{position:absolute;z-index:2;right:8%;top:96px;width:78%;height:150px;filter:drop-shadow(0 18px 24px #0009)}.homeHero .premiumTaxi .body{fill:url(#taxiPaint)}.homeHero .premiumTaxi .window{fill:#091a2a}.homeHero .premiumTaxi .light{fill:#ffd21a}.homeHero .premiumTaxi .wheel{fill:#05090d;stroke:#73899a;stroke-width:3}.homeHero .premiumTaxi .hub{fill:#cbd5df}.homeHero .heroText{position:absolute;z-index:2;left:18px;right:18px;bottom:18px}.homeHero h1{font-size:30px;text-shadow:0 4px 18px #000}.homeHero p{font-size:13px;color:#fff;text-shadow:0 2px 10px #000}.card{background:linear-gradient(145deg,#0d253a,#091b2d);border:1px solid var(--line);border-radius:20px;padding:14px;margin:10px 0;box-shadow:0 10px 28px #0003}.title{font-size:17px;font-weight:950;margin-bottom:10px}.sub{font-size:11px;color:var(--muted);line-height:1.5}.btn{width:100%;border:0;border-radius:14px;padding:14px 15px;margin-top:8px;font-size:14px;font-weight:900;background:linear-gradient(180deg,#ffdf4d,var(--yellow));color:#15130a;cursor:pointer}.btn.secondary{background:#0a1b2c;border:1px solid #31506a;color:#fff;box-shadow:none}.btn.green{background:var(--green);color:#06160e}.btn.red{background:var(--red);color:#fff}.btn.blue{background:var(--blue);color:#06111d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid .btn{margin:0}.menu{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}.menu button{display:flex;align-items:center;gap:12px;position:relative;padding:13px 14px;text-align:left;background:linear-gradient(135deg,#0b2033,#091a2a);border:1px solid #294860;color:#fff;border-radius:15px;font-weight:850;box-shadow:inset 0 1px 0 #ffffff08}.menu button:after{content:"›";margin-left:auto;color:#8fa9bb;font-size:22px}.menu b{display:grid;place-items:center;width:32px;height:32px;margin:0;border-radius:10px;background:#102f46;font-size:18px}.sectionHead{display:flex;justify-content:space-between;align-items:center}.sectionHead button{background:none;border:0;color:var(--yellow);font-weight:900}.field{margin:10px 0}label{display:block;font-size:10px;color:#9db3c5;font-weight:850;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}input,textarea,select{width:100%;background:#081827;color:#fff;border:1px solid #2a4961;border-radius:13px;padding:13px;font-size:14px;outline:none}textarea{min-height:90px;resize:vertical}input:focus,textarea:focus{border-color:var(--yellow)}.routeBox{border:1px solid #31506a;border-radius:17px;background:#081827;padding:11px}.routeLine{display:flex;gap:10px;align-items:center}.routeLine+.routeLine{margin-top:8px}.dot{width:12px;height:12px;border-radius:50%;background:var(--yellow);flex:none}.dot.b{background:var(--green)}.routeLine input{border:0;background:#0b2032}.map{height:260px;border-radius:16px;overflow:hidden;margin-top:10px}.leaflet-container{font:inherit}.suggestions{background:#081827;border:1px solid #294860;border-radius:12px;overflow:hidden;margin-top:5px}.suggestion{padding:10px;border-bottom:1px solid #203b50;font-size:11px}.choice{display:flex;gap:8px}.choice button{flex:1;padding:12px;border-radius:13px;background:#091a2a;color:#fff;border:1px solid #294860;font-weight:900}.choice button.active{border-color:var(--yellow);background:#ffd21a12}.tariff{border:1px solid #294860;border-radius:15px;padding:13px;background:#091a2a;margin:8px 0}.tariff.active{border-color:var(--yellow)}.tariff b{display:block}.tariff span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.price{font-size:27px;color:var(--yellow);font-weight:950;margin:12px 0}.order{border:1px solid #294860;background:#081a2b;border-radius:16px;padding:13px;margin:8px 0}.orderHead{display:flex;justify-content:space-between;gap:8px}.statusPill{padding:6px 9px;border-radius:999px;background:#122d43;font-size:9px;font-weight:900;white-space:nowrap}.statusPill.green{color:var(--green)}.statusPill.yellow{color:var(--yellow)}.statusBig{width:92px;height:92px;min-width:92px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#102d43;border:2px solid #31506a;box-shadow:0 8px 24px #0006;padding:8px}.statusBig .statusIcon{font-size:27px;line-height:1;margin-bottom:5px}.statusBig .statusText{font-size:11px;line-height:1.12;font-weight:950}.statusBig.green{border-color:var(--green);background:#0b2c23}.statusBig.yellow{border-color:var(--yellow);background:#30270a}.statusBig.blue{border-color:var(--blue);background:#102b46}.statusBig.red{border-color:var(--red);background:#35151a}.routeText{font-weight:850;font-size:13px;line-height:1.45}.small{font-size:11px;color:var(--muted);line-height:1.55}.statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:#081827;border:1px solid #294860;border-radius:15px;padding:12px}.stat strong{display:block;font-size:22px;color:var(--yellow)}.stat span{font-size:10px;color:var(--muted)}.call{display:block;width:100%;text-align:center;text-decoration:none;margin-top:8px;padding:12px;border-radius:13px;background:#0b7dff;color:#fff;font-weight:900;border:0;cursor:pointer}.routeLine{position:relative}.clearPoint{width:30px!important;height:30px;padding:0!important;margin:0!important;border-radius:10px!important;background:#102b40!important;border:1px solid #31506a!important;color:#b9ccda!important;font-size:18px!important;display:grid;place-items:center}.driverMap{height:300px;border-radius:18px;overflow:hidden;margin-top:10px;border:1px solid #31506a}.navBtn{background:linear-gradient(180deg,#ffdf4d,var(--yellow));color:#15130a;border:0}.homeHero .heroTop{display:flex;justify-content:space-between;align-items:center;position:absolute;z-index:2;left:16px;right:16px;top:16px}.heroBadge{padding:7px 10px;border-radius:999px;background:#071827cc;border:1px solid #ffffff22;font-size:10px;font-weight:900;backdrop-filter:blur(8px)}.heroBottom{position:absolute;z-index:2;left:16px;right:16px;bottom:16px}.heroBottom .btn{margin-top:12px;box-shadow:0 12px 30px #0008}.homeHero .heroBottom .heroText{position:static}.homePanel{background:linear-gradient(145deg,#102a40,#081827);border:1px solid #31506a}.menu button{min-height:58px}.routeActions{display:flex;gap:8px;margin-top:9px}.routeActions .btn{margin:0;flex:1;padding:11px}.driverLocate{margin-top:8px;color:#a9bfd0;font-size:10px}.historyItem{padding:11px 0;border-bottom:1px solid #203b50}.historyItem:last-child{border-bottom:0}.stars{color:var(--yellow);letter-spacing:2px}.check{display:flex;gap:8px;align-items:center;color:#fff;font-size:12px}.check input{width:18px;height:18px}.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#102a40;border:1px solid #41627a;padding:11px 15px;border-radius:13px;z-index:9999;max-width:92%;font-size:12px;box-shadow:0 12px 35px #0009}.back{display:flex;align-items:center;gap:8px;margin-bottom:10px}.back button{width:36px;height:36px;border-radius:11px;border:1px solid #294860;background:#0a1b2c;color:#fff;font-size:20px}.driverAction{margin-top:10px}.wait{background:#351f0a;border:1px solid #9c6618;padding:11px;border-radius:14px;margin-top:8px}.wait strong{color:var(--yellow)}.ratingBox{display:flex;gap:4px;font-size:25px;margin:10px 0}.ratingBox button{background:none;border:0;color:#40536a;font-size:28px}.ratingBox button.active{color:var(--yellow)}
-</style>
+.supportHero{padding:16px;border:1px solid #31506a;border-radius:18px;background:radial-gradient(circle at 85% 15%,#244b68,#0a1c2d 68%);margin-bottom:10px}.supportHero b{font-size:20px}.supportGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.supportCard{border:1px solid #294860;background:linear-gradient(145deg,#0b2033,#081827);border-radius:16px;padding:13px;text-align:left;color:#fff;min-height:105px}.supportCard:active{transform:scale(.98)}.supportIcon{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#102f46;font-size:21px;margin-bottom:9px}.supportCard b{display:block;font-size:13px}.supportCard span{display:block;color:var(--muted);font-size:10px;line-height:1.35;margin-top:4px}.faqItem{border:1px solid #294860;border-radius:15px;background:#081827;padding:13px;margin:8px 0}.faqItem b{display:block;font-size:12px;margin-bottom:5px}.supportKind{display:inline-flex;padding:7px 10px;border-radius:999px;background:#102f46;border:1px solid #31506a;color:var(--yellow);font-size:10px;font-weight:900;margin-bottom:8px}</style>
 </head>
 <body>
 <div class="app">
@@ -39,6 +39,7 @@
 <button onclick="openHistory('passenger')"><b>📋</b>Мои поездки</button>
 <button onclick="openTariffs()"><b>💰</b>Тарифы</button>
 <button onclick="openPassengerSettings()"><b>⚙️</b>Настройки</button>
+<button onclick="openSupport('passenger')"><b>🆘</b>Поддержка и идеи</button>
 </div>
 </section>
 
@@ -68,6 +69,30 @@
 <section id="pHistory" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Мои поездки</div></div><div id="pHistoryList"></div></section>
 <section id="pTariffs" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Тарифы</div></div><div class="tariff active"><b>🚕 Стандарт</b><span>Посадка — 3 BYN</span><span>Каждый километр — 1 BYN</span><span>Детское кресло — без отдельной наценки</span></div><div class="sub">Ожидание: 0,10 BYN за каждые 10 секунд. Например: 2 минуты = 12 × 0,10 = 1,20 BYN.</div></section>
 <section id="pSettings" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Настройки</div></div><button class="btn secondary" onclick="editPassengerProfile()">👤 Редактировать профиль</button></section>
+<section id="pSupport" class="card hidden">
+<div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Поддержка</div></div>
+<div class="supportHero"><b>🆘 Мы на связи</b><div class="sub" style="margin-top:5px">Идея, ошибка или вопрос — сообщение попадёт владельцу сервиса.</div></div>
+<div class="supportGrid">
+<button class="supportCard" onclick="openSupportForm('passenger','idea')"><div class="supportIcon">💡</div><b>Что улучшить?</b><span>Предложить новую функцию или идею.</span></button>
+<button class="supportCard" onclick="openSupportForm('passenger','bug')"><div class="supportIcon">🐛</div><b>Сообщить об ошибке</b><span>Что не работает или работает неправильно?</span></button>
+<button class="supportCard" onclick="openSupportForm('passenger','trip')"><div class="supportIcon">🚕</div><b>Проблема с поездкой</b><span>Вопрос по заказу, водителю или оплате.</span></button>
+<button class="supportCard" onclick="openSupportForm('passenger','message')"><div class="supportIcon">💬</div><b>Написать сообщение</b><span>Другой вопрос или предложение.</span></button>
+</div>
+<button class="btn secondary" onclick="openSupportFaq('passenger')">❓ Частые вопросы</button>
+</section>
+<section id="pSupportForm" class="card hidden">
+<div class="back"><button onclick="showP('pSupport')">‹</button><div class="title" style="margin:0">Новое обращение</div></div>
+<div id="pSupportKind" class="supportKind"></div>
+<div id="pSupportHint" class="small"></div>
+<textarea id="pSupportMessage" placeholder="Напишите подробно, что вы хотите улучшить или что произошло…" style="margin-top:10px;min-height:140px"></textarea>
+<button class="btn" onclick="sendSupport('passenger')">📨 Отправить владельцу</button>
+</section>
+<section id="pFaq" class="card hidden">
+<div class="back"><button onclick="showP('pSupport')">‹</button><div class="title" style="margin:0">Частые вопросы</div></div>
+<div class="faqItem"><b>🚕 Как заказать такси?</b><span class="small">Откройте «Вызвать такси», укажите точки А и Б и время поездки, затем подтвердите заказ.</span></div>
+<div class="faqItem"><b>💰 Как считается стоимость?</b><span class="small">Посадка — 3 BYN + 1 BYN за каждый километр. Ожидание — 0,10 BYN за каждые 10 секунд после начала поездки.</span></div>
+<div class="faqItem"><b>📋 Где посмотреть поездку?</b><span class="small">Текущий заказ находится в «Текущая поездка», завершённые — в «Мои поездки».</span></div>
+</section>
 <section id="pProfile" class="card hidden"><div class="back"><button onclick="showP('pSettings')">‹</button><div class="title" style="margin:0">Профиль пассажира</div></div><div class="field"><label>Имя</label><input id="pName"></div><div class="field"><label>Телефон</label><input id="pPhone" placeholder="+375..."></div><button class="btn" onclick="savePassenger()">Сохранить профиль</button></section>
 </main>
 
@@ -82,12 +107,37 @@
 <button onclick="openHistory('driver')"><b>📋</b>История поездок</button>
 <button onclick="openStats()"><b>📊</b>Статистика за месяц</button>
 <button onclick="openDriverSettings()"><b>⚙️</b>Настройки</button>
+<button onclick="openSupport('driver')"><b>🆘</b>Обратная связь</button>
 </div>
 </section>
 <section id="dCurrent" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div><div id="dCurrentBox"></div></section>
 <section id="dHistory" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">История поездок</div></div><div id="dHistoryList"></div></section>
 <section id="dStats" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Статистика</div></div><div class="field"><label>Месяц</label><input id="statsMonth" type="month"></div><div id="statsBox"></div></section>
 <section id="dSettings" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Настройки водителя</div></div><button class="btn secondary" onclick="editDriverProfile()">👤 Профиль водителя</button></section>
+<section id="dSupport" class="card hidden">
+<div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Обратная связь</div></div>
+<div class="supportHero"><b>🆘 Обратная связь</b><div class="sub" style="margin-top:5px">Идея, ошибка или вопрос по работе приложения.</div></div>
+<div class="supportGrid">
+<button class="supportCard" onclick="openSupportForm('driver','idea')"><div class="supportIcon">💡</div><b>Что улучшить?</b><span>Предложить изменение или новую функцию.</span></button>
+<button class="supportCard" onclick="openSupportForm('driver','bug')"><div class="supportIcon">🐛</div><b>Сообщить об ошибке</b><span>Что не работает или мешает работе?</span></button>
+<button class="supportCard" onclick="openSupportForm('driver','trip')"><div class="supportIcon">🚕</div><b>Проблема с поездкой</b><span>Сообщить о проблеме с конкретным заказом.</span></button>
+<button class="supportCard" onclick="openSupportForm('driver','message')"><div class="supportIcon">💬</div><b>Написать сообщение</b><span>Другой вопрос или предложение.</span></button>
+</div>
+<button class="btn secondary" onclick="openSupportFaq('driver')">❓ Частые вопросы</button>
+</section>
+<section id="dSupportForm" class="card hidden">
+<div class="back"><button onclick="showD('dSupport')">‹</button><div class="title" style="margin:0">Новое обращение</div></div>
+<div id="dSupportKind" class="supportKind"></div>
+<div id="dSupportHint" class="small"></div>
+<textarea id="dSupportMessage" placeholder="Напишите подробно, что вы хотите улучшить или что произошло…" style="margin-top:10px;min-height:140px"></textarea>
+<button class="btn" onclick="sendSupport('driver')">📨 Отправить владельцу</button>
+</section>
+<section id="dFaq" class="card hidden">
+<div class="back"><button onclick="showD('dSupport')">‹</button><div class="title" style="margin:0">Частые вопросы</div></div>
+<div class="faqItem"><b>💰 Как считается стоимость?</b><span class="small">Посадка — 3 BYN + 1 BYN за каждый километр. Километр округляется вверх. Ожидание — 0,10 BYN за каждые 10 секунд.</span></div>
+<div class="faqItem"><b>⏱ Когда доступно ожидание?</b><span class="small">Только после начала поездки и только для заказа «Сейчас». Пауза не обнуляет уже накопленное время.</span></div>
+<div class="faqItem"><b>🗺 Как открыть маршрут?</b><span class="small">До начала поездки открывается маршрут к точке А, после начала — к точке Б.</span></div>
+</section>
 <section id="dProfile" class="card hidden"><div class="back"><button onclick="showD('dSettings')">‹</button><div class="title" style="margin:0">Профиль водителя</div></div><div class="field"><label>Имя</label><input id="dName"></div><div class="field"><label>Телефон</label><input id="dPhone"></div><div class="field"><label>Автомобиль</label><input id="dCar"></div><div class="field"><label>Госномер</label><input id="dPlate"></div><label class="check"><input id="dChild" type="checkbox"> Есть детское кресло</label><button class="btn green" onclick="saveDriver()">Сохранить</button></section>
 </main>
 </div>
@@ -285,6 +335,42 @@ function historyCard(o){
  const waitSec=Math.max(0,Number(o.waiting_seconds||0)), waitFee=Math.max(0,Number(o.waiting_fee||0)), waitIntervals=waitFee>0?Math.max(1,Math.ceil(waitFee/0.1)):0;
  const total=base+waitFee, date=new Date(o.completed_at||o.created_at).toLocaleString("ru-RU");
  return '<div class="historyItem"><b>'+esc(o.pickup)+' → '+esc(o.destination)+'</b><div class="small">'+date+'</div><div class="order" style="margin-top:9px;margin-bottom:0"><b>🧾 Подробный расчёт</b><div class="small" style="margin-top:7px">🚕 Посадка: <b>3,00 BYN</b><br>📏 Расстояние: <b>'+distanceKm.toFixed(2)+' км</b> × 1,00 BYN/км → <b>'+distanceCost.toFixed(2)+' BYN</b><br>⏱ Ожидание: <b>'+(waitSec?formatWaitingDescription(waitSec,0)+' • ':'')+(waitIntervals?waitIntervals+' × 0,10 BYN = ':'')+waitFee.toFixed(2)+' BYN</b><br><span style="display:block;margin-top:7px;padding-top:7px;border-top:1px solid #294860;color:var(--yellow);font-size:14px">💳 Итого: <b>'+total.toFixed(2)+' BYN</b></span></div></div></div>';
+}
+
+const supportKinds={
+ idea:{title:"💡 Идея / улучшение",hint:"Расскажите, что бы вы хотели изменить или добавить в приложение."},
+ bug:{title:"🐛 Сообщить об ошибке",hint:"Опишите, что произошло, и по возможности укажите, что вы делали перед ошибкой."},
+ trip:{title:"🚕 Проблема с поездкой",hint:"Если обращение относится к текущей поездке, её данные будут добавлены автоматически."},
+ message:{title:"💬 Сообщение",hint:"Напишите свой вопрос или предложение."}
+};
+let supportRole="passenger",supportKind="message";
+function openSupport(role){supportRole=role;role==="driver"?showD("dSupport"):showP("pSupport")}
+function openSupportForm(role,kind){
+ supportRole=role;supportKind=kind;
+ const data=supportKinds[kind]||supportKinds.message;
+ const prefix=role==="driver"?"d":"p";
+ $(prefix+"SupportKind").textContent=data.title;
+ const currentOrder=role==="driver"?(window.__driverOrder||null):null;
+ const hasPassengerOrder=role==="passenger"&&localStorage.getItem("taxiLastOrderId");
+ $(prefix+"SupportHint").textContent=(currentOrder||hasPassengerOrder) ? data.hint+" Информация о заказе будет приложена автоматически." : data.hint;
+ $(prefix+"SupportMessage").value="";
+ role==="driver"?showD("dSupportForm"):showP("pSupportForm");
+ setTimeout(()=>$(prefix+"SupportMessage")?.focus(),50);
+}
+function openSupportFaq(role){role==="driver"?showD("dFaq"):showP("pFaq")}
+async function sendSupport(role){
+ const prefix=role==="driver"?"d":"p";
+ const message=$(prefix+"SupportMessage").value.trim();
+ if(!message)return toast("Напишите сообщение.",true);
+ let orderId="";
+ if(role==="driver")orderId=window.__driverOrder?.id||"";
+ else orderId=localStorage.getItem("taxiLastOrderId")||"";
+ try{
+  await api("/api/support",{method:"POST",body:JSON.stringify({telegramId:uid,kind:supportKind,message,orderId})});
+  $(prefix+"SupportMessage").value="";
+  toast("Сообщение отправлено владельцу.");
+  role==="driver"?showD("dSupport"):showP("pSupport");
+ }catch(e){toast(e.message,true)}
 }
 
 async function loadDriverProfile(){try{dProfile=(await api("/api/driver-profile?telegramId="+encodeURIComponent(uid))).profile;renderDriverProfile()}catch(e){toast(e.message,true)}}
