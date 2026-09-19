@@ -378,10 +378,13 @@ app.get("/api/owner-dashboard", async (req,res)=>{
   try{
     const owner=clean(req.query.telegramId), period=clean(req.query.period)||"month", selected=clean(req.query.date)||"";
     if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    // Month picker sends YYYY-MM, while PostgreSQL date expects YYYY-MM-DD.
+    // Normalize the selected period before using it in SQL.
+    const selectedDate=period==="month" && /^\\d{4}-\\d{2}$/.test(selected) ? selected+"-01" : selected;
     const stats=period==="day"
-      ? (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= COALESCE(NULLIF($1,'')::date,CURRENT_DATE) AND completed_at < COALESCE(NULLIF($1,'')::date,CURRENT_DATE)+INTERVAL '1 day'",[selected])).rows[0]
-      : (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE)) AND completed_at < date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE))+INTERVAL '1 month'",[selected])).rows[0];
-    const chartMonth=(selected||new Date().toISOString().slice(0,7)).slice(0,7);
+      ? (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= COALESCE(NULLIF($1,'')::date,CURRENT_DATE) AND completed_at < COALESCE(NULLIF($1,'')::date,CURRENT_DATE)+INTERVAL '1 day'",[selectedDate])).rows[0]
+      : (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE)) AND completed_at < date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE))+INTERVAL '1 month'",[selectedDate])).rows[0];
+    const chartMonth=(selectedDate||new Date().toISOString().slice(0,7)).slice(0,7);
     const daily=(await db("SELECT EXTRACT(DAY FROM completed_at)::int AS day,COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',$1::date) AND completed_at < date_trunc('month',$1::date)+INTERVAL '1 month' GROUP BY 1 ORDER BY 1",[chartMonth+"-01"])).rows;
     const monthly=(await db("SELECT TO_CHAR(date_trunc('month',completed_at),'YYYY-MM') AS month,COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',$1::date)-INTERVAL '11 months' AND completed_at < date_trunc('month',$1::date)+INTERVAL '1 month' GROUP BY 1 ORDER BY 1",[chartMonth+"-01"])).rows;
     const active=(await db(`SELECT id,status,passenger_name,pickup,destination,amount,waiting_fee,distance_km,waiting_seconds,scheduled_at,created_at FROM orders WHERE status=ANY($1::text[]) ORDER BY created_at DESC LIMIT 1`,[ACTIVE_STATUSES])).rows[0]||null;
