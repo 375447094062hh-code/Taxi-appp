@@ -380,7 +380,7 @@ app.get("/api/owner-dashboard", async (req,res)=>{
     if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
     // Month picker sends YYYY-MM, while PostgreSQL date expects YYYY-MM-DD.
     // Normalize the selected period before using it in SQL.
-    const selectedDate=period==="month" && /^\\d{4}-\\d{2}$/.test(selected) ? selected+"-01" : selected;
+    const selectedDate=period==="month" && /^\d{4}-\d{2}$/.test(selected) ? selected+"-01" : selected;
     const stats=period==="day"
       ? (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= COALESCE(NULLIF($1,'')::date,CURRENT_DATE) AND completed_at < COALESCE(NULLIF($1,'')::date,CURRENT_DATE)+INTERVAL '1 day'",[selectedDate])).rows[0]
       : (await db("SELECT COUNT(*)::int AS orders,COALESCE(SUM(amount+waiting_fee),0)::numeric AS revenue FROM orders WHERE status='completed' AND completed_at >= date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE)) AND completed_at < date_trunc('month',COALESCE(NULLIF($1,'')::date,CURRENT_DATE))+INTERVAL '1 month'",[selectedDate])).rows[0];
