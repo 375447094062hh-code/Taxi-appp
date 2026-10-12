@@ -484,7 +484,7 @@ async function setPickup(lat,lng,address){
 async function setDestination(lat,lng,address){
  initMap();destPoint={lat,lng};if(dMarker)dMarker.remove();dMarker=L.marker([lat,lng]).addTo(map).bindPopup("🏁 Точка Б").openPopup();$("pDestination").value=address||await reverse(lat,lng);if(pickupPoint)buildRoute();else resetRouteInfo();
 }
-function updateOrderPrice(){const extra=$("childSeat")?.checked?1:0;$("orderPrice").textContent=(3+Math.ceil(Number(window.distanceKm||0))+extra).toFixed(2)+" BYN"}
+function updateOrderPrice(){const extra=$("childSeat")?.checked?1:0;$("orderPrice").textContent=(3+Math.max(0,Number(window.distanceKm||0))+extra).toFixed(2)+" BYN"}
 function resetRouteInfo(){window.distanceKm=0;$("routeInfo").textContent="Выберите точки А и Б на карте или введите адреса.";updateOrderPrice()}
 function clearPickup(){pickupPoint=null;if(pMarker){pMarker.remove();pMarker=null}if(routeLayer){routeLayer.remove();routeLayer=null}$("pPickup").value="";resetRouteInfo();if(destPoint)map?.setView([destPoint.lat,destPoint.lng],15)}
 function clearDestination(){destPoint=null;if(dMarker){dMarker.remove();dMarker=null}if(routeLayer){routeLayer.remove();routeLayer=null}$("pDestination").value="";resetRouteInfo();if(pickupPoint)map?.setView([pickupPoint.lat,pickupPoint.lng],15)}
@@ -494,10 +494,10 @@ async function buildRoute(){
  try{
   const u="https://router.project-osrm.org/route/v1/driving/"+pickupPoint.lng+","+pickupPoint.lat+";"+destPoint.lng+","+destPoint.lat+"?overview=full&geometries=geojson";
   const d=await (await fetch(u)).json();if(!d.routes?.length)throw Error();
-  const r=d.routes[0],km=r.distance/1000,amount=3+Math.ceil(km);
+  const r=d.routes[0],km=r.distance/1000,amount=3+km;
   if(routeLayer)routeLayer.remove();routeLayer=L.geoJSON(r.geometry,{style:{weight:5}}).addTo(map);
   map.fitBounds(L.featureGroup([pMarker,dMarker,routeLayer]).getBounds(),{padding:[20,20]});
-  $("routeInfo").innerHTML="📏 "+km.toFixed(1)+" км • посадка 3 BYN + "+Math.ceil(km)+" BYN";
+  $("routeInfo").innerHTML="📏 "+km.toFixed(2)+" км • посадка 3 BYN + "+km.toFixed(2)+" BYN за расстояние";
   $("orderPrice").textContent=(amount+($("childSeat")?.checked?1:0)).toFixed(2)+" BYN"; window.distanceKm=km;
  }catch(_){$("routeInfo").textContent="Маршрут пока не построен. Проверьте точки А и Б."}
 }
@@ -543,7 +543,7 @@ function renderPassengerOrder(o){
  stopPassengerWaitingTimer();
  if(livePassengerMap){livePassengerMap.remove();livePassengerMap=null}
  const st=statusNames[o.status]||["","Статус","yellow"];
- const baseFare=3, distanceKm=Math.max(0,Number(o.distance_km||0)), distanceUnits=Math.max(0,Math.ceil(distanceKm)), distanceCost=distanceUnits, childFee=o.child_seat?1:0;
+ const baseFare=3, distanceKm=Math.max(0,Number(o.distance_km||0)), distanceCost=distanceKm, childFee=o.child_seat?1:0;
  const savedWaitSec=Math.max(0,Number(o.waiting_seconds||0)), waitingMinutes=Math.max(0,Number(o.waiting_minutes||0)), waitingFee=Math.max(0,Number(o.waiting_fee||0));
  const tripBase=Number(o.amount||0), total=tripBase+waitingFee;
  let extra="";
@@ -741,7 +741,7 @@ function renderDriverCurrent(o){
   : '<div class="wait"><strong>⏱ Ожидание на паузе</strong><div class="small" style="margin-top:5px">Накоплено: <b>'+formatWait(savedWaitSec)+'</b> • расчётных интервалов '+Math.max(0,Math.ceil(savedWaitSec/10))+' × 0,10 BYN • '+totalWaitFee.toFixed(2)+' BYN</div><div class="price" style="font-size:24px;margin:7px 0">'+formatWait(savedWaitSec)+'</div><button class="btn secondary" onclick="toggleWaiting(\''+o.id+'\')">▶️ Продолжить с '+formatWait(savedWaitSec)+'</button></div>'):'<div class="small" style="margin-top:9px">⏱ Ожидание доступно только после начала поездки и только для заказа «Сейчас».</div>';
  window.__driverOrder=o;
  $("dCurrentBox").innerHTML='<div class="order"><div class="orderHead"><div class="routeText">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="statusBig '+st[2]+'"><div class="statusIcon">'+st[0]+'</div><div class="statusText">'+esc(st[1])+'</div></div></div><div class="small" style="margin-top:9px">👤 '+esc(o.passenger_name||"Пассажир")+'<br>📞 '+esc(o.passenger_phone||"Номер не указан")+'<br>💰 '+total.toFixed(2)+' BYN'+((o.waiting_seconds||o.waiting_minutes)?' • ⏱ '+formatWaitingDescription(o.waiting_seconds,o.waiting_minutes)+' • +'+Number(o.waiting_fee||0).toFixed(2)+' BYN':'')+'</div>'+callLink(o.passenger_phone,"Позвонить пассажиру")+nav+((o.pickup_lat!=null&&o.destination_lat!=null)?'<div id="driverLiveMap" class="driverMap"></div>':"")+actions+waiting+'</div>'+
- (o.status==="completed"?'<div class="order" style="margin-top:10px;border-color:var(--green);background:linear-gradient(145deg,#0b2c23,#081f1b)"><div class="title" style="margin:0 0 8px">🏁 Расчёт поездки</div><div class="small">🚕 Посадка <b>3,00 BYN</b><br>'+(o.child_seat?'👶 Детское кресло <b>1,00 BYN</b><br>':"")+'📏 Расстояние <b>'+distanceKm.toFixed(2)+' км</b> • начислено за расстояние <b>'+distanceCharge.toFixed(2)+' BYN</b><br>⏱ Ожидание <b>'+waitFee.toFixed(2)+' BYN</b>'+((o.waiting_seconds||o.waiting_minutes)?' • '+formatWaitingDescription(o.waiting_seconds,o.waiting_minutes):'')+'</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #315847"><span style="font-weight:900">💳 Итого к оплате</span><strong style="font-size:24px;color:var(--yellow)">'+total.toFixed(2)+' BYN</strong></div><div class="small" style="margin-top:8px">Посадка 3 BYN + расстояние по тарифу 1 BYN/км (километр округляется вверх) + ожидание 0,10 BYN за каждые 10 секунд.</div></div>':'')+
+ (o.status==="completed"?'<div class="order" style="margin-top:10px;border-color:var(--green);background:linear-gradient(145deg,#0b2c23,#081f1b)"><div class="title" style="margin:0 0 8px">🏁 Расчёт поездки</div><div class="small">🚕 Посадка <b>3,00 BYN</b><br>'+(o.child_seat?'👶 Детское кресло <b>1,00 BYN</b><br>':"")+'📏 Расстояние <b>'+distanceKm.toFixed(2)+' км</b> • начислено за расстояние <b>'+distanceCharge.toFixed(2)+' BYN</b><br>⏱ Ожидание <b>'+waitFee.toFixed(2)+' BYN</b>'+((o.waiting_seconds||o.waiting_minutes)?' • '+formatWaitingDescription(o.waiting_seconds,o.waiting_minutes):'')+'</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #315847"><span style="font-weight:900">💳 Итого к оплате</span><strong style="font-size:24px;color:var(--yellow)">'+total.toFixed(2)+' BYN</strong></div><div class="small" style="margin-top:8px">Посадка 3 BYN + расстояние по тарифу 1 BYN/км (с учётом долей километра) + ожидание 0,10 BYN за каждые 10 секунд.</div></div>':'')+
  '<div class="driverLocate">📍 Точки А и Б загружены из заказа. В режиме поездки ваше местоположение показывается на карте.</div>';
  if(o.pickup_lat!=null&&o.destination_lat!=null)setTimeout(()=>renderDriverMap(o),50);
  window.__waitingBaseSeconds=Math.max(0,Number(o.waiting_seconds||0));
