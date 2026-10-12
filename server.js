@@ -172,7 +172,6 @@ async function notifyDrivers(order) {
   const rows = (await db("SELECT * FROM drivers WHERE telegram_id=ANY($1::text[]) AND on_line=TRUE", [DRIVER_CHAT_IDS])).rows;
   const appUrl = clean(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/$/,"");
   for (const d of rows) {
-    if (order.child_seat && !d.has_child_seat) continue;
     const text = [
       "🚕 НОВЫЙ ЗАКАЗ",
       "",
@@ -180,7 +179,6 @@ async function notifyDrivers(order) {
       `🏁 ${order.destination}`,
       `💰 ${Number(order.amount).toFixed(2)} BYN`,
       order.scheduled_at ? `🕐 ${new Date(order.scheduled_at).toLocaleString("ru-RU")}` : "⚡ Сейчас",
-      order.child_seat ? "👶 Нужно детское кресло" : "",
       "",
       "Откройте Mini App — заказ уже будет на главной странице водителя."
     ].filter(Boolean).join("\n");
@@ -489,12 +487,11 @@ app.post("/api/driver-profile", async (req,res)=>{
     if(!isDriver(telegramId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
     const name=clean(req.body.name), phone=clean(req.body.phone), car=clean(req.body.car), plate=clean(req.body.plate);
     if(!name||!phone||!car||!plate) return res.status(400).json({success:false,error:"Заполните имя, телефон, автомобиль и номер."});
-    const child=Boolean(req.body.hasChildSeat);
     const r=await db(`INSERT INTO drivers(telegram_id,name,phone,car,plate,has_child_seat)
       VALUES($1,$2,$3,$4,$5,$6)
       ON CONFLICT(telegram_id) DO UPDATE SET name=$2,phone=$3,car=$4,plate=$5,has_child_seat=$6,updated_at=NOW()
       RETURNING telegram_id,name,phone,car,plate,has_child_seat,on_line,rating,rating_count`,
-      [telegramId,name,phone,car,plate,child]);
+      [telegramId,name,phone,car,plate,false]);
     res.json({success:true,profile:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
@@ -549,11 +546,11 @@ app.post("/api/orders", async (req,res)=>{
     if(scheduledAt && scheduledAt.getTime() <= Date.now()) return res.status(400).json({success:false,error:"Дата предварительного заказа должна быть в будущем."});
     const km=Number(req.body.distanceKm);
     const distance=Number.isFinite(km)&&km>=0?km:0;
-    const amount=3+distance+(Boolean(req.body.childSeat)?1:0);
+    const amount=3+distance;
     const r=await db(`INSERT INTO orders
       (id,passenger_telegram_id,passenger_name,passenger_phone,pickup,destination,tariff,child_seat,scheduled_at,distance_km,amount,pickup_lat,pickup_lng,destination_lat,destination_lng)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [makeId(),passengerId,p.name,p.phone,pickup,destination,clean(req.body.tariff)||"Стандарт",Boolean(req.body.childSeat),scheduledAt,distance,amount,
+      [makeId(),passengerId,p.name,p.phone,pickup,destination,clean(req.body.tariff)||"Стандарт",false,scheduledAt,distance,amount,
        Number.isFinite(Number(req.body.pickupLat))?Number(req.body.pickupLat):null,
        Number.isFinite(Number(req.body.pickupLng))?Number(req.body.pickupLng):null,
        Number.isFinite(Number(req.body.destinationLat))?Number(req.body.destinationLat):null,
@@ -593,7 +590,6 @@ app.get("/api/driver-orders", async (req,res)=>{
     if(!driver?.on_line) return res.json({success:true,orders:[],onLine:false});
     const r=await db(`SELECT * FROM orders WHERE status='searching' AND (scheduled_at IS NULL OR scheduled_at <= NOW() + INTERVAL '30 minutes')
       AND (rejected_by_driver_telegram_id IS NULL OR rejected_by_driver_telegram_id<>$1)
-      AND (child_seat=false OR child_seat=(SELECT has_child_seat FROM drivers WHERE telegram_id=$1))
       ORDER BY scheduled_at NULLS FIRST,created_at ASC`,[id]);
     res.json({success:true,orders:r.rows,onLine:true});
   } catch(e){res.status(500).json({success:false,error:e.message});}
