@@ -356,6 +356,34 @@ async function notifyDueScheduledOrders(){
 setInterval(notifyDueScheduledOrders,30000);
 setTimeout(notifyDueScheduledOrders,5000);
 
+app.post("/api/owner-broadcast", async (req,res)=>{
+  try{
+    const owner=clean(req.body.telegramId);
+    const message=String(req.body.message||"").trim();
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    if(!BOT_TOKEN) return res.status(503).json({success:false,error:"Telegram-бот не настроен."});
+    if(message.length<2) return res.status(400).json({success:false,error:"Напишите текст рассылки."});
+    if(message.length>4000) return res.status(400).json({success:false,error:"Сообщение слишком длинное. Максимум 4000 символов."});
+    const recipients=await db(`
+      SELECT telegram_id FROM passengers WHERE telegram_id IS NOT NULL AND telegram_id<>''
+      UNION SELECT telegram_id FROM drivers WHERE telegram_id IS NOT NULL AND telegram_id<>''
+      UNION SELECT passenger_telegram_id AS telegram_id FROM orders WHERE passenger_telegram_id IS NOT NULL AND passenger_telegram_id<>''
+      UNION SELECT driver_telegram_id AS telegram_id FROM orders WHERE driver_telegram_id IS NOT NULL AND driver_telegram_id<>''
+      UNION SELECT telegram_id FROM support_messages WHERE telegram_id IS NOT NULL AND telegram_id<>''
+    `);
+    const ids=[...new Set(recipients.rows.map(r=>clean(r.telegram_id)).filter(id=>id&&id!==OWNER_CHAT_ID))];
+    let sent=0,failed=0;
+    for(const id of ids){
+      try{
+        const result=await sendTelegram(id,"🚕 Такси Речица — новости приложения\n\n"+message);
+        if(result?.ok) sent++; else failed++;
+      }catch(e){ failed++; }
+      await new Promise(resolve=>setTimeout(resolve,45));
+    }
+    res.json({success:true,total:ids.length,sent,failed});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
 app.get("/api/owner-orders", async (req,res)=>{
   try{
     const owner=clean(req.query.telegramId);
