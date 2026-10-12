@@ -180,6 +180,7 @@
 <section id="pHome" class="card homePanel">
 <div class="title">Ваше такси — в одном касании</div>
 <div class="sub">Выберите маршрут, укажите время и отслеживайте поездку прямо в Mini App.</div>
+<div class="order" style="margin-top:12px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><b>🚕 Машин на линии</b><div class="small">Водители, готовые принимать заказы</div></div><div id="lineCount" style="font-size:28px;font-weight:900;color:var(--yellow)">—</div></div>
 <div class="homeQuick">
   <div class="homeQuickItem"><b>3 BYN</b><span>посадка</span></div>
   <div class="homeQuickItem"><b>1 BYN</b><span>за 1 км</span></div>
@@ -255,6 +256,7 @@
 <section id="dHome" class="card">
 <div class="title">Панель водителя</div>
 <div id="dProfileSummary" class="sub">Загрузка…</div>
+<div id="driverLinePanel" class="order" style="margin-top:12px"><div class="small">Загрузка статуса линии…</div></div>
 <div id="driverIncoming"></div>
 <div class="menu">
 <button onclick="openDriverCurrent()"><b>🚕</b>Текущая поездка</button>
@@ -671,13 +673,19 @@ async function sendSupport(role){
  }catch(e){toast(e.message,true)}
 }
 
+async function loadLineCount(){try{const d=await api("/api/line-count");const el=$("lineCount");if(el)el.textContent=String(d.count??0)}catch(_){const el=$("lineCount");if(el)el.textContent="—"}}
 async function loadDriverProfile(){try{dProfile=(await api("/api/driver-profile?telegramId="+encodeURIComponent(uid))).profile;renderDriverProfile()}catch(e){toast(e.message,true)}}
-function renderDriverProfile(){$("dProfileSummary").innerHTML=dProfile?'<b>'+esc(dProfile.name)+'</b><br>'+esc(dProfile.phone)+'<br>'+esc(dProfile.car)+' • '+esc(dProfile.plate):'<span style="color:var(--red)">Профиль водителя не заполнен.</span>'}
+function renderDriverProfile(){
+ $("dProfileSummary").innerHTML=dProfile?'<b>'+esc(dProfile.name)+'</b><br>'+esc(dProfile.phone)+'<br>'+esc(dProfile.car)+' • '+esc(dProfile.plate):'<span style="color:var(--red)">Профиль водителя не заполнен.</span>';
+ const panel=$("driverLinePanel");if(!panel)return;const onLine=!!dProfile?.on_line;
+ panel.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>'+(onLine?'🟢 Вы на линии':'⚪ Вы не на линии')+'</b><div class="small" style="margin-top:4px">'+(onLine?'Новые заказы могут приходить вам в приложение и Telegram.':'Новые заказы не будут приходить, пока вы не выйдете на линию.')+'</div></div><button class="btn '+(onLine?'red':'green')+'" style="width:auto;min-width:145px" onclick="setDriverLine('+(onLine?'false':'true')+')">'+(onLine?'Уйти с линии':'Выйти на линию')+'</button></div>';
+}
+async function setDriverLine(onLine){try{const d=await api("/api/driver-line",{method:"POST",body:JSON.stringify({telegramId:uid,onLine})});if(!dProfile)dProfile={};dProfile.on_line=d.onLine;renderDriverProfile();await loadDriverOrders();await loadLineCount();toast(d.onLine?"Вы вышли на линию.":"Вы ушли с линии.")}catch(e){toast(e.message,true)}}
 function editDriverProfile(){showD("dProfile");$("dName").value=dProfile?.name||"";$("dPhone").value=dProfile?.phone||"";$("dCar").value=dProfile?.car||"";$("dPlate").value=dProfile?.plate||"";$("dChild").checked=!!dProfile?.has_child_seat}
 function openDriverSettings(){showD("dSettings")}
 async function saveDriver(){try{dProfile=(await api("/api/driver-profile",{method:"POST",body:JSON.stringify({telegramId:uid,name:$("dName").value,phone:$("dPhone").value,car:$("dCar").value,plate:$("dPlate").value,hasChildSeat:$("dChild").checked})})).profile;toast("Профиль водителя сохранён");renderDriverProfile();showD("dSettings")}catch(e){toast(e.message,true)}}
 
-async function loadDriverOrders(){try{const d=await api("/api/driver-orders?telegramId="+encodeURIComponent(uid));const box=$("driverIncoming");if(!box)return;if(!d.orders.length){box.innerHTML='<div class="order" style="margin-top:12px"><b>🟢 В ожидании</b><div class="small" style="margin-top:6px">Новых заказов нет. Когда пассажир оформит поездку, заказ появится здесь автоматически.</div></div>';return}const o=d.orders[0];box.innerHTML='<div class="order" style="margin-top:12px;border-color:var(--yellow);box-shadow:0 0 0 1px #ffd21a22,0 12px 28px #0005"><div class="statusPill yellow" style="display:inline-block">🚕 НОВЫЙ ЗАКАЗ</div><div class="routeText" style="margin-top:10px">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="small" style="margin-top:9px">💰 '+Number(o.amount).toFixed(2)+' BYN<br>'+(o.scheduled_at?new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас")+(o.child_seat?"<br>👶 Детское кресло • 1 BYN":"")+'</div><div class="grid" style="margin-top:8px"><button class="btn green" onclick="acceptDriver(\''+esc(o.id)+'\')">✅ Принять</button><button class="btn red" onclick="rejectDriver(\''+esc(o.id)+'\')">✕ Отклонить</button></div></div>'}catch(e){toast(e.message,true)}}
+async function loadDriverOrders(){try{const d=await api("/api/driver-orders?telegramId="+encodeURIComponent(uid));const box=$("driverIncoming");if(!box)return;if(!d.orders.length){box.innerHTML='<div class="order" style="margin-top:12px"><b>'+(d.onLine===false?'⚪ Вы не на линии':'🟢 В ожидании')+'</b><div class="small" style="margin-top:6px">'+(d.onLine===false?'Выйдите на линию, чтобы получать новые заказы.':'Новых заказов нет. Когда пассажир оформит поездку, заказ появится здесь автоматически.')+'</div></div>';return}const o=d.orders[0];box.innerHTML='<div class="order" style="margin-top:12px;border-color:var(--yellow);box-shadow:0 0 0 1px #ffd21a22,0 12px 28px #0005"><div class="statusPill yellow" style="display:inline-block">🚕 НОВЫЙ ЗАКАЗ</div><div class="routeText" style="margin-top:10px">📍 '+esc(o.pickup)+'<br>↓<br>🏁 '+esc(o.destination)+'</div><div class="small" style="margin-top:9px">💰 '+Number(o.amount).toFixed(2)+' BYN<br>'+(o.scheduled_at?new Date(o.scheduled_at).toLocaleString("ru-RU"):"⚡ Сейчас")+(o.child_seat?"<br>👶 Детское кресло • 1 BYN":"")+'</div><div class="grid" style="margin-top:8px"><button class="btn green" onclick="acceptDriver(\''+esc(o.id)+'\')">✅ Принять</button><button class="btn red" onclick="rejectDriver(\''+esc(o.id)+'\')">✕ Отклонить</button></div></div>'}catch(e){toast(e.message,true)}}
 async function acceptDriver(id){try{const d=await api("/api/orders/"+encodeURIComponent(id)+"/accept",{method:"POST",body:JSON.stringify({telegramId:uid})});toast("Заказ принят");renderDriverCurrent(d.order);showD("dCurrent");}catch(e){toast(e.message,true)}}
 async function renderDriverMap(o){
  const el=$("driverLiveMap");if(!el||!window.L||o?.pickup_lat==null||o?.destination_lat==null)return;
@@ -758,6 +766,7 @@ async function toggleWaiting(id){
 
 
 
+setInterval(loadLineCount,5000);
 boot();
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

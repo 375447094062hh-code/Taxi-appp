@@ -58,6 +58,7 @@ async function migrate() {
       car TEXT,
       plate TEXT,
       has_child_seat BOOLEAN NOT NULL DEFAULT FALSE,
+      on_line BOOLEAN NOT NULL DEFAULT FALSE,
       rating NUMERIC(3,2) NOT NULL DEFAULT 5.00,
       rating_count INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -136,6 +137,7 @@ async function migrate() {
 
   await db(`
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS rating_count INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS on_line BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_minutes INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_fee NUMERIC(10,2) NOT NULL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS waiting_seconds INTEGER NOT NULL DEFAULT 0;
@@ -167,7 +169,7 @@ async function notifyPassenger(order, text) {
 async function notifyDrivers(order) {
   if (order?.scheduled_at && new Date(order.scheduled_at).getTime() > Date.now()) return;
   if (!pool || !DRIVER_CHAT_IDS.length) return;
-  const rows = (await db("SELECT * FROM drivers WHERE telegram_id=ANY($1::text[])", [DRIVER_CHAT_IDS])).rows;
+  const rows = (await db("SELECT * FROM drivers WHERE telegram_id=ANY($1::text[]) AND on_line=TRUE", [DRIVER_CHAT_IDS])).rows;
   const appUrl = clean(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/$/,"");
   for (const d of rows) {
     if (order.child_seat && !d.has_child_seat) continue;
@@ -418,7 +420,7 @@ app.get("/api/user-role", async (req,res) => {
     const telegramId=clean(req.query.telegramId);
     if(!telegramId) return res.status(400).json({success:false,error:"Telegram ID не указан."});
     if(isDriver(telegramId)){
-      const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
+      const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,on_line,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
       return res.json({success:true,role:"driver",driver:r.rows[0]||null,telegramId,isOwner:telegramId===OWNER_CHAT_ID});
     }
     res.json({success:true,role:"passenger",driver:null,telegramId,isOwner:telegramId===OWNER_CHAT_ID});
@@ -448,7 +450,7 @@ app.get("/api/driver-profile", async (req,res)=>{
   try {
     const telegramId=clean(req.query.telegramId);
     if(!isDriver(telegramId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
-    const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
+    const r=await db("SELECT telegram_id,name,phone,car,plate,has_child_seat,on_line,rating,rating_count FROM drivers WHERE telegram_id=$1",[telegramId]);
     res.json({success:true,profile:r.rows[0]||null});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
@@ -463,7 +465,7 @@ app.post("/api/driver-profile", async (req,res)=>{
     const r=await db(`INSERT INTO drivers(telegram_id,name,phone,car,plate,has_child_seat)
       VALUES($1,$2,$3,$4,$5,$6)
       ON CONFLICT(telegram_id) DO UPDATE SET name=$2,phone=$3,car=$4,plate=$5,has_child_seat=$6,updated_at=NOW()
-      RETURNING telegram_id,name,phone,car,plate,has_child_seat,rating,rating_count`,
+      RETURNING telegram_id,name,phone,car,plate,has_child_seat,on_line,rating,rating_count`,
       [telegramId,name,phone,car,plate,child]);
     res.json({success:true,profile:r.rows[0]});
   } catch(e){res.status(500).json({success:false,error:e.message});}
@@ -559,11 +561,29 @@ app.get("/api/driver-orders", async (req,res)=>{
   try {
     const id=clean(req.query.telegramId);
     if(!isDriver(id)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    const driver=(await db("SELECT on_line FROM drivers WHERE telegram_id=$1",[id])).rows[0];
+    if(!driver?.on_line) return res.json({success:true,orders:[],onLine:false});
     const r=await db(`SELECT * FROM orders WHERE status='searching' AND (scheduled_at IS NULL OR scheduled_at <= NOW() + INTERVAL '30 minutes')
       AND (rejected_by_driver_telegram_id IS NULL OR rejected_by_driver_telegram_id<>$1)
       AND (child_seat=false OR child_seat=(SELECT has_child_seat FROM drivers WHERE telegram_id=$1))
       ORDER BY scheduled_at NULLS FIRST,created_at ASC`,[id]);
-    res.json({success:true,orders:r.rows});
+    res.json({success:true,orders:r.rows,onLine:true});
+  } catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
+app.get("/api/line-count", async (req,res)=>{
+  try { const r=await db("SELECT COUNT(*)::int AS count FROM drivers WHERE on_line=TRUE"); res.json({success:true,count:r.rows[0]?.count||0}); }
+  catch(e){res.status(500).json({success:false,error:e.message});}
+});
+app.post("/api/driver-line", async (req,res)=>{
+  try {
+    const telegramId=clean(req.body.telegramId), onLine=req.body.onLine;
+    if(!isDriver(telegramId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
+    if(typeof onLine!=="boolean") return res.status(400).json({success:false,error:"Не указан статус линии."});
+    const d=(await db("SELECT * FROM drivers WHERE telegram_id=$1",[telegramId])).rows[0];
+    if(!d?.name||!d?.phone||!d?.car||!d?.plate) return res.status(400).json({success:false,error:"Сначала заполните профиль водителя."});
+    const q=await db("UPDATE drivers SET on_line=$2,updated_at=NOW() WHERE telegram_id=$1 RETURNING on_line",[telegramId,onLine]);
+    res.json({success:true,onLine:Boolean(q.rows[0]?.on_line)});
   } catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
@@ -582,6 +602,7 @@ app.post("/api/orders/:orderId/accept", async (req,res)=>{
     if(!isDriver(driverId)) return res.status(403).json({success:false,error:"Нет доступа водителя."});
     const d=(await db("SELECT * FROM drivers WHERE telegram_id=$1",[driverId])).rows[0];
     if(!d?.name||!d?.phone||!d?.car||!d?.plate) return res.status(400).json({success:false,error:"Сначала заполните профиль водителя."});
+    if(!d.on_line) return res.status(403).json({success:false,error:"Сначала выйдите на линию, чтобы принимать новые заказы."});
     const busy=(await db("SELECT id FROM orders WHERE driver_telegram_id=$1 AND status=ANY($2::text[]) LIMIT 1",[driverId,ACTIVE_STATUSES])).rows[0];
     if(busy) return res.status(409).json({success:false,error:"У вас уже есть текущая поездка. Сначала завершите её."});
     const r=await db(`UPDATE orders SET status='accepted',driver_telegram_id=$1,driver_name=$2,driver_car=$3,driver_plate=$4,driver_phone=$5,accepted_at=NOW()
