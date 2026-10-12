@@ -398,7 +398,7 @@ function previewOwnerBroadcast(){
  const message=$("ownerBroadcastMessage")?.value.trim()||"";
  if(!message){toast("Сначала напишите сообщение",true);return}
  const box=$("ownerBroadcastPreview");
- box.textContent="🚕 Такси Речица — новости приложения\\n\\n"+message;
+ box.textContent="🚕 Такси Речица — новости приложения\n\n"+message;
  box.classList.remove("hidden");
 }
 async function sendOwnerBroadcast(){
