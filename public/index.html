@@ -274,8 +274,6 @@
 <button onclick="openDriverSettings()"><b>⚙️</b>Настройки</button>
 <button onclick="openSupport('driver')"><b>🆘</b>Обратная связь</button>
 <button id="ownerDriverMenuBtn" class="hidden" onclick="openOwnerDriverPanel()"><b>💰</b>Финансы</button>
-<button id="ownerDriverBroadcastMenuBtn" class="hidden" onclick="openOwnerBroadcast()"><b>📣</b>Рассылка всем пользователям</button>
-<button id="ownerDriverUsersMenuBtn" class="hidden" onclick="openOwnerUsers()"><b>👥</b>Пользователи и счётчик</button>
 </div>
 </section>
 <section id="dCurrent" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div><div id="dCurrentBox"></div></section>
@@ -359,7 +357,7 @@ async function boot(){
  try{
   const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
   $("roleBadge").textContent=r.isOwner?"👑 АДМИНИСТРАТОР":(role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР");
-  if(r.isOwner){window.__isOwner=true;window.__adminStandalone=true;$("ownerMenuBtn")?.classList.remove("hidden");$("ownerDriverMenuBtn")?.classList.remove("hidden");$("ownerBroadcastMenuBtn")?.classList.remove("hidden");$("ownerDriverBroadcastMenuBtn")?.classList.remove("hidden");$("ownerUsersMenuBtn")?.classList.remove("hidden");$("ownerDriverUsersMenuBtn")?.classList.remove("hidden");$("ownerFleetShortcut")?.classList.add("hidden");$("passengerCallTaxiBtn")?.classList.add("hidden");$("passenger")?.classList.add("owner-mode");$("passenger").classList.add("hidden");$("driver").classList.add("hidden");$("ownerAdminScreen").classList.remove("hidden");clearInterval(poller);return;}
+  if(r.isOwner){window.__isOwner=true;window.__adminStandalone=true;$("ownerMenuBtn")?.classList.remove("hidden");$("ownerDriverMenuBtn")?.classList.remove("hidden");$("ownerBroadcastMenuBtn")?.classList.remove("hidden");$("ownerUsersMenuBtn")?.classList.remove("hidden");$("ownerFleetShortcut")?.classList.add("hidden");$("passengerCallTaxiBtn")?.classList.add("hidden");$("passenger")?.classList.add("owner-mode");$("passenger").classList.add("hidden");$("driver").classList.add("hidden");$("ownerAdminScreen").classList.remove("hidden");clearInterval(poller);return;}
   if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); const current=await loadDriverCurrent(true); if(!current) await loadDriverOrders(); }
   else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
   clearInterval(poller); poller=setInterval(role==="driver"?refreshDriver:()=>loadCurrent(false),3000);
