@@ -194,6 +194,7 @@
 <button onclick="openSupport('passenger')"><b>🆘</b>Поддержка и идеи</button>
 <button id="ownerMenuBtn" class="hidden" onclick="openOwnerPanel()"><b>💰</b>Финансы</button>
 <button id="ownerBroadcastMenuBtn" class="hidden" onclick="openOwnerBroadcast()"><b>📣</b>Рассылка всем пользователям</button>
+<button id="ownerFleetMenuBtn" class="hidden" onclick="openOwnerFleet()"><b>🚕</b>Автопарк и машины на линии</button>
 </div>
 </section>
 
@@ -250,6 +251,7 @@
 </section>
 <section id="pOwner" class="card hidden"><div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">💰 Финансы</div></div><div id="ownerDashboard"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:18px">🚕 Заказы</div><div class="sub">Поездки, начисления и подробности за выбранный период.</div><div id="ownerOrdersList"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:18px">🆘 Последние обращения</div><div id="ownerSupportList"><div class="small">Загрузка…</div></div></section>
 <section id="pBroadcast" class="card hidden"><div class="back"><button onclick="closeOwnerBroadcast()">‹</button><div class="title" style="margin:0">📣 Рассылка всем пользователям</div></div><div class="sub">Отправка новостей всем пассажирам и водителям, известным боту. Доступ только владельцу.</div><div class="field"><label for="ownerBroadcastMessage">Текст новости</label><textarea id="ownerBroadcastMessage" rows="6" maxlength="4000" placeholder="Напишите об изменениях, новых функциях или важных объявлениях…"></textarea></div><div id="ownerBroadcastPreview" class="order hidden" style="white-space:pre-wrap"></div><div class="row" style="gap:8px"><button class="btn secondary" style="flex:1" onclick="previewOwnerBroadcast()">Предпросмотр</button><button class="btn" style="flex:1" onclick="sendOwnerBroadcast()">Разослать всем</button></div><div id="ownerBroadcastResult" class="small" style="margin-top:8px"></div></section>
+<section id="pFleet" class="card hidden"><div class="back"><button onclick="closeOwnerFleet()">‹</button><div class="title" style="margin:0">🚕 Автопарк и машины на линии</div></div><div class="sub">Общая статистика автомобилей и текущего статуса водителей.</div><div id="ownerFleetContent"><div class="small">Загрузка автопарка…</div></div><button class="btn secondary" onclick="loadOwnerFleet()">↻ Обновить данные</button></section>
 <section id="pProfile" class="card hidden"><div class="back"><button onclick="showP('pSettings')">‹</button><div class="title" style="margin:0">Профиль пассажира</div></div><div class="field"><label>Имя</label><input id="pName"></div><div class="field"><label>Телефон</label><input id="pPhone" placeholder="+375..."></div><button class="btn" onclick="savePassenger()">Сохранить профиль</button></section>
 </main>
 
@@ -268,6 +270,7 @@
 <button onclick="openSupport('driver')"><b>🆘</b>Обратная связь</button>
 <button id="ownerDriverMenuBtn" class="hidden" onclick="openOwnerDriverPanel()"><b>💰</b>Финансы</button>
 <button id="ownerDriverBroadcastMenuBtn" class="hidden" onclick="openOwnerBroadcast()"><b>📣</b>Рассылка всем пользователям</button>
+<button id="ownerDriverFleetMenuBtn" class="hidden" onclick="openOwnerFleet()"><b>🚕</b>Автопарк и машины на линии</button>
 </div>
 </section>
 <section id="dCurrent" class="card hidden"><div class="back"><button onclick="showD('dHome')">‹</button><div class="title" style="margin:0">Текущая поездка</div></div><div id="dCurrentBox"></div></section>
@@ -314,7 +317,7 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
 async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
-function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner","pBroadcast"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner","pBroadcast","pFleet"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 function showD(id){["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq","dOwner"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 
 async function boot(){
@@ -322,7 +325,7 @@ async function boot(){
  try{
   const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
   $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
-  if(r.isOwner){ $("ownerMenuBtn")?.classList.remove("hidden"); $("ownerDriverMenuBtn")?.classList.remove("hidden"); $("ownerBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerDriverBroadcastMenuBtn")?.classList.remove("hidden"); }
+  if(r.isOwner){ $("ownerMenuBtn")?.classList.remove("hidden"); $("ownerDriverMenuBtn")?.classList.remove("hidden"); $("ownerBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerDriverBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerFleetMenuBtn")?.classList.remove("hidden"); $("ownerDriverFleetMenuBtn")?.classList.remove("hidden"); }
   if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); const current=await loadDriverCurrent(true); if(!current) await loadDriverOrders(); }
   else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
   clearInterval(poller); poller=setInterval(role==="driver"?refreshDriver:()=>loadCurrent(false),3000);
@@ -335,6 +338,16 @@ async function savePassenger(){try{pProfile=(await api("/api/passenger-profile",
 
 function openOwnerPanel(){showP("pOwner");loadOwnerDashboard()}
 function openOwnerBroadcast(){if(role==="driver"){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden")}showP("pBroadcast");$("ownerBroadcastResult").textContent="";$("ownerBroadcastPreview").classList.add("hidden")}
+function openOwnerFleet(){if(role==="driver"){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden")}showP("pFleet");loadOwnerFleet()}
+function closeOwnerFleet(){if(role==="driver"){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");showD("dHome")}else showP("pHome")}
+async function loadOwnerFleet(){
+ const box=$("ownerFleetContent"); if(!box)return; box.innerHTML='<div class="small">Обновляем данные…</div>';
+ try{
+  const d=await api("/api/owner-fleet?telegramId="+encodeURIComponent(uid));
+  const cars=d.drivers||[];
+  box.innerHTML='<div class="statGrid" style="margin-top:12px"><div class="stat"><strong>'+Number(d.totalCars||0)+'</strong><span>Всего машин</span></div><div class="stat"><strong style="color:var(--green)">'+Number(d.onLine||0)+'</strong><span>Сейчас на линии</span></div></div><div class="order" style="margin-top:10px"><b>🚘 Водители и автомобили</b>'+(cars.length?cars.map(x=>'<div class="historyItem" style="margin:8px 0 0;padding:12px"><b>'+esc(x.name||"Водитель без имени")+'</b><div class="small" style="margin-top:4px">'+esc(x.car||"Автомобиль не указан")+(x.plate?" • "+esc(x.plate):"")+(x.phone?"<br>📞 "+esc(x.phone):"")+'</div><div style="margin-top:7px"><span class="statusPill '+(x.on_line?"green":"")+'">'+(x.on_line?"● На линии":"○ Не на линии")+'</span></div></div>').join(""):'<div class="small" style="margin-top:7px">Пока нет зарегистрированных автомобилей.</div>')+'</div><div class="small" style="margin-top:8px">Последнее обновление: '+new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit",second:"2-digit"})+'</div>';
+ }catch(e){box.innerHTML='<div class="small" style="color:var(--red)">Не удалось загрузить автопарк: '+esc(e.message)+'</div>'}
+}
 function closeOwnerBroadcast(){if(role==="driver"){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");showD("dHome")}else showP("pHome")}
 function openOwnerDriverPanel(){showD("dOwner");loadOwnerDashboard(true)}
 function ownerSelectDay(day,driverMode){
