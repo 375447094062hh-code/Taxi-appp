@@ -175,7 +175,7 @@
 <div class="driveDust" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="roadGlow"></div>
 <div class="heroTop"><div class="heroBadge">● Сервис работает</div><div class="heroBadge">Личный водитель</div></div>
-<div class="heroBottom"><div class="heroText"><h1>Такси Речица</h1><p>Ваш личный водитель. Заказ без лишних шагов.</p></div><button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button></div>
+<div class="heroBottom"><div class="heroText"><h1>Такси Речица</h1><p>Ваш личный водитель. Заказ без лишних шагов.</p></div><button id="passengerCallTaxiBtn" class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button></div>
 </section>
 
 <section id="pHome" class="card homePanel">
@@ -313,7 +313,7 @@
 <script>
 const tg=window.Telegram?.WebApp; tg?.ready?.(); tg?.expand?.();
 const uid=String(tg?.initDataUnsafe?.user?.id||""); let role="",pProfile=null,dProfile=null;
-window.__ownerChatId="";
+window.__ownerChatId=""; window.__isOwner=false;
 let map=null,pMarker=null,dMarker=null,routeLayer=null,pickupPoint=null,destPoint=null,whenMode="now",poller=null,livePassengerMap=null,driverLiveMap=null,driverLocationMarker=null,driverGeoWatch=null,passengerRenderKey="",driverRenderKey="",waitingTimer=null,passengerWaitingTimer=null;
 
 const $=id=>document.getElementById(id);
@@ -328,7 +328,7 @@ async function boot(){
  try{
   const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
   $("roleBadge").textContent=r.isOwner?"👑 АДМИНИСТРАТОР":(role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР");
-  if(r.isOwner){ $("ownerMenuBtn")?.classList.remove("hidden"); $("ownerDriverMenuBtn")?.classList.remove("hidden"); $("ownerBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerDriverBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerUsersMenuBtn")?.classList.remove("hidden"); $("ownerDriverUsersMenuBtn")?.classList.remove("hidden"); $("ownerFleetShortcut")?.classList.remove("hidden"); }
+  if(r.isOwner){ window.__isOwner=true; $("ownerMenuBtn")?.classList.remove("hidden"); $("ownerDriverMenuBtn")?.classList.remove("hidden"); $("ownerBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerDriverBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerUsersMenuBtn")?.classList.remove("hidden"); $("ownerDriverUsersMenuBtn")?.classList.remove("hidden"); $("ownerFleetShortcut")?.classList.remove("hidden"); $("passengerCallTaxiBtn")?.classList.add("hidden"); $("passenger")?.classList.add("owner-mode"); }
   if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); const current=await loadDriverCurrent(true); if(!current) await loadDriverOrders(); }
   else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
   clearInterval(poller); poller=setInterval(role==="driver"?refreshDriver:()=>loadCurrent(false),3000);
@@ -351,9 +351,9 @@ async function loadOwnerUsers(){
  }catch(e){box.innerHTML='<div class="small" style="color:var(--red)">Не удалось загрузить счётчик: '+esc(e.message)+'</div>';}
 }
 function openOwnerBroadcast(){if(role==="driver"){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden")}showP("pBroadcast");$("ownerBroadcastResult").textContent="";$("ownerBroadcastPreview").classList.add("hidden")}
-let ownerFleetOrigin="passenger";
-function openOwnerFleet(){ownerFleetOrigin=!$("driver").classList.contains("hidden")?"driver":"passenger";$("passenger").classList.add("hidden");$("driver").classList.add("hidden");$("ownerFleetScreen").classList.remove("hidden");loadOwnerFleet()}
-function closeOwnerFleet(){$("ownerFleetScreen").classList.add("hidden");if(ownerFleetOrigin==="driver"){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");showD("dHome")}else{$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");showP("pHome")}}
+let ownerFleetOrigin="passenger",ownerFleetReturnScreen="pHome";
+function openOwnerFleet(){ownerFleetOrigin=!$("driver").classList.contains("hidden")?"driver":"passenger";ownerFleetReturnScreen=ownerFleetOrigin==="driver"? (["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dOwner"].find(id=>!$(id)?.classList.contains("hidden"))||"dHome"): (["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pFaq","pOwner","pBroadcast","pUsers"].find(id=>!$(id)?.classList.contains("hidden"))||"pHome");$("passenger").classList.add("hidden");$("driver").classList.add("hidden");$("ownerFleetScreen").classList.remove("hidden");loadOwnerFleet()}
+function closeOwnerFleet(){$("ownerFleetScreen").classList.add("hidden");if(ownerFleetOrigin==="driver"){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");showD(ownerFleetReturnScreen)}else{$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");showP(ownerFleetReturnScreen);if(window.__isOwner)$("passengerCallTaxiBtn")?.classList.add("hidden")}}
 async function loadOwnerFleet(){
  const box=$("ownerFleetContent"); if(!box)return; box.innerHTML='<div class="small">Обновляем данные…</div>';
  try{
