@@ -382,6 +382,24 @@ app.post("/api/owner-broadcast", async (req,res)=>{
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
+app.get("/api/owner-users", async (req,res)=>{
+  try{
+    const owner=clean(req.query.telegramId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const counts=(await db(`SELECT
+      (SELECT COUNT(*)::int FROM passengers) AS passengers,
+      (SELECT COUNT(*)::int FROM drivers) AS drivers,
+      (SELECT COUNT(DISTINCT telegram_id)::int FROM (
+        SELECT telegram_id FROM passengers WHERE telegram_id IS NOT NULL AND telegram_id<>''
+        UNION SELECT telegram_id FROM drivers WHERE telegram_id IS NOT NULL AND telegram_id<>''
+        UNION SELECT passenger_telegram_id AS telegram_id FROM orders WHERE passenger_telegram_id IS NOT NULL AND passenger_telegram_id<>''
+        UNION SELECT driver_telegram_id AS telegram_id FROM orders WHERE driver_telegram_id IS NOT NULL AND driver_telegram_id<>''
+        UNION SELECT telegram_id FROM support_messages WHERE telegram_id IS NOT NULL AND telegram_id<>''
+      ) known_users) AS total`)).rows[0]||{};
+    res.json({success:true,total:Number(counts.total||0),passengers:Number(counts.passengers||0),drivers:Number(counts.drivers||0)});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
 app.get("/api/owner-orders", async (req,res)=>{
   try{
     const owner=clean(req.query.telegramId);
