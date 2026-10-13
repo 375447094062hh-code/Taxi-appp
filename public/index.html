@@ -161,7 +161,7 @@
 <div class="top"><div class="brand">Такси <span>Речица</span></div><div id="roleBadge" class="badge">Загрузка…</div></div>
 <div id="ownerFleetShortcut" class="hidden" style="margin:0 0 12px"><button class="btn secondary" style="width:100%" onclick="openOwnerFleet()">🚕 Автопарк и машины на линии</button></div>
 
-<main id="ownerAdminScreen" class="hidden"><section class="hero"><div class="heroBadge">👑 Режим администратора</div><h1 style="margin-top:16px">Управление Такси Речица</h1><p>Финансы, пользователи, рассылка и автомобили — без пассажирского интерфейса.</p></section><section class="card"><div class="title">Панель администратора</div><div class="sub">Выберите нужный раздел.</div><div class="menu" style="margin-top:12px"><button onclick="openOwnerAdminFinance()"><b>💰</b>Финансы</button><button onclick="openOwnerAdminBroadcast()"><b>📣</b>Рассылка всем пользователям</button><button onclick="openOwnerAdminUsers()"><b>👥</b>Пользователи и счётчик</button><button onclick="openOwnerFleet()"><b>🚕</b>Автопарк и машины на линии</button></div></section></main>
+<main id="ownerAdminScreen" class="hidden"><section class="hero"><div class="heroBadge">👑 Режим администратора</div><h1 style="margin-top:16px">Управление Такси Речица</h1><p>Финансы, пользователи, рассылка и автомобили — без пассажирского интерфейса.</p></section><section class="card"><div class="title">Панель администратора</div><div class="sub">Выберите нужный раздел.</div><div class="menu" style="margin-top:12px"><button onclick="openOwnerAdminFinance()"><b>💰</b>Финансы</button><button onclick="openOwnerAdminBroadcast()"><b>📣</b>Рассылка всем пользователям</button><button onclick="openOwnerAdminUsers()"><b>👥</b>Пользователи и счётчик</button><button onclick="openOwnerFleet()"><b>🚕</b>Автопарк и машины на линии</button><button onclick="switchOwnerToDriver()"><b>🛞</b>Работать водителем</button></div></section></main>
 <main id="passenger" class="hidden">
 <section class="hero homeHero">
 <svg class="premiumTaxi" viewBox="0 0 520 190" aria-hidden="true">
@@ -260,7 +260,7 @@
 <main id="ownerFleetScreen" class="hidden"><section class="card"><div class="back"><button onclick="closeOwnerFleet()">‹</button><div class="title" style="margin:0">🚕 Автопарк и машины на линии</div></div><div class="sub">Общая статистика автомобилей и текущего статуса водителей.</div><div id="ownerFleetContent"><div class="small">Загрузка автопарка…</div></div><button class="btn secondary" onclick="loadOwnerFleet()">↻ Обновить данные</button></section></main>
 
 <main id="driver" class="hidden">
-<section class="hero"><h1>Режим водителя</h1><p>Заказы, текущая поездка и статистика в одном месте</p></section>
+<section class="hero"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div><h1>Режим водителя</h1><p>Заказы, текущая поездка и статистика в одном месте</p></div><button id="ownerBackToAdminBtn" class="btn secondary hidden" style="width:auto;min-width:105px;margin:0;padding:10px" onclick="returnOwnerToAdmin()">👑 Админ</button></div></section>
 <section id="dHome" class="card">
 <div class="title">Панель водителя</div>
 <div id="dProfileSummary" class="sub">Загрузка…</div>
@@ -323,6 +323,35 @@ function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove
 async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
 function showP(id){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");$("ownerFleetScreen")?.classList.add("hidden");["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner","pBroadcast","pUsers"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 function showD(id){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");$("ownerFleetScreen")?.classList.add("hidden");["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq","dOwner"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+async function switchOwnerToDriver(){
+ if(!window.__isOwner)return;
+ clearInterval(poller);
+ window.__ownerDriverMode=true;
+ role="driver";
+ $("roleBadge").textContent="👑 АДМИН • 🚕 ВОДИТЕЛЬ";
+ $("ownerAdminScreen").classList.add("hidden");
+ $("passenger").classList.add("hidden");
+ $("driver").classList.remove("hidden");
+ $("ownerBackToAdminBtn")?.classList.remove("hidden");
+ try{
+  await loadDriverProfile();
+  const current=await loadDriverCurrent(true);
+  if(!current)await loadDriverOrders();
+  showD("dHome");
+  poller=setInterval(refreshDriver,3000);
+ }catch(e){toast(e.message,true)}
+}
+function returnOwnerToAdmin(){
+ if(!window.__isOwner)return;
+ clearInterval(poller);
+ window.__ownerDriverMode=false;
+ $("ownerBackToAdminBtn")?.classList.add("hidden");
+ $("passenger").classList.add("hidden");
+ $("driver").classList.add("hidden");
+ $("ownerFleetScreen")?.classList.add("hidden");
+ $("ownerAdminScreen").classList.remove("hidden");
+ $("roleBadge").textContent="👑 АДМИНИСТРАТОР";
+}
 
 async function boot(){
  if(!uid){$("roleBadge").textContent="Откройте через Telegram";$("passenger").classList.remove("hidden");showP("pHome");return}
