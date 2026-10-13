@@ -402,6 +402,22 @@ app.post("/api/owner-orders/:orderId/cancel", async (req,res)=>{
     res.json({success:true,order:r.rows[0]});
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
+app.get("/api/owner-fleet", async (req,res)=>{
+  try{
+    const owner=clean(req.query.telegramId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const counts=(await db(`SELECT
+      COUNT(*) FILTER (WHERE car IS NOT NULL AND TRIM(car)<>'')::int AS "totalCars",
+      COUNT(*) FILTER (WHERE on_line=TRUE AND car IS NOT NULL AND TRIM(car)<>'')::int AS "onLine"
+      FROM drivers`)).rows[0]||{totalCars:0,onLine:0};
+    const drivers=(await db(`SELECT name,phone,car,plate,on_line AS "on_line"
+      FROM drivers
+      WHERE car IS NOT NULL AND TRIM(car)<>''
+      ORDER BY on_line DESC,name ASC`)).rows.map(d=>({...d,on_line:Boolean(d.on_line)}));
+    res.json({success:true,totalCars:Number(counts.totalCars||0),onLine:Number(counts.onLine||0),drivers});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
 app.get("/api/owner-dashboard", async (req,res)=>{
   try{
     const owner=clean(req.query.telegramId), period=clean(req.query.period)||"month", selected=clean(req.query.date)||"";
