@@ -317,14 +317,14 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
 async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
-function showP(id){["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner","pBroadcast"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
-function showD(id){["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq","dOwner"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showP(id){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");$("ownerFleetScreen")?.classList.add("hidden");["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner","pBroadcast"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function showD(id){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");$("ownerFleetScreen")?.classList.add("hidden");["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq","dOwner"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 
 async function boot(){
  if(!uid){$("roleBadge").textContent="Откройте через Telegram";$("passenger").classList.remove("hidden");showP("pHome");return}
  try{
   const r=await api("/api/user-role?telegramId="+encodeURIComponent(uid)); role=r.role;
-  $("roleBadge").textContent=role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР";
+  $("roleBadge").textContent=r.isOwner?"👑 АДМИНИСТРАТОР":(role==="driver"?"🚕 ВОДИТЕЛЬ":"👤 ПАССАЖИР");
   if(r.isOwner){ $("ownerMenuBtn")?.classList.remove("hidden"); $("ownerDriverMenuBtn")?.classList.remove("hidden"); $("ownerBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerDriverBroadcastMenuBtn")?.classList.remove("hidden"); $("ownerFleetShortcut")?.classList.remove("hidden"); }
   if(role==="driver"){ $("driver").classList.remove("hidden"); await loadDriverProfile(); const current=await loadDriverCurrent(true); if(!current) await loadDriverOrders(); }
   else { $("passenger").classList.remove("hidden"); await loadPassengerProfile(); await loadCurrent(false); }
