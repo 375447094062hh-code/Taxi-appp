@@ -31,7 +31,7 @@ const ACTIVE_STATUSES = ["searching","accepted","arrived","trip"];
 
 const clean = v => v == null ? "" : String(v).trim();
 const OWNER_CHAT_ID = clean(process.env.OWNER_CHAT_ID);
-const isDriver = id => DRIVER_CHAT_IDS.includes(clean(id));
+const isDriver = id => DRIVER_CHAT_IDS.includes(clean(id)) || (!!OWNER_CHAT_ID && clean(id) === OWNER_CHAT_ID);
 const makeId = () => crypto.randomUUID();
 
 async function db(sql, params=[]) {
