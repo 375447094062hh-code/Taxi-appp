@@ -338,8 +338,9 @@ async function savePassenger(){try{pProfile=(await api("/api/passenger-profile",
 
 function openOwnerPanel(){showP("pOwner");loadOwnerDashboard()}
 function openOwnerBroadcast(){if(role==="driver"){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden")}showP("pBroadcast");$("ownerBroadcastResult").textContent="";$("ownerBroadcastPreview").classList.add("hidden")}
-function openOwnerFleet(){if(role==="driver"){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden")}showP("pFleet");loadOwnerFleet()}
-function closeOwnerFleet(){if(role==="driver"){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");showD("dHome")}else showP("pHome")}
+let ownerFleetOrigin="passenger";
+function openOwnerFleet(){ownerFleetOrigin=!$("driver").classList.contains("hidden")?"driver":"passenger";$("passenger").classList.add("hidden");$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");showP("pFleet");loadOwnerFleet()}
+function closeOwnerFleet(){showP("pHome");$("passenger").classList.add("hidden");$("driver").classList.add("hidden");if(ownerFleetOrigin==="driver"){$("driver").classList.remove("hidden");showD("dHome")}else{$("passenger").classList.remove("hidden");showP("pHome")}}
 async function loadOwnerFleet(){
  const box=$("ownerFleetContent"); if(!box)return; box.innerHTML='<div class="small">Обновляем данные…</div>';
  try{
