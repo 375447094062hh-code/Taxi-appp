@@ -469,8 +469,10 @@ app.get("/api/owner-pending-orders", async (req,res)=>{
       WHERE o.status=ANY($1::text[])
         AND (o.status<>'searching' OR o.scheduled_at IS NULL OR o.scheduled_at<=NOW()+INTERVAL '30 minutes')
       ORDER BY o.created_at ASC`,[["searching","accepted","arrived"]]);
-    const stats=(await db("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE accepted_at IS NOT NULL)::int AS accepted, COUNT(*) FILTER (WHERE rejected_at IS NOT NULL)::int AS \"rejectedByDriver\", COUNT(*) FILTER (WHERE cancelled_by=\'passenger\')::int AS \"cancelledByPassenger\" FROM orders")).rows[0]||{};
-    res.json({success:true,orders:r.rows,stats});
+    const period=clean(req.query.period)||"all";
+    const periodCondition=period==="today"?"created_at >= CURRENT_DATE":period==="month"?"created_at >= date_trunc('month', CURRENT_DATE)":"TRUE";
+    const stats=(await db(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE accepted_at IS NOT NULL)::int AS accepted, COUNT(*) FILTER (WHERE rejected_at IS NOT NULL)::int AS "rejectedByDriver", COUNT(*) FILTER (WHERE cancelled_by='passenger')::int AS "cancelledByPassenger" FROM orders WHERE ${periodCondition}`)).rows[0]||{};
+    res.json({success:true,orders:r.rows,stats,period});
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
