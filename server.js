@@ -408,6 +408,7 @@ app.get("/api/owner-pending-orders", async (req,res)=>{
       EXTRACT(EPOCH FROM (NOW()-o.created_at))::int AS waiting_seconds_live
       FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id
       WHERE o.status=ANY($1::text[])
+        AND (o.status<>'searching' OR o.scheduled_at IS NULL OR o.scheduled_at<=NOW()+INTERVAL '30 minutes')
       ORDER BY o.created_at ASC`,[["searching","accepted","arrived"]]);
     res.json({success:true,orders:r.rows});
   }catch(e){res.status(500).json({success:false,error:e.message});}
@@ -603,7 +604,7 @@ app.post("/api/orders", async (req,res)=>{
        Number.isFinite(Number(req.body.destinationLat))?Number(req.body.destinationLat):null,
        Number.isFinite(Number(req.body.destinationLng))?Number(req.body.destinationLng):null]);
     await notifyDrivers(r.rows[0]);
-    if(OWNER_CHAT_ID){
+    if(OWNER_CHAT_ID && (!r.rows[0].scheduled_at || new Date(r.rows[0].scheduled_at).getTime() <= Date.now()+30*60*1000)){
       const o=r.rows[0];
       const alert=[
         "🚨 НОВЫЙ ЗАКАЗ — КОНТРОЛЬ АДМИНИСТРАТОРА",
