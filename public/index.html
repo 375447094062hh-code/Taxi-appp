@@ -190,6 +190,7 @@
   <div class="homeQuickItem"><b>24/7</b><span>доступность</span></div>
 </div>
 <div class="menu">
+<button onclick="openPGuide()"><b>📖</b>Как пользоваться</button>
 <button onclick="openCurrent()"><b>🚕</b>Текущая поездка</button>
 <button onclick="openHistory('passenger')"><b>📋</b>Мои поездки</button>
 <button onclick="openTariffs()"><b>💰</b>Тарифы</button>
@@ -251,6 +252,17 @@
 <div class="faqItem"><b>🚕 Как заказать такси?</b><span class="small">Откройте «Вызвать такси», укажите точки А и Б и время поездки, затем подтвердите заказ.</span></div>
 <div class="faqItem"><b>💰 Как считается стоимость?</b><span class="small">Посадка — 3 BYN + 1 BYN за каждый километр. Ожидание — 0,10 BYN за каждые 10 секунд после начала поездки.</span></div>
 <div class="faqItem"><b>📋 Где посмотреть поездку?</b><span class="small">Текущий заказ находится в «Текущая поездка», завершённые — в «Мои поездки».</span></div>
+</section>
+<section id="pGuide" class="card hidden">
+<div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">📖 Как пользоваться</div></div>
+<div class="supportHero"><b>🚕 Такси Речица 2.0</b><div class="sub" style="margin-top:5px">Всё просто: укажите маршрут, оформите заказ и следите за поездкой.</div></div>
+<div class="faqItem"><b>01 · 👤 Подготовьте профиль</b><span class="small">Откройте «Настройки» → «Редактировать профиль», укажите имя и номер телефона и нажмите «Сохранить профиль».</span></div>
+<div class="faqItem"><b>02 · 📍 Укажите маршрут</b><span class="small">Нажмите «Вызвать такси». Заполните точку А — откуда забрать, и точку Б — куда ехать. Кнопка «Моё местоположение» поможет указать место подачи. «Новый маршрут» очищает адреса, чтобы ввести другой путь.</span></div>
+<div class="faqItem"><b>03 · 🕐 Выберите время</b><span class="small">Выберите «Сейчас» для ближайшей поездки или «На дату» для предварительного заказа. Проверьте адреса и нажмите «Заказать такси».</span></div>
+<div class="faqItem"><b>04 · 💰 Узнайте тариф</b><span class="small">Тариф «Стандарт»: посадка — 3 BYN, расстояние — 1 BYN за километр. Во время поездки ожидание рассчитывается по 0,10 BYN за каждые 10 секунд, когда оно начисляется. Итог и подробный расчёт доступны в карточке поездки.</span></div>
+<div class="faqItem"><b>05 · 🚗 Следите за статусом</b><span class="small">Откройте «Текущая поездка», чтобы смотреть состояние заказа. Статус обновляется по мере того, как водитель принимает заказ, прибывает и начинает поездку.</span></div>
+<div class="faqItem"><b>06 · 📋 История и помощь</b><span class="small">В «Мои поездки» доступны предыдущие заказы и их расчёт. В «Поддержка и идеи» можно сообщить о проблеме, задать вопрос по поездке или предложить улучшение.</span></div>
+<button class="btn" onclick="openPassengerOrder()">🚕 Вызвать такси</button>
 </section>
 <section id="pOwner" class="card hidden"><div class="back"><button onclick="closeOwnerFinance()">‹</button><div class="title" style="margin:0">💰 Финансы</div></div><div id="ownerDashboard"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:18px">🚕 Заказы</div><div class="sub">Поездки, начисления и подробности за выбранный период.</div><div id="ownerOrdersList"><div class="small">Загрузка…</div></div><div class="title" style="margin-top:18px">🆘 Последние обращения</div><div id="ownerSupportList"><div class="small">Загрузка…</div></div></section>
 <section id="pPendingOrders" class="card hidden"><div class="back"><button onclick="closeOwnerPendingOrders()">‹</button><div class="title" style="margin:0">🚨 Контроль заказов</div></div><div class="financeHero"><div class="financeIcon">🚕</div><b>Заказы, ожидающие водителя</b><div class="sub" style="margin-top:4px">Активные заказы и время ожидания действий водителя.</div><div id="pendingOrdersCount" class="financeAmount">—</div><div class="small">Активных заказов сейчас</div></div><button class="btn secondary" onclick="loadOwnerPendingOrders()">↻ Обновить список</button><div id="ownerPendingOrdersList" style="margin-top:10px"><div class="small">Загрузка…</div></div></section>
@@ -321,7 +333,8 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 function toast(t,bad=false){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2800)}
 async function api(url,opt={}){const r=await fetch(url,{...opt,cache:"no-store",headers:{"Content-Type":"application/json",...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Ошибка сервера");return d}
-function showP(id){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");$("passenger").classList.toggle("passengerAdminView",!!window.__isOwner&&["pOwner","pPendingOrders","pBroadcast","pUsers"].includes(id));$("ownerFleetScreen")?.classList.add("hidden");["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pOwner","pPendingOrders","pBroadcast","pUsers"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
+function openPGuide(){showP("pGuide")}
+ function showP(id){$("driver").classList.add("hidden");$("passenger").classList.remove("hidden");$("passenger").classList.toggle("passengerAdminView",!!window.__isOwner&&["pOwner","pPendingOrders","pBroadcast","pUsers"].includes(id));$("ownerFleetScreen")?.classList.add("hidden");["pHome","pOrder","pCurrent","pHistory","pTariffs","pSettings","pProfile","pSupport","pSupportForm","pFaq","pGuide","pOwner","pPendingOrders","pBroadcast","pUsers"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 function showD(id){$("passenger").classList.add("hidden");$("driver").classList.remove("hidden");$("ownerFleetScreen")?.classList.add("hidden");["dHome","dCurrent","dHistory","dStats","dSettings","dProfile","dSupport","dSupportForm","dFaq","dOwner"].forEach(x=>$(x)?.classList.add("hidden"));$(id)?.classList.remove("hidden")}
 async function switchOwnerToDriver(){
  if(!window.__isOwner)return;
