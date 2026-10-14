@@ -670,22 +670,31 @@ app.post("/api/orders", async (req,res)=>{
     if(!r.rows[0].scheduled_at || new Date(r.rows[0].scheduled_at).getTime() <= Date.now()){
       await db("UPDATE orders SET driver_notified_at=NOW() WHERE id=$1 AND status='searching'",[r.rows[0].id]);
     }
-    if(OWNER_CHAT_ID && (!r.rows[0].scheduled_at || new Date(r.rows[0].scheduled_at).getTime() <= Date.now()+30*60*1000)){
+    if(OWNER_CHAT_ID){
       const o=r.rows[0];
+      const isScheduled=o.scheduled_at && new Date(o.scheduled_at).getTime() > Date.now();
       const alert=[
-        "🚨 НОВЫЙ ЗАКАЗ — КОНТРОЛЬ АДМИНИСТРАТОРА",
+        "🚨 НОВЫЙ ЗАКАЗ — ИНФОРМАЦИЯ ДЛЯ АДМИНИСТРАТОРА",
         "",
-        "Статус: 🔎 ожидает принятия водителем",
+        "Статус: "+(isScheduled?"🕐 предварительный заказ":"🔎 ожидает принятия водителем"),
         "⏱ Создан: "+new Date(o.created_at).toLocaleString("ru-RU"),
+        isScheduled?"🗓 Время поездки: "+new Date(o.scheduled_at).toLocaleString("ru-RU"):"",
         "👤 Пассажир: "+(o.passenger_name||"не указан"),
         "📞 Телефон: "+(o.passenger_phone||"не указан"),
         "📍 Подача: "+o.pickup,
         "🏁 Назначение: "+o.destination,
         "💰 Цена: "+Number(o.amount||0).toFixed(2)+" BYN",
         "",
-        "Проверьте раздел «Контроль заказов» в панели администратора."
-      ].join("\n");
-      try{await sendTelegram(OWNER_CHAT_ID,alert);}catch(notifyError){console.error("Owner order alert:",notifyError.message);}
+        "Проверить заказ можно в разделе «Контроль заказов» панели администратора."
+      ].filter(Boolean).join("\\n");
+      try{
+        const sent=await sendTelegram(OWNER_CHAT_ID,alert);
+        if(!sent?.ok) console.error("Owner new-order notification failed:",sent?.description||"Telegram sendMessage failed");
+      }catch(notifyError){
+        console.error("Owner new-order notification error:",notifyError.message);
+      }
+    }else{
+      console.error("Owner new-order notification skipped: OWNER_CHAT_ID is not configured");
     }
     res.json({success:true,order:r.rows[0]});
   } catch(e){console.error(e);res.status(500).json({success:false,error:e.message});}
