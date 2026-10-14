@@ -400,6 +400,19 @@ app.get("/api/owner-users", async (req,res)=>{
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
+app.get("/api/owner-pending-orders", async (req,res)=>{
+  try{
+    const owner=clean(req.query.telegramId);
+    if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
+    const r=await db(`SELECT o.*, COALESCE(d.phone,o.driver_phone) AS driver_phone,
+      EXTRACT(EPOCH FROM (NOW()-o.created_at))::int AS waiting_seconds_live
+      FROM orders o LEFT JOIN drivers d ON d.telegram_id=o.driver_telegram_id
+      WHERE o.status=ANY($1::text[])
+      ORDER BY o.created_at ASC`,[["searching","accepted","arrived"]]);
+    res.json({success:true,orders:r.rows});
+  }catch(e){res.status(500).json({success:false,error:e.message});}
+});
+
 app.get("/api/owner-orders", async (req,res)=>{
   try{
     const owner=clean(req.query.telegramId);
@@ -590,6 +603,23 @@ app.post("/api/orders", async (req,res)=>{
        Number.isFinite(Number(req.body.destinationLat))?Number(req.body.destinationLat):null,
        Number.isFinite(Number(req.body.destinationLng))?Number(req.body.destinationLng):null]);
     await notifyDrivers(r.rows[0]);
+    if(OWNER_CHAT_ID){
+      const o=r.rows[0];
+      const alert=[
+        "🚨 НОВЫЙ ЗАКАЗ — КОНТРОЛЬ АДМИНИСТРАТОРА",
+        "",
+        "Статус: 🔎 ожидает принятия водителем",
+        "⏱ Создан: "+new Date(o.created_at).toLocaleString("ru-RU"),
+        "👤 Пассажир: "+(o.passenger_name||"не указан"),
+        "📞 Телефон: "+(o.passenger_phone||"не указан"),
+        "📍 Подача: "+o.pickup,
+        "🏁 Назначение: "+o.destination,
+        "💰 Цена: "+Number(o.amount||0).toFixed(2)+" BYN",
+        "",
+        "Проверьте раздел «Контроль заказов» в панели администратора."
+      ].join("\n");
+      try{await sendTelegram(OWNER_CHAT_ID,alert);}catch(notifyError){console.error("Owner order alert:",notifyError.message);}
+    }
     res.json({success:true,order:r.rows[0]});
   } catch(e){console.error(e);res.status(500).json({success:false,error:e.message});}
 });
