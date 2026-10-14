@@ -155,6 +155,15 @@
   .homeHero .premiumTaxi,.homeHero .premiumTaxi .wheel,.homeHero .premiumTaxi .roadMark,.homeHero .driveDust i{animation:none}
 }
  .passengerAdminView .homeHero{display:none!important}
+
+.locationPick{display:flex;align-items:center;gap:11px;flex:1;min-width:0;margin:0;padding:11px 12px;text-align:left;border:1px solid #294860;border-radius:16px;background:linear-gradient(145deg,#102a40,#091b2d);color:#f7fbff;cursor:pointer;box-shadow:0 8px 20px #0003}
+.locationPickIcon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:12px;background:#dceeff;color:#1677d2;font-size:31px;font-weight:700;line-height:1}
+.locationPickText{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.locationPickText strong{font-size:12px;line-height:1.25;font-weight:900}
+.locationPickText small{font-size:9px;line-height:1.35;color:#91a8ba;font-weight:600}
+.locationPickArrow{flex:none;color:#b8cbd9;font-size:27px;line-height:1}
+.routeActions .locationPick{padding:10px 11px}
+
 </style>
 </head>
 <body>
@@ -205,7 +214,7 @@
 <section id="pOrder" class="card hidden">
 <div class="back"><button onclick="showP('pHome')">‹</button><div class="title" style="margin:0">Новый заказ</div></div>
 <div class="sub">Точка А и точка Б теперь находятся в одном маршруте — ничего переключать не нужно.</div>
-<div class="routeActions" style="margin-top:0;margin-bottom:9px"><button class="btn secondary" onclick="locatePickup()">📍 Моё местоположение</button><button class="btn secondary" onclick="clearRoutePoints()">↺ Новый маршрут</button></div>
+<div class="routeActions" style="margin-top:0;margin-bottom:9px"><button type="button" class="locationPick" onclick="locatePickup()"><span class="locationPickIcon" aria-hidden="true">◎</span><span class="locationPickText"><strong>Моё местоположение</strong><small>Определить точку подачи по GPS</small></span><span class="locationPickArrow" aria-hidden="true">›</span></button><button class="btn secondary" onclick="clearRoutePoints()">↺ Новый маршрут</button></div>
 <div id="savedQuickAddresses" class="grid" style="margin-bottom:9px"></div>
 <div class="routeBox">
 <div class="routeLine"><span class="dot"></span><input id="pPickup" placeholder="Точка А — откуда"><button class="clearPoint" type="button" onclick="clearPickup()" aria-label="Очистить точку А">×</button></div>
