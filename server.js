@@ -354,6 +354,40 @@ async function notifyDueScheduledOrders(){
 setInterval(notifyDueScheduledOrders,30000);
 setTimeout(notifyDueScheduledOrders,5000);
 
+const ownerStallAlertsSent = new Set();
+async function notifyStalledOrders(){
+  if(!pool || !OWNER_CHAT_ID || !BOT_TOKEN) return;
+  try{
+    const r=await db(`SELECT id,passenger_name,pickup,destination,created_at,scheduled_at
+      FROM orders
+      WHERE status='searching'
+        AND created_at<=NOW()-INTERVAL '10 minutes'
+        AND (scheduled_at IS NULL OR scheduled_at<=NOW()+INTERVAL '30 minutes')
+      ORDER BY created_at ASC LIMIT 100`);
+    const stillPending=new Set(r.rows.map(o=>String(o.id)));
+    for(const id of ownerStallAlertsSent) if(!stillPending.has(id)) ownerStallAlertsSent.delete(id);
+    for(const o of r.rows){
+      const id=String(o.id);
+      if(ownerStallAlertsSent.has(id)) continue;
+      const mins=Math.max(10,Math.floor((Date.now()-new Date(o.created_at).getTime())/60000));
+      const msg=[
+        "⚠️ ЗАКАЗ ЖДЁТ ВОДИТЕЛЯ УЖЕ "+mins+" МИН.",
+        "",
+        "Статус: водитель ещё не принял заказ.",
+        "👤 Пассажир: "+(o.passenger_name||"не указан"),
+        "📍 Подача: "+o.pickup,
+        "🏁 Назначение: "+o.destination,
+        "",
+        "Откройте «Контроль заказов» в панели администратора."
+      ].join("\\n");
+      const sent=await sendTelegram(OWNER_CHAT_ID,msg);
+      if(sent?.ok) ownerStallAlertsSent.add(id);
+    }
+  }catch(e){console.error("Stalled order alerts:",e.message);}
+}
+setInterval(notifyStalledOrders,60000);
+setTimeout(notifyStalledOrders,15000);
+
 app.post("/api/owner-broadcast", async (req,res)=>{
   try{
     const owner=clean(req.body.telegramId);
