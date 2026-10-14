@@ -145,6 +145,7 @@ async function migrate() {
     UPDATE orders SET waiting_seconds=waiting_minutes*60 WHERE waiting_seconds=0 AND waiting_minutes>0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_by_driver_telegram_id TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_by TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS driver_notified_at TIMESTAMPTZ;
   `);
   console.log("PostgreSQL: таблицы готовы.");
@@ -468,7 +469,8 @@ app.get("/api/owner-pending-orders", async (req,res)=>{
       WHERE o.status=ANY($1::text[])
         AND (o.status<>'searching' OR o.scheduled_at IS NULL OR o.scheduled_at<=NOW()+INTERVAL '30 minutes')
       ORDER BY o.created_at ASC`,[["searching","accepted","arrived"]]);
-    res.json({success:true,orders:r.rows});
+    const stats=(await db("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE accepted_at IS NOT NULL)::int AS accepted, COUNT(*) FILTER (WHERE rejected_at IS NOT NULL)::int AS \"rejectedByDriver\", COUNT(*) FILTER (WHERE cancelled_by=\'passenger\')::int AS \"cancelledByPassenger\" FROM orders")).rows[0]||{};
+    res.json({success:true,orders:r.rows,stats});
   }catch(e){res.status(500).json({success:false,error:e.message});}
 });
 
@@ -485,7 +487,7 @@ app.post("/api/owner-orders/:orderId/cancel", async (req,res)=>{
   try{
     const owner=clean(req.body.telegramId), orderId=clean(req.params.orderId);
     if(!owner||owner!==OWNER_CHAT_ID) return res.status(403).json({success:false,error:"Нет доступа."});
-    const r=await db(`UPDATE orders SET status='cancelled',waiting_started_at=NULL WHERE id=$1 AND status=ANY($2::text[]) RETURNING *`,[orderId,ACTIVE_STATUSES]);
+    const r=await db(`UPDATE orders SET status='cancelled',cancelled_by='owner',waiting_started_at=NULL WHERE id=$1 AND status=ANY($2::text[]) RETURNING *`,[orderId,ACTIVE_STATUSES]);
     if(!r.rows[0]) return res.status(404).json({success:false,error:"Активный заказ не найден."});
     await notifyPassenger(r.rows[0],"❌ Заказ отменён владельцем сервиса.");
     if(r.rows[0].driver_telegram_id) await sendTelegram(r.rows[0].driver_telegram_id,"❌ Заказ отменён владельцем сервиса.");
@@ -861,7 +863,7 @@ app.post("/api/orders/:orderId/cancel", async (req,res)=>{
         waiting_started_at=NULL
         WHERE id=$1`,[oid]);
     }
-    const r=await db("UPDATE orders SET status='cancelled' WHERE id=$1 AND passenger_telegram_id=$2 AND status IN ('searching','accepted','arrived') RETURNING *",[oid,uid]);
+    const r=await db("UPDATE orders SET status='cancelled',cancelled_by='passenger' WHERE id=$1 AND passenger_telegram_id=$2 AND status IN ('searching','accepted','arrived') RETURNING *",[oid,uid]);
     if(!r.rows[0]) return res.status(409).json({success:false,error:"Заказ уже изменён."});
     if(r.rows[0].driver_telegram_id) await sendTelegram(r.rows[0].driver_telegram_id,"❌ Пассажир отменил заказ.");
     res.json({success:true,order:r.rows[0]});
