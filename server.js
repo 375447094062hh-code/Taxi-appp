@@ -348,11 +348,35 @@ async function notifyDueScheduledOrders(){
   if(!pool || !DRIVER_CHAT_IDS.length) return;
   try{
     const r=await db(`SELECT * FROM orders WHERE status='searching' AND scheduled_at IS NOT NULL AND scheduled_at <= NOW() + INTERVAL '30 minutes' AND scheduled_at > NOW() - INTERVAL '2 hours' AND driver_notified_at IS NULL ORDER BY scheduled_at ASC LIMIT 20`);
-    for(const order of r.rows){ await notifyDrivers(order); await db("UPDATE orders SET driver_notified_at=NOW() WHERE id=$1",[order.id]); }
+    for(const order of r.rows){ await notifyDrivers(order); await db("UPDATE orders SET driver_notified_at=NOW() WHERE id=$1 AND status='searching'",[order.id]); }
   }catch(e){console.error("Scheduled dispatch:",e.message);}
 }
 setInterval(notifyDueScheduledOrders,30000);
 setTimeout(notifyDueScheduledOrders,5000);
+
+// Повторно отправляем ожидающий заказ водителям каждые 5 минут,
+// пока заказ не принят и пассажир его не отменил.
+async function resendUnacceptedOrders(){
+  if(!pool || !DRIVER_CHAT_IDS.length) return;
+  try{
+    const r=await db(`SELECT * FROM orders
+      WHERE status='searching'
+        AND created_at <= NOW() - INTERVAL '5 minutes'
+        AND driver_notified_at IS NOT NULL
+        AND driver_notified_at <= NOW() - INTERVAL '5 minutes'
+        AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+      ORDER BY created_at ASC LIMIT 50`);
+    for(const order of r.rows){
+      // Повторная проверка статуса защищает от отправки уже принятого/отменённого заказа.
+      const current=(await db("SELECT * FROM orders WHERE id=$1 AND status='searching'",[order.id])).rows[0];
+      if(!current) continue;
+      await notifyDrivers(current);
+      await db("UPDATE orders SET driver_notified_at=NOW() WHERE id=$1 AND status='searching'",[order.id]);
+    }
+  }catch(e){console.error("Order resend:",e.message);}
+}
+setInterval(resendUnacceptedOrders,30000);
+setTimeout(resendUnacceptedOrders,20000);
 
 const ownerStallAlertsSent = new Set();
 async function notifyStalledOrders(){
@@ -638,6 +662,10 @@ app.post("/api/orders", async (req,res)=>{
        Number.isFinite(Number(req.body.destinationLat))?Number(req.body.destinationLat):null,
        Number.isFinite(Number(req.body.destinationLng))?Number(req.body.destinationLng):null]);
     await notifyDrivers(r.rows[0]);
+    // Для немедленного заказа фиксируем время первой отправки, чтобы отсчитывать 5 минут от неё.
+    if(!r.rows[0].scheduled_at || new Date(r.rows[0].scheduled_at).getTime() <= Date.now()){
+      await db("UPDATE orders SET driver_notified_at=NOW() WHERE id=$1 AND status='searching'",[r.rows[0].id]);
+    }
     if(OWNER_CHAT_ID && (!r.rows[0].scheduled_at || new Date(r.rows[0].scheduled_at).getTime() <= Date.now()+30*60*1000)){
       const o=r.rows[0];
       const alert=[
