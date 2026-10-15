@@ -16,8 +16,17 @@ jobs:
           set -euo pipefail
           URL="https://taxi-appp.onrender.com/api/health"
           echo "Checking $URL"
-          # Render Free may return 503 while the service is starting.
-          # Retry long enough for a cold start, then fail visibly if still unavailable.
-          curl             --fail             --silent             --show-error             --location             --connect-timeout 15             --max-time 45             --retry 10             --retry-delay 10             --retry-max-time 180             --retry-all-errors             "$URL"
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --connect-timeout 15 \
+            --max-time 45 \
+            --retry 10 \
+            --retry-delay 10 \
+            --retry-max-time 180 \
+            --retry-all-errors \
+            "$URL"
           echo
           echo "Render health check completed successfully."
