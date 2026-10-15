@@ -8,12 +8,16 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
-      - name: Ping Render health endpoint
+      - name: Wake Render and check health
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           URL="https://taxi-appp.onrender.com/api/health"
-          echo "Pinging $URL"
-          curl --fail --silent --show-error --max-time 60 --retry 2 --retry-delay 5 "$URL"
+          echo "Checking $URL"
+          # Render Free may return 503 while the service is starting.
+          # Retry long enough for a cold start, then fail visibly if still unavailable.
+          curl             --fail             --silent             --show-error             --location             --connect-timeout 15             --max-time 45             --retry 10             --retry-delay 10             --retry-max-time 180             --retry-all-errors             "$URL"
           echo
-          echo "Render health check completed."
+          echo "Render health check completed successfully."
