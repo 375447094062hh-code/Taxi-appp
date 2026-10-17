@@ -172,8 +172,9 @@
 <div class="top"><div class="brand">Такси <span>Речица</span></div><div id="roleBadge" class="badge">Загрузка…</div></div>
 <div id="ownerFleetShortcut" class="hidden" style="margin:0 0 12px"><button class="btn secondary" style="width:100%" onclick="openOwnerFleet()">🚕 Автопарк и машины на линии</button></div>
 
-<main id="ownerAdminScreen" class="hidden"><section class="hero"><div class="heroBadge">👑 Режим администратора</div><h1 style="margin-top:16px">Управление Такси Речица</h1><p>Финансы и автомобили — без пассажирского интерфейса.</p></section><section class="card"><div class="title">Панель администратора</div><div class="sub">Выберите нужный раздел.</div><div class="menu" style="margin-top:12px"><button onclick="openOwnerAdminFinance()"><b>💰</b>Финансы</button><button onclick="openOwnerPendingOrders()"><b>🚨</b>Контроль заказов</button><button onclick="openOwnerAdminBroadcast()"><b>📣</b>Рассылка всем пользователям</button><button onclick="openOwnerAdminUsers()"><b>👥</b>Пользователи и счётчик</button><button onclick="openOwnerFleet()"><b>🚕</b>Автопарк и машины на линии</button><button onclick="switchOwnerToDriver()"><b>🛞</b>Работать водителем</button></div></section></main>
+<main id="ownerAdminScreen" class="hidden"><section class="hero"><div class="heroBadge">👑 Режим администратора</div><h1 style="margin-top:16px">Управление Такси Речица</h1><p>Финансы и автомобили — без пассажирского интерфейса.</p></section><section class="card"><div class="title">Панель администратора</div><div class="sub">Выберите нужный раздел.</div><div class="menu" style="margin-top:12px"><button onclick="openOwnerAdminFinance()"><b>💰</b>Финансы</button><button onclick="openOwnerPendingOrders()"><b>🚨</b>Контроль заказов</button><button onclick="openOwnerAdminBroadcast()"><b>📣</b>Рассылка всем пользователям</button><button onclick="openOwnerAdminUsers()"><b>👥</b>Пользователи и счётчик</button><button onclick="openOwnerFleet()"><b>🚕</b>Автопарк и машины на линии</button><button onclick="switchOwnerToPassenger()"><b>👤</b>Проверить как пассажир</button><button onclick="switchOwnerToDriver()"><b>🛞</b>Проверить как водитель</button></div></section></main>
 <main id="passenger" class="hidden">
+<div id="ownerPassengerBar" class="hidden" style="margin:0 0 12px"><button class="btn secondary" style="width:100%" onclick="returnOwnerToAdmin()">👑 Вернуться в админку</button></div>
 <section class="hero homeHero">
 <svg class="premiumTaxi" viewBox="0 0 520 190" aria-hidden="true">
 <defs><linearGradient id="taxiPaint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff9c4"/><stop offset=".28" stop-color="#ffd21a"/><stop offset=".72" stop-color="#e7aa00"/><stop offset="1" stop-color="#9d6900"/></linearGradient><filter id="softGlow"><feGaussianBlur stdDeviation="4"/></filter></defs>
@@ -350,9 +351,11 @@ async function switchOwnerToDriver(){
  if(!window.__isOwner)return;
  clearInterval(poller);
  window.__ownerDriverMode=true;
+ window.__ownerPassengerMode=false;
  role="driver";
  $("roleBadge").textContent="👑 АДМИН • 🚕 ВОДИТЕЛЬ";
  $("ownerAdminScreen").classList.add("hidden");
+ $("ownerPassengerBar")?.classList.add("hidden");
  $("passenger").classList.add("hidden");
  $("driver").classList.remove("hidden");
  $("ownerBackToAdminBtn")?.classList.remove("hidden");
@@ -364,11 +367,33 @@ async function switchOwnerToDriver(){
   poller=setInterval(refreshDriver,3000);
  }catch(e){toast(e.message,true)}
 }
+async function switchOwnerToPassenger(){
+ if(!window.__isOwner)return;
+ clearInterval(poller);
+ window.__ownerDriverMode=false;
+ window.__ownerPassengerMode=true;
+ role="passenger";
+ $("roleBadge").textContent="👑 АДМИН • 👤 ПАССАЖИР";
+ $("ownerAdminScreen").classList.add("hidden");
+ $("driver").classList.add("hidden");
+ $("ownerBackToAdminBtn")?.classList.add("hidden");
+ $("passenger").classList.remove("hidden");
+ $("passengerCallTaxiBtn")?.classList.remove("hidden");
+ $("ownerPassengerBar")?.classList.remove("hidden");
+ try{
+  await loadPassengerProfile();
+  await loadCurrent(false);
+  showP("pHome");
+  poller=setInterval(()=>loadCurrent(false),3000);
+ }catch(e){toast(e.message,true)}
+}
 function returnOwnerToAdmin(){
  if(!window.__isOwner)return;
  clearInterval(poller);
  window.__ownerDriverMode=false;
+ window.__ownerPassengerMode=false;
  $("ownerBackToAdminBtn")?.classList.add("hidden");
+ $("ownerPassengerBar")?.classList.add("hidden");
  $("passenger").classList.add("hidden");
  $("driver").classList.add("hidden");
  $("ownerFleetScreen")?.classList.add("hidden");
