@@ -644,10 +644,21 @@ app.delete("/api/saved-addresses/:id", async (req,res)=>{
 app.post("/api/orders", async (req,res)=>{
   try {
     const passengerId=clean(req.body.telegramId);
-    if(!passengerId||isDriver(passengerId)) return res.status(403).json({success:false,error:"Заказ может создать только пассажир."});
+    const isOwnerPassenger=!!OWNER_CHAT_ID && passengerId===OWNER_CHAT_ID;
+    if(!passengerId||(isDriver(passengerId)&&!isOwnerPassenger)) return res.status(403).json({success:false,error:"Заказ может создать только пассажир."});
     const pickup=clean(req.body.pickup), destination=clean(req.body.destination);
     if(!pickup||!destination) return res.status(400).json({success:false,error:"Укажите точки А и Б."});
-    const p=(await db("SELECT name,phone FROM passengers WHERE telegram_id=$1",[passengerId])).rows[0];
+    let p=(await db("SELECT name,phone FROM passengers WHERE telegram_id=$1",[passengerId])).rows[0];
+    // Администратор может оформлять обычные заказы от своего имени.
+    // Если пассажирский профиль ещё не создан, используем имя и телефон из его профиля водителя.
+    if(isOwnerPassenger&&(!p?.name||!p?.phone)){
+      const driver=(await db("SELECT name,phone FROM drivers WHERE telegram_id=$1",[passengerId])).rows[0];
+      if(driver?.name&&driver?.phone){
+        p=(await db(`INSERT INTO passengers(telegram_id,name,phone) VALUES($1,$2,$3)
+          ON CONFLICT(telegram_id) DO UPDATE SET name=$2,phone=$3,updated_at=NOW()
+          RETURNING name,phone`,[passengerId,driver.name,driver.phone])).rows[0];
+      }
+    }
     if(!p?.name||!p?.phone) return res.status(400).json({success:false,error:"Сначала заполните профиль пассажира."});
     const activeOrder=(await db("SELECT id,status FROM orders WHERE passenger_telegram_id=$1 AND status=ANY($2::text[]) ORDER BY created_at DESC LIMIT 1",[passengerId,ACTIVE_STATUSES])).rows[0];
     if(activeOrder) return res.status(409).json({success:false,error:"У вас уже есть активный заказ. Сначала завершите или отмените его."});
